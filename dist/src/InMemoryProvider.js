@@ -352,10 +352,10 @@ var InMemoryIndex = /** @class */ (function (_super) {
                 if (red_black_tree_1.has(key, _this._rbIndex)) {
                     var existingItems = red_black_tree_1.get(key, _this._rbIndex);
                     existingItems.push(item);
-                    red_black_tree_1.set(key, existingItems, _this._rbIndex);
+                    _this._rbIndex = red_black_tree_1.set(key, existingItems, _this._rbIndex);
                 }
                 else {
-                    red_black_tree_1.set(key, [item], _this._rbIndex);
+                    _this._rbIndex = red_black_tree_1.set(key, [item], _this._rbIndex);
                 }
             });
         });
@@ -389,7 +389,7 @@ var InMemoryIndex = /** @class */ (function (_super) {
         if (!skipTransactionOnCreation && !this._trans.internal_isOpen()) {
             throw new Error('InMemoryTransaction already closed');
         }
-        red_black_tree_1.remove(key, this._rbIndex);
+        this._rbIndex = red_black_tree_1.remove(key, this._rbIndex);
     };
     InMemoryIndex.prototype.getAll = function (reverseOrSortOrder, limit, offset) {
         var e_3, _a;
