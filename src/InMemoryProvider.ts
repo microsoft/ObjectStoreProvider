@@ -320,7 +320,7 @@ class InMemoryIndex extends DbIndexFTSFromRangeQueries {
         indexSchema: IndexSchema,
         primaryKeyPath: KeyPathType) {
         super(indexSchema, primaryKeyPath);
-        this._rbIndex = empty<string, ItemType[]>(stringCompare, true);
+        this._rbIndex = empty<string, ItemType[]>(stringCompare, false);
         this.put(values(_mergedData), true);
     }
 
@@ -361,9 +361,9 @@ class InMemoryIndex extends DbIndexFTSFromRangeQueries {
                 if (has(key, this._rbIndex)) {
                     const existingItems = get(key, this._rbIndex)!!! as ItemType[];
                     existingItems.push(item);
-                    set<string, ItemType[]>(key, existingItems, this._rbIndex); 
+                    this._rbIndex = set<string, ItemType[]>(key, existingItems, this._rbIndex); 
                 } else {
-                    set(key, [item], this._rbIndex); 
+                    this._rbIndex = set(key, [item], this._rbIndex); 
                 }
             });
         });
@@ -388,7 +388,7 @@ class InMemoryIndex extends DbIndexFTSFromRangeQueries {
         if (!skipTransactionOnCreation && !this._trans!.internal_isOpen()) {
             throw new Error('InMemoryTransaction already closed');
         }
-        remove(key, this._rbIndex);
+        this._rbIndex = remove(key, this._rbIndex);
     }
 
     getAll(reverseOrSortOrder?: boolean | QuerySortOrder, limit?: number, offset?: number): Promise<ItemType[]> {
