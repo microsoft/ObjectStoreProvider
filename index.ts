@@ -15,6 +15,9 @@ export {
     DbStore,
     DbTransaction,
     DbProvider,
+    IDBCloseConnectionEventDetails,
+    IDBCloseConnectionPayload,
+    IDBClosure,
     openListOfProviders
  } from './src/NoSqlProvider';
 export {

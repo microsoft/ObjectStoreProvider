@@ -67,6 +67,20 @@ readonly name: string;
 readonly objectStoreNames: DOMStringList;
 }
 
+/**
+ * Used by IDBProvider to send expected/unexpected DB closure events to
+ * the logging service.
+ */
+export interface IDBCloseConnectionPayload {
+    name: string;
+    objectStores: string;
+    type: IDBClosure;
+}
+/**
+ * Used by IDBProvider to mark expected/unexpected closures in the payload
+ */
+export enum IDBClosure { UnexpectedClosure = 'unexpectedClosure', ExpectedClosure = 'expectedClosure'}
+
 // Interface type describing an index being opened for querying.
 export interface DbIndex {
     getAll(reverseOrSortOrder?: boolean | QuerySortOrder, limit?: number, offset?: number): Promise<ItemType[]>;
