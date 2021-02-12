@@ -79,7 +79,9 @@ export interface IDBCloseConnectionPayload {
 /**
  * Used by IDBProvider to mark expected/unexpected closures in the payload
  */
-export enum IDBClosure { UnexpectedClosure = 'unexpectedClosure', ExpectedClosure = 'expectedClosure'}
+export type IDBClosure = 'unexpectedClosure' | 'expectedClosure';
+
+export type OnCloseHandler = (payload: IDBCloseConnectionPayload) => void;
 
 // Interface type describing an index being opened for querying.
 export interface DbIndex {

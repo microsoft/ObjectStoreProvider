@@ -10,7 +10,7 @@ import { each, some, find, includes, isObject, attempt, isError, map, filter, co
 
 import { DbIndexFTSFromRangeQueries, getFullTextIndexWordsForItem } from './FullTextSearchHelpers';
 import { DbProvider, DbSchema, DbStore, DbTransaction, StoreSchema, DbIndex, QuerySortOrder, IndexSchema,
-    IDBCloseConnectionEventDetails, IDBCloseConnectionPayload, IDBClosure } from './NoSqlProvider';
+    IDBCloseConnectionEventDetails, IDBCloseConnectionPayload, OnCloseHandler } from './NoSqlProvider';
 import { ItemType, KeyPathType, KeyType } from './NoSqlProvider';
 import {
     isIE, isCompoundKeyPath, serializeKeyToString, getKeyForKeypath, arrayify, formListOfKeys,
@@ -37,12 +37,12 @@ export class IndexedDbProvider extends DbProvider {
     private _db: IDBDatabase | undefined;
     private _dbFactory: IDBFactory;
     private _fakeComplicatedKeys: boolean;
-    private _handleOnClose: Function | undefined;
+    private _handleOnClose: OnCloseHandler | undefined = undefined;
 
     private _lockHelper: TransactionLockHelper | undefined;
 
     // By default, it uses the in-browser indexed db factory, but you can pass in an explicit factory.  Currently only used for unit tests.
-    constructor(explicitDbFactory?: IDBFactory, explicitDbFactorySupportsCompoundKeys?: boolean, handleOnClose?: Function) {
+    constructor(explicitDbFactory?: IDBFactory, explicitDbFactorySupportsCompoundKeys?: boolean, handleOnClose?: OnCloseHandler) {
         super();
 
         if (explicitDbFactory) {
@@ -61,7 +61,9 @@ export class IndexedDbProvider extends DbProvider {
             }
         }
 
-        this._handleOnClose = handleOnClose;
+        if (handleOnClose) {
+            this._handleOnClose = handleOnClose;
+        }
     }
 
     /**
@@ -271,7 +273,7 @@ export class IndexedDbProvider extends DbProvider {
                         let payload: IDBCloseConnectionPayload = {
                           name: this._db ? this._db.name : '' ,
                           objectStores: this._db ? join(this._db.objectStoreNames, ',') : '',
-                          type: IDBClosure.UnexpectedClosure,
+                          type: 'unexpectedClosure',
                         };
                         // modify payload based on event
                         const closedDBConnection: IDBCloseConnectionEventDetails = <any>event.target;
@@ -279,7 +281,7 @@ export class IndexedDbProvider extends DbProvider {
                             payload = {
                                 name: closedDBConnection.name,
                                 objectStores: join(closedDBConnection.objectStoreNames, ','),
-                                type: IDBClosure.UnexpectedClosure
+                                type: 'expectedClosure'
                             };
                         }
                         this._handleOnClose(payload);
@@ -309,7 +311,7 @@ export class IndexedDbProvider extends DbProvider {
             let payload: IDBCloseConnectionPayload = {
                 name: this._db.name,
                 objectStores: join(this._db.objectStoreNames, ','),
-                type: IDBClosure.ExpectedClosure
+                type: 'expectedClosure'
             };
             this._handleOnClose(payload);
         }
