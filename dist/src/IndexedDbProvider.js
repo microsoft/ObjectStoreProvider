@@ -32,8 +32,9 @@ var IndexPrefix = 'nsp_i_';
 var IndexedDbProvider = /** @class */ (function (_super) {
     __extends(IndexedDbProvider, _super);
     // By default, it uses the in-browser indexed db factory, but you can pass in an explicit factory.  Currently only used for unit tests.
-    function IndexedDbProvider(explicitDbFactory, explicitDbFactorySupportsCompoundKeys) {
+    function IndexedDbProvider(explicitDbFactory, explicitDbFactorySupportsCompoundKeys, handleOnClose) {
         var _this = _super.call(this) || this;
+        _this._handleOnClose = undefined;
         if (explicitDbFactory) {
             _this._dbFactory = explicitDbFactory;
             _this._fakeComplicatedKeys = !explicitDbFactorySupportsCompoundKeys;
@@ -49,6 +50,9 @@ var IndexedDbProvider = /** @class */ (function (_super) {
                 // how the WebSqlProvider does, by concatenating the values into another field which then gets its own index.
                 _this._fakeComplicatedKeys = NoSqlProviderUtils_1.isIE();
             }
+        }
+        if (handleOnClose) {
+            _this._handleOnClose = handleOnClose;
         }
         return _this;
     }
@@ -240,6 +244,26 @@ var IndexedDbProvider = /** @class */ (function (_super) {
         return promise.then(function (db) {
             return Promise.all(migrationPutters).then(function () {
                 _this._db = db;
+                _this._db.onclose = function (event) {
+                    if (_this._handleOnClose) {
+                        // instantiate payload
+                        var payload = {
+                            name: _this._db ? _this._db.name : '',
+                            objectStores: _this._db ? lodash_1.join(_this._db.objectStoreNames, ',') : '',
+                            type: 'unexpectedClosure',
+                        };
+                        // modify payload based on event
+                        var closedDBConnection = event.target;
+                        if (closedDBConnection && closedDBConnection.name && closedDBConnection.objectStoreNames) {
+                            payload = {
+                                name: closedDBConnection.name,
+                                objectStores: lodash_1.join(closedDBConnection.objectStoreNames, ','),
+                                type: 'unexpectedClosure'
+                            };
+                        }
+                        _this._handleOnClose(payload);
+                    }
+                };
             });
         }, function (err) {
             if (err && err.type === 'error' && err.target && err.target.error && err.target.error.name === 'VersionError') {
@@ -256,6 +280,14 @@ var IndexedDbProvider = /** @class */ (function (_super) {
             return Promise.reject('Database already closed');
         }
         this._db.close();
+        if (this._handleOnClose) {
+            var payload = {
+                name: this._db.name,
+                objectStores: lodash_1.join(this._db.objectStoreNames, ','),
+                type: 'expectedClosure'
+            };
+            this._handleOnClose(payload);
+        }
         this._db = undefined;
         return Promise.resolve(void 0);
     };

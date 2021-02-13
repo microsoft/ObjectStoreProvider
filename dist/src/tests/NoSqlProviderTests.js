@@ -7,7 +7,7 @@ var InMemoryProvider_1 = require("../InMemoryProvider");
 var IndexedDbProvider_1 = require("../IndexedDbProvider");
 var NoSqlProviderUtils_1 = require("../NoSqlProviderUtils");
 var cleanupFile = false;
-function openProvider(providerName, schema, wipeFirst) {
+function openProvider(providerName, schema, wipeFirst, handleOnClose) {
     var provider;
     if (providerName === 'memory') {
         provider = new InMemoryProvider_1.InMemoryProvider();
@@ -17,6 +17,9 @@ function openProvider(providerName, schema, wipeFirst) {
     }
     else if (providerName === 'indexeddbfakekeys') {
         provider = new IndexedDbProvider_1.IndexedDbProvider(undefined, false);
+    }
+    else if (providerName === 'indexeddbonclose') {
+        provider = new IndexedDbProvider_1.IndexedDbProvider(undefined, undefined, handleOnClose);
     }
     else {
         throw new Error('Provider not found for name: ' + providerName);
@@ -53,7 +56,7 @@ describe('NoSqlProvider', function () {
     }
     else {
         provsToTest = ['memory'];
-        provsToTest.push('indexeddb', 'indexeddbfakekeys');
+        provsToTest.push('indexeddb', 'indexeddbfakekeys', 'indexeddbonclose');
     }
     it('Number/value/type sorting', function () {
         var pairsToTest = [
@@ -158,6 +161,61 @@ describe('NoSqlProvider', function () {
                         }).then(function () { return done(); }, function (err) { return done(err); });
                     });
                 }
+            });
+            describe('Expected database closure', function () {
+                it('logs an expected close event', function (done) {
+                    // arrange - create schema
+                    var schema = {
+                        version: 1,
+                        stores: [
+                            {
+                                name: 'test',
+                                primaryKeyPath: 'id'
+                            }
+                        ]
+                    };
+                    // arrange - spy function
+                    var handleOnClose = function (payload) {
+                        assert.equal(payload.name, 'test', "expectedHandleOnClose: actual: " + payload.name + " ");
+                        assert.equal(payload.objectStores, 'test', "expectedHandleOnClose: actual: " + payload.objectStores + " ");
+                        assert.equal(payload.type, 'expectedClosure', "expectedHandleOnClose: type: actual: " + payload.type);
+                    };
+                    openProvider(provName, schema, true, handleOnClose)
+                        .then(function (prov) {
+                        return prov.close();
+                    })
+                        .then(function () { return done(); }, function (err) { return done(err); });
+                });
+            });
+            describe('Unexpected database closure', function () {
+                it('fires the onClose event handler', function (done) {
+                    // arrange - create schema
+                    var schema = {
+                        version: 1,
+                        stores: [
+                            {
+                                name: 'test',
+                                primaryKeyPath: 'id'
+                            }
+                        ]
+                    };
+                    // arrange - spy function
+                    var handleOnClose = function (payload) {
+                        assert.equal(payload.name, 'test', "unexpectedHandleOnClose: actual: " + payload.name + " ");
+                        assert.equal(payload.objectStores, 'test', "unexpectedHandleOnClose: actual: " + payload.objectStores + " ");
+                        assert.equal(payload.type, 'unexpectedClosure', "unexpectedHandleOnClose: type: actual: " + payload.type);
+                    };
+                    openProvider(provName, schema, true, handleOnClose)
+                        .then(function (prov) {
+                        if ((typeof prov) === (typeof IndexedDbProvider_1.IndexedDbProvider)) {
+                            var db = prov['_db'];
+                            if (db && db.onclose) {
+                                db.onclose(new Event('unexpectedClosure'));
+                            }
+                        }
+                    })
+                        .then(function () { return done(); }, function (err) { return done(err); });
+                });
             });
             describe('Data Manipulation', function () {
                 // Setter should set the testable parameter on the first param to the value in the second param, and third param to the

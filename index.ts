@@ -17,7 +17,7 @@ export {
     DbProvider,
     IDBCloseConnectionEventDetails,
     IDBCloseConnectionPayload,
-    IDBClosure,
+    DBClosure,
     OnCloseHandler,
     openListOfProviders
  } from './src/NoSqlProvider';

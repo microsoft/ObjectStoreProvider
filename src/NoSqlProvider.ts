@@ -74,12 +74,12 @@ readonly objectStoreNames: DOMStringList;
 export interface IDBCloseConnectionPayload {
     name: string;
     objectStores: string;
-    type: IDBClosure;
+    type: DBClosure;
 }
 /**
  * Used by IDBProvider to mark expected/unexpected closures in the payload
  */
-export type IDBClosure = 'unexpectedClosure' | 'expectedClosure';
+export type DBClosure = 'unexpectedClosure' | 'expectedClosure';
 
 export type OnCloseHandler = (payload: IDBCloseConnectionPayload) => void;
 
