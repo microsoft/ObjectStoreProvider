@@ -18,6 +18,7 @@ export {
     IDBCloseConnectionEventDetails,
     IDBCloseConnectionPayload,
     IDBClosure,
+    OnCloseHandler,
     openListOfProviders
  } from './src/NoSqlProvider';
 export {

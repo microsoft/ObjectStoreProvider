@@ -281,7 +281,7 @@ export class IndexedDbProvider extends DbProvider {
                             payload = {
                                 name: closedDBConnection.name,
                                 objectStores: join(closedDBConnection.objectStoreNames, ','),
-                                type: 'expectedClosure'
+                                type: 'unexpectedClosure'
                             };
                         }
                         this._handleOnClose(payload);
