@@ -172,72 +172,83 @@ describe('NoSqlProvider', function () {
             });
 
             describe('Expected database closure', () => {
-                it('logs an expected close event', (done) => {
-                    // arrange - create schema
-                    const schema = {
-                        version: 1,
-                        stores: [
-                            {
-                                name: 'test',
-                                primaryKeyPath: 'id'
-                            }
-                        ]
-                    };
-
-                    // arrange - spy function
-                    let handleOnClose = (payload: IDBCloseConnectionPayload) => {
-                        assert.equal(payload.name, 'test', `expectedHandleOnClose: actual: ${payload.name} `);
-                        assert.equal(payload.objectStores, 'test', `expectedHandleOnClose: actual: ${payload.objectStores} `);
-                        assert.equal(payload.type, 'expectedClosure', `expectedHandleOnClose: type: actual: ${payload.type}`);
-                    };
-
-                    openProvider(provName, schema, true, handleOnClose)
-                      .then((prov) => {
-                        return prov.close();
-                      })
-                      .then(
-                        () => done(),
-                        (err) => done(err)
-                      );
-                });
+                if (provName.indexOf('indexeddbprovider') === -1) {
+                    xit('Skip expected DB closure for in-memory provider', () => {
+                        // noop
+                    });
+                } else {
+                    it('logs an expected close event', (done) => {
+                        // arrange - create schema
+                        const schema = {
+                            version: 1,
+                            stores: [
+                                {
+                                    name: 'test',
+                                    primaryKeyPath: 'id'
+                                }
+                            ]
+                        };
+    
+                        // arrange - spy function
+                        let handleOnClose = (payload: IDBCloseConnectionPayload) => {
+                            assert.equal(payload.name, 'test', `expectedHandleOnClose: actual: ${payload.name} `);
+                            assert.equal(payload.objectStores, 'test', `expectedHandleOnClose: actual: ${payload.objectStores} `);
+                            assert.equal(payload.type, 'expectedClosure', `expectedHandleOnClose: type: actual: ${payload.type}`);
+                        };
+    
+                        openProvider(provName, schema, true, handleOnClose)
+                          .then((prov) => {
+                            return prov.close();
+                          })
+                          .then(
+                            () => done(),
+                            (err) => done(err)
+                          );
+                    });
+                }
             });
 
             describe('Unexpected database closure', () => {
-                it('fires the onClose event handler', (done) => {
-                    // arrange - create schema
-                    const schema = {
-                        version: 1,
-                        stores: [
-                            {
-                                name: 'test',
-                                primaryKeyPath: 'id'
-                            }
-                        ]
-                    };
-
-                    // arrange - spy function
-                    let handleOnClose = (payload: IDBCloseConnectionPayload) => {
-                        assert.equal(payload.name, 'test', `unexpectedHandleOnClose: actual: ${payload.name} `);
-                        assert.equal(payload.objectStores, 'test', `unexpectedHandleOnClose: actual: ${payload.objectStores} `);
-                        assert.equal(payload.type, 'unexpectedClosure', `unexpectedHandleOnClose: type: actual: ${payload.type}`);
-                    };
-
-                    openProvider(provName, schema, true, handleOnClose)
-                      .then((prov) => {
-                          if ((typeof prov) === (typeof IndexedDbProvider)) {
+                if (provName.indexOf('indexeddbprovider') === -1) {
+                    xit('Skip unexpected DB closure for in-memory provider', () => {
+                        // noop
+                    });
+                } else {
+                    it('fires the onClose event handler', (done) => {
+                        // arrange - create schema
+                        const schema = {
+                            version: 1,
+                            stores: [
+                                {
+                                    name: 'test',
+                                    primaryKeyPath: 'id'
+                                }
+                            ]
+                        };
+    
+                        // arrange - spy function
+                        let handleOnClose = (payload: IDBCloseConnectionPayload) => {
+                            assert.equal(payload.name, 'test', `unexpectedHandleOnClose: actual: ${payload.name} `);
+                            assert.equal(payload.objectStores, 'test', `unexpectedHandleOnClose: actual: ${payload.objectStores} `);
+                            assert.equal(payload.type, 'unexpectedClosure', `unexpectedHandleOnClose: type: actual: ${payload.type}`);
+                        };
+    
+                        openProvider(provName, schema, true, handleOnClose)
+                          .then((prov) => {
+                            if (typeof prov === typeof IndexedDbProvider) {
                               let db = (prov as IndexedDbProvider)['_db'];
                               if (db && db.onclose) {
-                                db.onclose(
-                                  new Event('unexpectedClosure')
-                                );
+                                db.onclose(new Event('unexpectedClosure'));
                               }
-                          }
-                      })
-                      .then(
-                        () => done(),
-                        (err) => done(err)
-                      );
-                });
+                            }
+                            return Promise.resolve();
+                          })
+                          .then(
+                            () => done(),
+                            (err) => done(err)
+                          );
+                    });
+                }
             });
 
             describe('Data Manipulation', () => {
