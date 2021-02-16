@@ -6,10 +6,11 @@
  * NoSqlProvider provider setup for IndexedDB, a web browser storage module.
  */
 
-import { each, some, find, includes, isObject, attempt, isError, map, filter, compact, clone, isArray, noop, flatten } from 'lodash';
+import { each, some, find, includes, isObject, attempt, isError, map, filter, compact, clone, isArray, noop, flatten, join } from 'lodash';
 
 import { DbIndexFTSFromRangeQueries, getFullTextIndexWordsForItem } from './FullTextSearchHelpers';
-import { DbProvider, DbSchema, DbStore, DbTransaction, StoreSchema, DbIndex, QuerySortOrder, IndexSchema } from './NoSqlProvider';
+import { DbProvider, DbSchema, DbStore, DbTransaction, StoreSchema, DbIndex, QuerySortOrder, IndexSchema,
+    IDBCloseConnectionEventDetails, IDBCloseConnectionPayload, OnCloseHandler } from './NoSqlProvider';
 import { ItemType, KeyPathType, KeyType } from './NoSqlProvider';
 import {
     isIE, isCompoundKeyPath, serializeKeyToString, getKeyForKeypath, arrayify, formListOfKeys,
@@ -36,11 +37,12 @@ export class IndexedDbProvider extends DbProvider {
     private _db: IDBDatabase | undefined;
     private _dbFactory: IDBFactory;
     private _fakeComplicatedKeys: boolean;
+    private _handleOnClose: OnCloseHandler | undefined = undefined;
 
     private _lockHelper: TransactionLockHelper | undefined;
 
     // By default, it uses the in-browser indexed db factory, but you can pass in an explicit factory.  Currently only used for unit tests.
-    constructor(explicitDbFactory?: IDBFactory, explicitDbFactorySupportsCompoundKeys?: boolean) {
+    constructor(explicitDbFactory?: IDBFactory, explicitDbFactorySupportsCompoundKeys?: boolean, handleOnClose?: OnCloseHandler) {
         super();
 
         if (explicitDbFactory) {
@@ -57,6 +59,10 @@ export class IndexedDbProvider extends DbProvider {
                 // how the WebSqlProvider does, by concatenating the values into another field which then gets its own index.
                 this._fakeComplicatedKeys = isIE();
             }
+        }
+
+        if (handleOnClose) {
+            this._handleOnClose = handleOnClose;
         }
     }
 
@@ -261,6 +267,26 @@ export class IndexedDbProvider extends DbProvider {
         return promise.then(db => {
             return Promise.all(migrationPutters).then(() => {
                 this._db = db;
+                this._db.onclose = (event: Event) => {
+                    if (this._handleOnClose) {
+                        // instantiate payload
+                        let payload: IDBCloseConnectionPayload = {
+                          name: this._db ? this._db.name : '' ,
+                          objectStores: this._db ? join(this._db.objectStoreNames, ',') : '',
+                          type: 'unexpectedClosure',
+                        };
+                        // modify payload based on event
+                        const closedDBConnection: IDBCloseConnectionEventDetails = <any>event.target;
+                        if (closedDBConnection && closedDBConnection.name && closedDBConnection.objectStoreNames) {
+                            payload = {
+                                name: closedDBConnection.name,
+                                objectStores: join(closedDBConnection.objectStoreNames, ','),
+                                type: 'unexpectedClosure'
+                            };
+                        }
+                        this._handleOnClose(payload);
+                    }
+                };
             });
         }, err => {
             if (err && err.type === 'error' && err.target && err.target.error && err.target.error.name === 'VersionError') {
@@ -280,6 +306,16 @@ export class IndexedDbProvider extends DbProvider {
         }
 
         this._db.close();
+        
+        if (this._handleOnClose) {
+            let payload: IDBCloseConnectionPayload = {
+                name: this._db.name,
+                objectStores: join(this._db.objectStoreNames, ','),
+                type: 'expectedClosure'
+            };
+            this._handleOnClose(payload);
+        }
+
         this._db = undefined;
         return Promise.resolve<void>(void 0);
     }
