@@ -496,6 +496,27 @@ describe('NoSqlProvider', function () {
                     }).then(() => done(), (err) => done(err));
                 });
 
+                it('Putting the same primary key should overwrite', async () => {
+                    const objToPut = { id: 'a', val: 'b' };
+                    const prov = await openProvider(provName, {
+                        version: 1,
+                        stores: [
+                            {
+                                name: 'test',
+                                primaryKeyPath: 'id'
+                            }
+                        ]
+                    }, true);
+
+                    await prov.put('test', objToPut);
+
+                    objToPut.val = 'c';
+                    await prov.put('test', objToPut);
+                    const retVal = await prov.get('test', 'a');
+                    const ret = retVal as TestObj;
+                    assert.equal(ret.val, 'c');
+                });
+
                 it('Empty gets/puts', (done) => {
                     openProvider(provName, {
                         version: 1,
