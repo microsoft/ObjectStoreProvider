@@ -192,7 +192,8 @@ var InMemoryStore = /** @class */ (function () {
                 var pk = NoSqlProviderUtils_1.getSerializedKeyForKeypath(item, _this._storeSchema.primaryKeyPath);
                 var existingItem = _this._mergedData.get(pk);
                 if (existingItem) {
-                    _this._removeFromIndices(pk, existingItem);
+                    // We're going to overwrite the PK anyways - don't remove PK
+                    _this._removeFromIndices(pk, existingItem, /** RemovePrimaryKey */ false);
                 }
                 _this._mergedData.set(pk, item);
                 _this.openPrimaryKey().put(item);
@@ -286,14 +287,20 @@ var InMemoryStore = /** @class */ (function () {
             var existingItem = _this._mergedData.get(key);
             _this._mergedData.delete(key);
             if (existingItem) {
-                _this._removeFromIndices(key, existingItem);
+                _this._removeFromIndices(key, existingItem, /* RemovePK */ true);
             }
         });
         return Promise.resolve(void 0);
     };
-    InMemoryStore.prototype._removeFromIndices = function (key, item) {
+    InMemoryStore.prototype._removeFromIndices = function (key, item, removePrimaryKey) {
         var _this = this;
-        this.openPrimaryKey().remove(key);
+        // Don't need to remove from primary key on Puts because set is enough
+        // 1. If it's an existing key then it will get overwritten
+        // 2. If it's a new key then we need to add it
+        if (removePrimaryKey) {
+            this.openPrimaryKey().remove(key);
+        }
+        // As such, only remove the Secondary Indexes
         lodash_1.each(this._storeSchema.indexes, function (index) {
             var ind = _this.openIndex(index.name);
             var keys = ind.internal_getKeysFromItem(item);
@@ -348,7 +355,8 @@ var InMemoryIndex = /** @class */ (function (_super) {
             // Each item may be non-unique so store as an array of items for each key
             var keys = _this.internal_getKeysFromItem(item);
             lodash_1.each(keys, function (key) {
-                if (red_black_tree_1.has(key, _this._rbIndex)) {
+                // For non-unique indexes we want to overwrite
+                if (!_this.isUniqueIndex() && red_black_tree_1.has(key, _this._rbIndex)) {
                     var existingItems = red_black_tree_1.get(key, _this._rbIndex);
                     existingItems.push(item);
                     red_black_tree_1.set(key, existingItems, _this._rbIndex);
@@ -358,6 +366,11 @@ var InMemoryIndex = /** @class */ (function (_super) {
                 }
             });
         });
+    };
+    InMemoryIndex.prototype.isUniqueIndex = function () {
+        // An index is unique if it's the primary key (undefined index schema)
+        // Or the index has defined itself as unique
+        return this._indexSchema === undefined || this._indexSchema && this._indexSchema.unique === true;
     };
     InMemoryIndex.prototype.getMultiple = function (keyOrKeys) {
         var _this = this;

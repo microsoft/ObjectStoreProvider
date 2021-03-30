@@ -43,6 +43,7 @@ declare class InMemoryIndex extends DbIndexFTSFromRangeQueries {
     internal_SetTransaction(trans: InMemoryTransaction): void;
     internal_getKeysFromItem(item: ItemType): string[] | undefined;
     put(itemOrItems: ItemType | ItemType[], skipTransactionOnCreation?: boolean): void;
+    isUniqueIndex(): boolean;
     getMultiple(keyOrKeys: KeyType | KeyType[]): Promise<ItemType[]>;
     remove(key: string, skipTransactionOnCreation?: boolean): void;
     getAll(reverseOrSortOrder?: boolean | QuerySortOrder, limit?: number, offset?: number): Promise<ItemType[]>;

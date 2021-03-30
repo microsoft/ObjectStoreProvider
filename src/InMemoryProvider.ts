@@ -197,7 +197,8 @@ class InMemoryStore implements DbStore {
                 let pk = getSerializedKeyForKeypath(item, this._storeSchema.primaryKeyPath)!!!;
                 const existingItem = this._mergedData.get(pk);
                 if (existingItem) {
-                    this._removeFromIndices(pk, existingItem);
+                    // We're going to overwrite the PK anyways - don't remove PK
+                    this._removeFromIndices(pk, existingItem, /** RemovePrimaryKey */ false);
                 }
                 this._mergedData.set(pk, item);
                 (this.openPrimaryKey() as InMemoryIndex).put(item);
@@ -293,15 +294,21 @@ class InMemoryStore implements DbStore {
             const existingItem = this._mergedData.get(key);
             this._mergedData.delete(key);
             if (existingItem) {
-                this._removeFromIndices(key, existingItem);
+                this._removeFromIndices(key, existingItem, /* RemovePK */ true);
             }
         });
 
         return Promise.resolve<void>(void 0);
     }
 
-    private _removeFromIndices(key: string, item: ItemType) {
-        (this.openPrimaryKey() as InMemoryIndex).remove(key);
+    private _removeFromIndices(key: string, item: ItemType, removePrimaryKey: boolean) {
+        // Don't need to remove from primary key on Puts because set is enough
+        // 1. If it's an existing key then it will get overwritten
+        // 2. If it's a new key then we need to add it
+        if (removePrimaryKey) {
+            (this.openPrimaryKey() as InMemoryIndex).remove(key);
+        }
+
         each(this._storeSchema.indexes, (index) => {
             const ind = (this.openIndex(index.name) as InMemoryIndex);
             const keys = ind.internal_getKeysFromItem(item);
@@ -357,7 +364,8 @@ class InMemoryIndex extends DbIndexFTSFromRangeQueries {
             const keys = this.internal_getKeysFromItem(item);
 
             each(keys, key => {
-                if (has(key, this._rbIndex)) {
+                // For non-unique indexes we want to overwrite
+                if (!this.isUniqueIndex() && has(key, this._rbIndex)) {
                     const existingItems = get(key, this._rbIndex)!!! as ItemType[];
                     existingItems.push(item);
                     set<string, ItemType[]>(key, existingItems, this._rbIndex);
@@ -366,6 +374,12 @@ class InMemoryIndex extends DbIndexFTSFromRangeQueries {
                 }
             });
         });
+    }
+
+    isUniqueIndex(): boolean {
+        // An index is unique if it's the primary key (undefined index schema)
+        // Or the index has defined itself as unique
+        return this._indexSchema === undefined || this._indexSchema && this._indexSchema.unique === true;
     }
 
     getMultiple(keyOrKeys: KeyType | KeyType[]): Promise<ItemType[]> {
