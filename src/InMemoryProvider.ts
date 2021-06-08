@@ -6,7 +6,7 @@
  * NoSqlProvider provider setup for a non-persisted in-memory database backing provider.
  */
 
-import { attempt, isError, each, includes, compact, map, find, values, flatten } from 'lodash';
+import { attempt, isError, each, includes, compact, map, find, values, flatten, dropRight, takeRight, drop, take } from 'lodash';
 import { DbIndexFTSFromRangeQueries, getFullTextIndexWordsForItem } from './FullTextSearchHelpers';
 import {
     StoreSchema, DbProvider, DbSchema, DbTransaction,
@@ -14,12 +14,12 @@ import {
 } from './NoSqlProvider';
 import {
     arrayify, serializeKeyToString, formListOfSerializedKeys,
-    getSerializedKeyForKeypath, getValueForSingleKeypath
+    getSerializedKeyForKeypath, getValueForSingleKeypath, MAX_COUNT, trimArray
 } from './NoSqlProviderUtils';
 import { TransactionToken, TransactionLockHelper } from './TransactionLockHelper';
 import {
     empty, RedBlackTreeStructure, set, iterateFromIndex,
-    iterateKeysFromFirst, get, iterateKeysFromLast, has, remove
+    iterateKeysFromFirst, get, iterateKeysFromLast, has, remove, iterateFromFirst
 } from '@collectable/red-black-tree';
 export interface StoreData {
     data: Map<string, ItemType>;
@@ -405,20 +405,52 @@ class InMemoryIndex extends DbIndexFTSFromRangeQueries {
     }
 
     getAll(reverseOrSortOrder?: boolean | QuerySortOrder, limit?: number, offset?: number): Promise<ItemType[]> {
-        limit = limit ? limit : this._rbIndex._size;
+        limit = limit ? limit : 
+            this.isUniqueIndex() ? this._rbIndex._size :
+            MAX_COUNT;
         offset = offset ? offset : 0;
         const data = new Array<ItemType>(limit);
         const reverse = (reverseOrSortOrder === true || reverseOrSortOrder === QuerySortOrder.Reverse);
-        const iterator = iterateFromIndex(reverse, offset, this._rbIndex);
+        // when index is not unique, we cannot use offset as a starting index
+        const iterator = iterateFromIndex(reverse, this.isUniqueIndex() ? offset : 0, this._rbIndex);
         let i = 0;
         for (const item of iterator) {
-            data[i] = item.value[0];
-            i++;
+            // when index is not unique, each node may contain multiple items
+            if (!this.isUniqueIndex()){
+                let count = item.value.length;
+                while(count !== 0 && offset !== 0) {
+                    offset--;
+                    count--;
+                }
+                // we have skipped all values in this index, go to the next one
+                if (count === 0) {
+                    continue;
+                }
+
+                const values = this._getKeyValues(item.key, limit - i, item.value.length - count, reverse)
+
+                let j = 0;
+                while (j < values.length) {
+                    data[i + j] = values[j];
+                    j++;
+                }
+                i += values.length;
+            } else {
+                data[i] = item.value[0];
+                i++;
+            }
+            
             if (i >= limit) {
                 break;
             }
         }
-        return Promise.resolve(data);
+        // if index is not unique, trim the empty slots in data
+        // if we used MAX_COUNT to construct it.
+        if (!this.isUniqueIndex() && i!==limit) {
+            return Promise.resolve(trimArray(data, i));
+        } else {
+            return Promise.resolve(data);
+        }
     }
 
     getOnly(key: KeyType, reverseOrSortOrder?: boolean | QuerySortOrder, limit?: number, offset?: number)
@@ -428,35 +460,52 @@ class InMemoryIndex extends DbIndexFTSFromRangeQueries {
 
     getRange(keyLowRange: KeyType, keyHighRange: KeyType, lowRangeExclusive?: boolean, highRangeExclusive?: boolean,
         reverseOrSortOrder?: boolean | QuerySortOrder, limit?: number, offset?: number): Promise<ItemType[]> {
-        const values = attempt(() => {
-            const reverse = reverseOrSortOrder === true || reverseOrSortOrder === QuerySortOrder.Reverse;
-            limit = limit ? limit : this._rbIndex._size;
-            offset = offset ? offset : 0;
-            const keyLow = serializeKeyToString(keyLowRange, this._keyPath);
-            const keyHigh = serializeKeyToString(keyHighRange, this._keyPath);
-            const iterator = reverse ? iterateKeysFromLast(this._rbIndex) : iterateKeysFromFirst(this._rbIndex);
-            let values = [] as ItemType[];
-            for (const key of iterator) {
-                if (
-                    (key > keyLow || (key === keyLow && !lowRangeExclusive)) &&
-                    (key < keyHigh || (key === keyHigh && !highRangeExclusive))) {
-                    if (offset > 0) {
-                        offset--;
-                        continue;
+            const values = attempt(() => {
+                const reverse = reverseOrSortOrder === true || reverseOrSortOrder === QuerySortOrder.Reverse;
+                limit = limit ? limit :
+                    this.isUniqueIndex() ? this._rbIndex._size :
+                    MAX_COUNT;
+                offset = offset ? offset : 0;
+                const keyLow = serializeKeyToString(keyLowRange, this._keyPath);
+                const keyHigh = serializeKeyToString(keyHighRange, this._keyPath);
+                const iterator = reverse ? iterateKeysFromLast(this._rbIndex) : iterateKeysFromFirst(this._rbIndex);
+                let values = [] as ItemType[];
+                for (const key of iterator) {
+                    if (
+                        (key > keyLow || (key === keyLow && !lowRangeExclusive)) &&
+                        (key < keyHigh || (key === keyHigh && !highRangeExclusive))) {
+                        if (offset > 0) {
+                            if (this.isUniqueIndex()) {
+                                offset--;
+                                continue;
+                            } else {
+                                const idxValues = get(key, this._rbIndex) as ItemType[];
+                                offset -= idxValues.length;
+                                // if offset >= 0, we skipped just enough, or we still need to skip more
+                                // if offset < 0, we need to get some of the values from the index                            
+                                if (offset >= 0) {
+                                    continue;
+                                }
+                            }
+                        }
+                        if (values.length >= limit) {
+                            break;
+                        }
+                        
+                        values = values.concat(this._getKeyValues(key, limit - values.length, Math.abs(offset), reverse));
+    
+                        if (offset < 0) {
+                            offset = 0;
+                        }
                     }
-                    if (values.length >= limit) {
-                        break;
-                    }
-                    values = values.concat(get(key, this._rbIndex) as ItemType[]);
                 }
+                return values;
+            });
+            if (isError(values)) {
+                return Promise.reject(values);
             }
-            return values;
-        });
-        if (isError(values)) {
-            return Promise.reject(values);
-        }
-
-        return Promise.resolve(values);
+    
+            return Promise.resolve(values);
     }
 
     getKeysForRange(keyLowRange: KeyType, keyHighRange: KeyType, lowRangeExclusive?: boolean, highRangeExclusive?: boolean)
@@ -468,6 +517,28 @@ class InMemoryIndex extends DbIndexFTSFromRangeQueries {
             return Promise.reject(void 0);
         }
         return Promise.resolve(keys);
+    }
+
+    private _getKeyValues(key: string, limit: number, offset: number, reverse: boolean): ItemType[] {
+        if (limit <= 0) {
+            return [];
+        }
+        const idxValues = get(key, this._rbIndex) as ItemType[];
+
+        if (offset >= idxValues.length) {
+            return [];
+        }
+
+        if (offset <= 0 && limit >= idxValues.length) {
+            return reverse ? idxValues.slice().reverse() : idxValues;
+        }
+
+
+        const itemsToDrop = Math.min(limit, offset);
+        const itemsToTake = Math.min(limit, idxValues.length - offset);
+        return reverse ? 
+                takeRight(dropRight(idxValues, itemsToDrop), itemsToTake) 
+                : take(drop(idxValues, itemsToDrop), itemsToTake);
     }
 
     // Warning: This function can throw, make sure to trap.
@@ -485,8 +556,43 @@ class InMemoryIndex extends DbIndexFTSFromRangeQueries {
         return keys;
     }
 
+    // Warning: This function can throw, make sure to trap.
+    private _getKeyCountForRange(keyLowRange: KeyType, keyHighRange: KeyType,
+        lowRangeExclusive?: boolean, highRangeExclusive?: boolean): number {
+        const keyLow = serializeKeyToString(keyLowRange, this._keyPath);
+        const keyHigh = serializeKeyToString(keyHighRange, this._keyPath);
+        const iterator =  iterateFromFirst(this._rbIndex);
+        let keyCount = 0;
+        for (const item of iterator) {
+            if ((item.key > keyLow || (item.key === keyLow && !lowRangeExclusive)) && (item.key < keyHigh || (item.key === keyHigh && !highRangeExclusive))) {
+                if (this.isUniqueIndex()) {
+                    keyCount++;
+                } else {
+                    keyCount += item.value.length;
+                }
+            }
+        }
+        return keyCount;
+    }
+
     countAll(): Promise<number> {
-        return Promise.resolve(this._rbIndex._size);
+        if (this.isUniqueIndex()) {
+            return Promise.resolve(this._rbIndex._size);
+        } else {
+            const keyCount = attempt(() => {
+                const iterator =  iterateFromFirst(this._rbIndex);
+                let keyCount = 0;
+                for (const item of iterator) {
+                    keyCount += item.value.length;
+                }
+                return keyCount;
+            });
+            if (isError(keyCount)) {
+                return Promise.reject(keyCount);
+            }
+    
+            return Promise.resolve(keyCount);
+        }
     }
 
     countOnly(key: KeyType): Promise<number> {
@@ -495,13 +601,13 @@ class InMemoryIndex extends DbIndexFTSFromRangeQueries {
 
     countRange(keyLowRange: KeyType, keyHighRange: KeyType, lowRangeExclusive?: boolean, highRangeExclusive?: boolean)
         : Promise<number> {
-        const keys = attempt(() => {
-            return this._getKeysForRange(keyLowRange, keyHighRange, lowRangeExclusive, highRangeExclusive);
+        const keyCount = attempt(() => {
+            return this._getKeyCountForRange(keyLowRange, keyHighRange, lowRangeExclusive, highRangeExclusive);
         });
-        if (isError(keys)) {
-            return Promise.reject(keys);
+        if (isError(keyCount)) {
+            return Promise.reject(keyCount);
         }
 
-        return Promise.resolve(keys.length);
+        return Promise.resolve(keyCount);
     }
 }

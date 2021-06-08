@@ -17,6 +17,9 @@ declare global {
     }
 }
 
+// Max array length (uint): 2^32 - 1
+export const MAX_COUNT = 4294967295;
+
 export function isIE() {
     return (typeof (document) !== 'undefined' && document.all !== null && document.documentMode <= 11) ||
         (typeof (navigator) !== 'undefined' && !!navigator.userAgent && navigator.userAgent.indexOf('Edge/') !== -1);
@@ -30,6 +33,18 @@ export function isSafari() {
 
 export function arrayify<T>(obj: T | T[]): T[] {
     return isArray(obj) ? <T[]>obj : [<T>obj];
+}
+
+export function trimArray<TValue>(array: Array<TValue>, trimLength: number): Array<TValue> {
+    if (trimLength < 0 || array.length < trimLength) {
+        return array.slice();
+    }
+
+    let ret = new Array<TValue>(trimLength);
+    for(let j = 0; j < trimLength; j++) {
+        ret[j] = array[j];
+    }
+    return ret;
 }
 
 // Constant string for joining compound keypaths for websql and IE indexeddb.  There may be marginal utility in using a more obscure

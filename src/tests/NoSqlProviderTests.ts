@@ -1,5 +1,5 @@
 import * as assert from 'assert';
-import { find, each, times, values, keys, some } from 'lodash';
+import { find, each, times, values, keys, some, filter } from 'lodash';
 
 import { KeyComponentType, DbSchema, DbProvider, openListOfProviders, QuerySortOrder, FullTextTermResolution, IDBCloseConnectionPayload, OnCloseHandler } from '../NoSqlProvider';
 
@@ -418,6 +418,223 @@ describe('NoSqlProvider', function () {
 
                         let t6count = prov.countRange('test', indexName, formIndex(2), formIndex(4), true, true).then(ret => {
                             assert.equal(ret, 1, 'countRange--');
+                        });
+                        
+                        return Promise.all([t0, t1, t1count, t1b, t1c, t2, t2count, t3, t3count, t3b, t3b2, t3b3, t3b4, t3c, t3d, t3d2, t3d3,
+                            t3d4, t4, t4count, t5, t5count, t6, t6count]).then(() => {
+                                if (compound) {
+                                    let tt1 = prov.getRange('test', indexName, formIndex(2, 2), formIndex(4, 3))
+                                        .then(retVal => {
+                                            const ret = retVal as TestObj[];
+                                            assert.equal(ret.length, 2, 'getRange2++');
+                                            [2, 3].forEach(v => { assert(find(ret, r => r.val === 'val' + v)); });
+                                        });
+
+                                    let tt1count = prov.countRange('test', indexName, formIndex(2, 2), formIndex(4, 3))
+                                        .then(ret => {
+                                            assert.equal(ret, 2, 'countRange2++');
+                                        });
+
+                                    let tt2 = prov.getRange('test', indexName, formIndex(2, 2), formIndex(4, 3), false, true)
+                                        .then(retVal => {
+                                            const ret = retVal as TestObj[];
+                                            assert.equal(ret.length, 2, 'getRange2+-');
+                                            [2, 3].forEach(v => { assert(find(ret, r => r.val === 'val' + v)); });
+                                        });
+
+                                    let tt2count = prov.countRange('test', indexName, formIndex(2, 2), formIndex(4, 3), false, true)
+                                        .then(ret => {
+                                            assert.equal(ret, 2, 'countRange2+-');
+                                        });
+
+                                    let tt3 = prov.getRange('test', indexName, formIndex(2, 2), formIndex(4, 3), true, false)
+                                        .then(retVal => {
+                                            const ret = retVal as TestObj[];
+                                            assert.equal(ret.length, 1, 'getRange2-+');
+                                            [3].forEach(v => { assert(find(ret, r => r.val === 'val' + v)); });
+                                        });
+
+                                    let tt3count = prov.countRange('test', indexName, formIndex(2, 2), formIndex(4, 3), true, false)
+                                        .then(ret => {
+                                            assert.equal(ret, 1, 'countRange2-+');
+                                        });
+
+                                    return Promise.all([tt1, tt1count, tt2, tt2count, tt3, tt3count]).then(() => {
+                                        return prov.close();
+                                    });
+                                } else {
+                                    return prov.close();
+                                }
+                            });
+                    });
+                };
+
+                var nonUniqueTester = (prov: DbProvider, indexName: string | undefined, compound: boolean,
+                    setter: (obj: any, indexval1: string, indexval2: string) => void) => {
+                    var putters = [1, 1, 1, 2, 2, 3, 3, 3, 4, 4, 5, 5].map((v, idx) => {
+                        var obj: TestObj = { val: 'val' + v };
+                        if (indexName) {
+                            obj.id = 'id' + (idx + 1);
+                        }
+                        setter(obj, 'indexa' + v, 'indexb' + v);
+                        return prov.put('test', obj);
+                    });
+
+                    return Promise.all(putters).then(() => {
+                        let formIndex = (i: number, i2: number = i): string | string[] => {
+                            if (compound) {
+                                return ['indexa' + i, 'indexb' + i2];
+                            } else {
+                                return 'indexa' + i;
+                            }
+                        };
+
+                        let t0 = prov.getMultiple('test', compound ? formIndex(1, 1) : 'indexa1', indexName).then(retVal => {
+                            const ret = retVal as TestObj[];
+                            assert.equal(ret.length, 3, 'getMultiple');
+                            [1].forEach(v => { assert(find(ret, r => r.val === 'val' + v), 'cant find ' + v); });
+                        });
+
+                        let t1 = prov.getAll('test', indexName).then(retVal => {
+                            const ret = retVal as TestObj[];
+                            assert.equal(ret.length, 12, 'getAll');
+                            [1, 2, 3, 4, 5].forEach(v => { assert(find(ret, r => r.val === 'val' + v), 'cant find ' + v); });
+                        });
+
+                        let t1count = prov.countAll('test', indexName).then(ret => {
+                            assert.equal(ret, 12, 'countAll');
+                        });
+
+                        let t1b = prov.getAll('test', indexName, false, 3).then(retVal => {
+                            const ret = retVal as TestObj[];
+                            assert.equal(ret.length, 3, 'getAll lim3');
+                            [1].forEach(v => { assert(filter(ret, r => r.val === 'val' + v).length === 3, 'cant find enough ' + v); });
+                        });
+
+                        let t1c = prov.getAll('test', indexName, false, 3, 1).then(retVal => {
+                            const ret = retVal as TestObj[];
+                            assert.equal(ret.length, 3, 'getAll lim3 off1');
+                            [2, 3, 4].forEach(v => { assert(find(ret, r => r.id === 'id' + v), 'cant find id ' + v); });
+                        });
+
+                        let t2 = prov.getOnly('test', indexName, formIndex(3)).then(ret => {
+                            assert.equal(ret.length, 3, 'getOnly');
+                            assert.equal((ret[0] as TestObj).val, 'val3');
+                            assert.equal((ret[1] as TestObj).val, 'val3');
+                            assert.equal((ret[2] as TestObj).val, 'val3');
+                        });
+
+                        let t2count = prov.countOnly('test', indexName, formIndex(3)).then(ret => {
+                            assert.equal(ret, 3, 'countOnly');
+                        });
+
+                        let t3 = prov.getRange('test', indexName, formIndex(2), formIndex(4)).then(retVal => {
+                            const ret = retVal as TestObj[];
+                            assert.equal(ret.length, 7, 'getRange++');
+                            [4, 5, 6, 7, 8, 9, 10].forEach(v => { assert(find(ret, r => r.id === 'id' + v)); });
+                        });
+
+                        let t3count = prov.countRange('test', indexName, formIndex(2), formIndex(4)).then(ret => {
+                            assert.equal(ret, 7, 'countRange++');
+                        });
+
+                        let t3b = prov.getRange('test', indexName, formIndex(2), formIndex(4), false, false, false, 1)
+                            .then(retVal => {
+                                const ret = retVal as TestObj[];
+                                assert.equal(ret.length, 1, 'getRange++ lim1');
+                                [2].forEach(v => { assert(find(ret, r => r.val === 'val' + v)); });
+                            });
+
+                        let t3b2 = prov.getRange('test', indexName, formIndex(2), formIndex(4), false, false, false, 1)
+                            .then(retVal => {
+                                const ret = retVal as TestObj[];
+                                assert.equal(ret.length, 1, 'getRange++ lim1');
+                                [2].forEach(v => { assert(find(ret, r => r.val === 'val' + v)); });
+                            });
+
+                        let t3b3 = prov.getRange('test', indexName, formIndex(2), formIndex(4), false, false,
+                            QuerySortOrder.Forward, 1)
+                            .then(retVal => {
+                                const ret = retVal as TestObj[];
+                                assert.equal(ret.length, 1, 'getRange++ lim1');
+                                [2].forEach(v => { assert(find(ret, r => r.val === 'val' + v)); });
+                            });
+
+                        let t3b4 = prov.getRange('test', indexName, formIndex(2), formIndex(4), false, false,
+                            QuerySortOrder.Reverse, 1)
+                            .then(retVal => {
+                                const ret = retVal as TestObj[];
+                                assert.equal(ret.length, 1, 'getRange++ lim1 rev');
+                                [4].forEach(v => { assert(find(ret, r => r.val === 'val' + v)); });
+                            });
+
+                        let t3c = prov.getRange('test', indexName, formIndex(2), formIndex(4), false, false, false, 1, 1)
+                            .then(retVal => {
+                                const ret = retVal as TestObj[];
+                                assert.equal(ret.length, 1, 'getRange++ lim1 off1');
+                                [5].forEach(v => { assert(find(ret, r => r.id === 'id' + v)); });
+                            });
+
+                        let t3d = prov.getRange('test', indexName, formIndex(2), formIndex(4), false, false, false, 2, 1)
+                            .then(retVal => {
+                                const ret = retVal as TestObj[];
+                                assert.equal(ret.length, 2, 'getRange++ lim2 off1');
+                                [5, 6].forEach(v => { assert(find(ret, r => r.id === 'id' + v)); });
+                            });
+
+                        let t3d2 = prov.getRange('test', indexName, formIndex(2), formIndex(4), false, false,
+                            QuerySortOrder.Forward, 2, 1)
+                            .then(retVal => {
+                                const ret = retVal as TestObj[];
+                                assert.equal(ret.length, 2, 'getRange++ lim2 off1');
+                                [5, 6].forEach(v => { assert(find(ret, r => r.id === 'id' + v)); });
+                            });
+
+                        let t3d3 = prov.getRange('test', indexName, formIndex(2), formIndex(4), false, false, true, 2, 1)
+                            .then(retVal => {
+                                const ret = retVal as TestObj[];
+                                assert.equal(ret.length, 2, 'getRange++ lim2 off1 rev');
+                                assert.equal((ret[0] as TestObj).val, 'val4');
+                                [9, 8].forEach(v => { assert(find(ret, r => r.id === 'id' + v)); });
+                            });
+
+                        let t3d4 = prov.getRange('test', indexName, formIndex(2), formIndex(4), false, false,
+                            QuerySortOrder.Reverse, 2, 1)
+                            .then(retVal => {
+                                const ret = retVal as TestObj[];
+                                assert.equal(ret.length, 2, 'getRange++ lim2 off1 rev');
+                                assert.equal((ret[0] as TestObj).val, 'val4');
+                                [9, 8].forEach(v => { assert(find(ret, r => r.id === 'id' + v)); });
+                            });
+
+                        let t4 = prov.getRange('test', indexName, formIndex(2), formIndex(4), true, false).then(retVal => {
+                            const ret = retVal as TestObj[];
+                            assert.equal(ret.length, 5, 'getRange-+');
+                            [6, 7, 8, 9, 10].forEach(v => { assert(find(ret, r => r.id === 'id' + v)); });
+                        });
+
+                        let t4count = prov.countRange('test', indexName, formIndex(2), formIndex(4), true, false).then(ret => {
+                            assert.equal(ret, 5, 'countRange-+');
+                        });
+
+                        let t5 = prov.getRange('test', indexName, formIndex(2), formIndex(4), false, true).then(retVal => {
+                            const ret = retVal as TestObj[];
+                            assert.equal(ret.length, 5, 'getRange+-');
+                            [4, 5, 6, 7, 8].forEach(v => { assert(find(ret, r => r.id === 'id' + v)); });
+                        });
+
+                        let t5count = prov.countRange('test', indexName, formIndex(2), formIndex(4), false, true).then(ret => {
+                            assert.equal(ret, 5, 'countRange+-');
+                        });
+
+                        let t6 = prov.getRange('test', indexName, formIndex(2), formIndex(4), true, true).then(retVal => {
+                            const ret = retVal as TestObj[];
+                            assert.equal(ret.length, 3, 'getRange--');
+                            [6, 7, 8].forEach(v => { assert(find(ret, r => r.id === 'id' + v)); });
+                        });
+
+                        let t6count = prov.countRange('test', indexName, formIndex(2), formIndex(4), true, true).then(ret => {
+                            assert.equal(ret, 3, 'countRange--');
                         });
                         
                         return Promise.all([t0, t1, t1count, t1b, t1c, t2, t2count, t3, t3count, t3b, t3b2, t3b3, t3b4, t3c, t3d, t3d2, t3d3,
@@ -1177,6 +1394,28 @@ describe('NoSqlProvider', function () {
                             });
                     }).then(() => done(), (err) => done(err));
                 });
+
+                it('Simple non-unique index put/get, getAll, getOnly, and getRange (includeData)', (done) => {
+                        openProvider(provName, {
+                            version: 1,
+                            stores: [
+                                {
+                                    name: 'test',
+                                    primaryKeyPath: 'id',
+                                    indexes: [
+                                        {
+                                            name: 'index',
+                                            keyPath: 'a',
+                                            unique: false,
+                                            includeDataInIndex: true
+                                        }
+                                    ]
+                                }
+                            ]
+                        }, true).then(prov => {
+                            return nonUniqueTester(prov, 'index', false, (obj, v) => { obj.a = v; });
+                        }).then(() => done(), (err) => done(err));
+                    });
 
                 describe('Transaction Semantics', () => {
                     it('Testing transaction expiration', (done) => {
