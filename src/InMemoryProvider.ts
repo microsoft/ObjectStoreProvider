@@ -418,10 +418,9 @@ class InMemoryIndex extends DbIndexFTSFromRangeQueries {
             // when index is not unique, each node may contain multiple items
             if (!this.isUniqueIndex()){
                 let count = item.value.length;
-                while(count !== 0 && offset !== 0) {
-                    offset--;
-                    count--;
-                }
+                const minOffsetCount = Math.min(count, offset);
+                count -= minOffsetCount;
+                offset -= minOffsetCount;
                 // we have skipped all values in this index, go to the next one
                 if (count === 0) {
                     continue;
@@ -429,11 +428,10 @@ class InMemoryIndex extends DbIndexFTSFromRangeQueries {
 
                 const values = this._getKeyValues(item.key, limit - i, item.value.length - count, reverse)
 
-                let j = 0;
-                while (j < values.length) {
-                    data[i + j] = values[j];
-                    j++;
-                }
+                values.forEach((v, j) => {
+                    data[i + j] = v;
+                });
+                
                 i += values.length;
             } else {
                 data[i] = item.value[0];
@@ -519,16 +517,32 @@ class InMemoryIndex extends DbIndexFTSFromRangeQueries {
         return Promise.resolve(keys);
     }
 
+    /**
+     * Utility function to simplify offset/limit checks and allow a negative offset. Retrieves values associated with the given key
+     * @param key primary key
+     * @param limit 
+     * @param offset can be neagtive, treated the same way as 0
+     * @param reverse 
+     * @returns value associated with given key, undefined if the key is not found.
+     */
     private _getKeyValues(key: string, limit: number, offset: number, reverse: boolean): ItemType[] {
         if (limit <= 0) {
             return [];
         }
         const idxValues = get(key, this._rbIndex) as ItemType[];
 
+        // get may return undefined, if the key is not found
+        if (!idxValues) {
+            return idxValues;
+        }
+
         if (offset >= idxValues.length) {
             return [];
         }
 
+        // Perf optimisation. No items to skip, and limit is at least the number of items we have in the index.
+        // we know that we will need the whole index values array to fulfill the results,
+        // skip using take/drop, return the whole array immediately.
         if (offset <= 0 && limit >= idxValues.length) {
             return reverse ? idxValues.slice().reverse() : idxValues;
         }
