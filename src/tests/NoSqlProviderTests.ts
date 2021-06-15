@@ -2811,7 +2811,8 @@ describe('NoSqlProvider', function () {
                             indexes: [{
                                 name: 'i',
                                 keyPath: 'txt',
-                                fullText: true
+                                fullText: true,
+                                unique: false
                             }]
                         }
                     ]
@@ -2819,6 +2820,7 @@ describe('NoSqlProvider', function () {
                     return prov.put('test', [
                         { id: 'a1', txt: 'the quick brown fox jumps over the lăzy dog who is a bro with brows' },
                         { id: 'a2', txt: 'bob likes his dog' },
+                        { id: 'a8', txt: 'mark marley' },
                         { id: 'a3', txt: 'tes>ter' },
                         {
                             id: 'a4',
@@ -2838,7 +2840,9 @@ describe('NoSqlProvider', function () {
                             // Test data to make sure that we don't search for empty strings (... used to put empty string to the index)
                             id: 'a7',
                             txt: 'User1, User2, User3 ...'
-                        }
+                        },
+                        { id: 'a9', txt: 'mark dunnford' },
+                        { id: 'a10', txt: 'alice cooper' },
                     ]).then(() => {
                         const p1 = prov.fullTextSearch('test', 'i', 'brown').then((res: any[]) => {
                             assert.equal(res.length, 1);
@@ -2955,9 +2959,17 @@ describe('NoSqlProvider', function () {
                         const p31 = prov.fullTextSearch('test', 'i', '!@#$%$', FullTextTermResolution.Or).then(res => {
                             assert.equal(res.length, 0);
                         });
+                        const p32 = prov.fullTextSearch('test', 'i', 'mark').then((res: any[]) => {
+                            assert.equal(res.length, 2);
+                            assert.ok(some(res, r => r.id === 'a8') && some(res, r => r.id === 'a9'));
+                        });
+                        const p33 = prov.fullTextSearch('test', 'i', 'mark', FullTextTermResolution.Or, 10).then((res: any[]) => {
+                            assert.equal(res.length, 2);
+                            assert.ok(some(res, r => r.id === 'a8') && some(res, r => r.id === 'a9'));
+                        });
 
                         return Promise.all([p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, p11, p12, p13, p14, p15, p16, p17, p18, p19, p20,
-                            p21, p22, p23, p24, p25, p26, p27, p28, p29, p30, p31]).then(() => {
+                            p21, p22, p23, p24, p25, p26, p27, p28, p29, p30, p31, p32, p33]).then(() => {
                                 return prov.close();
                             });
                     });
