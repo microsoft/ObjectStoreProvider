@@ -11,9 +11,11 @@ declare global {
         documentMode: number;
     }
 }
+export declare const MAX_COUNT = 4294967295;
 export declare function isIE(): boolean;
 export declare function isSafari(): boolean;
 export declare function arrayify<T>(obj: T | T[]): T[];
+export declare function trimArray<TValue>(array: Array<TValue>, trimLength: number): Array<TValue>;
 export declare function getSerializedKeyForKeypath(obj: any, keyPathRaw: KeyPathType): string | undefined;
 export declare function getKeyForKeypath(obj: any, keyPathRaw: KeyPathType): KeyType | undefined;
 export declare function getValueForSingleKeypath(obj: any, singleKeyPath: string): any;
