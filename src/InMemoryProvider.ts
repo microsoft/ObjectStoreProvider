@@ -431,7 +431,7 @@ class InMemoryIndex extends DbIndexFTSFromRangeQueries {
                 values.forEach((v, j) => {
                     data[i + j] = v;
                 });
-                
+
                 i += values.length;
             } else {
                 data[i] = item.value[0];
@@ -490,10 +490,14 @@ class InMemoryIndex extends DbIndexFTSFromRangeQueries {
                             break;
                         }
                         
-                        values = values.concat(this._getKeyValues(key, limit - values.length, Math.abs(offset), reverse));
-    
-                        if (offset < 0) {
-                            offset = 0;
+                        if (this.isUniqueIndex()) {
+                            values = values.concat(get(key, this._rbIndex) as ItemType[]);
+                        } else {
+                            values = values.concat(this._getKeyValues(key, limit - values.length, Math.abs(offset), reverse));
+        
+                            if (offset < 0) {
+                                offset = 0;
+                            }
                         }
                     }
                 }
@@ -615,13 +619,27 @@ class InMemoryIndex extends DbIndexFTSFromRangeQueries {
 
     countRange(keyLowRange: KeyType, keyHighRange: KeyType, lowRangeExclusive?: boolean, highRangeExclusive?: boolean)
         : Promise<number> {
-        const keyCount = attempt(() => {
-            return this._getKeyCountForRange(keyLowRange, keyHighRange, lowRangeExclusive, highRangeExclusive);
-        });
-        if (isError(keyCount)) {
-            return Promise.reject(keyCount);
-        }
+        if (this.isUniqueIndex()) {
+            const keys = attempt(() => {
+                return this._getKeysForRange(keyLowRange, keyHighRange, lowRangeExclusive, highRangeExclusive);
+            });
 
-        return Promise.resolve(keyCount);
+            if (isError(keys)) {
+                return Promise.reject(keys);
+            }
+
+            return Promise.resolve(keys.length);
+        } else {
+            const keyCount = attempt(() => {
+                return this._getKeyCountForRange(keyLowRange, keyHighRange, lowRangeExclusive, highRangeExclusive);
+            });
+            
+            if (isError(keyCount)) {
+                return Promise.reject(keyCount);
+            }
+    
+            return Promise.resolve(keyCount);
+        }
+        
     }
 }
