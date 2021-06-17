@@ -1,8 +1,8 @@
 {
-  "name": "nosqlprovider",
+  "name": "objectstoreprovider",
   "version": "0.6.22",
-  "description": "A cross-browser/platform indexeddb-like client library",
-  "author": "David de Regt <David.de.Regt@microsoft.com>",
+  "description": "A cross-browser object store library",
+  "author": "Mukundan Kavanur Kidambi <mukav@microsoft.com>",
   "scripts": {
     "ci-test": "npm run build && npm run test",
     "test": "mocha dist/src/tests/NoSqlProviderTests.js --timeout 5000",
@@ -35,10 +35,10 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/Microsoft/NoSQLProvider"
+    "url": "https://github.com/microsoft/objectstoreprovider"
   },
   "bugs": {
-    "url": "https://github.com/Microsoft/NoSQLProvider/issues"
+    "url": "https://github.com/microsoft/objectstoreprovider/issues"
   },
   "typings": "dist/index.d.ts",
   "typescript": {

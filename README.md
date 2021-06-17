@@ -1,20 +1,25 @@
-# NoSQLProvider [![Build Status](https://travis-ci.org/Microsoft/NoSQLProvider.svg?branch=master)](https://travis-ci.org/Microsoft/NoSQLProvider)
-We developed NoSQLProvider after needing a simplified interface to NoSQL-style object storage/retrieval that worked not only across all browsers, ~~but also for native app development (initially Cordova-based, later moving to React Native.)~~  Across the browsers, this required unifying WebSQL and IndexedDB, with the nuances of all the different IndexedDB issues (on IE, mostly, with not properly supporting compound keys and multi-entry indexes, and Safari having basically completely broken keyspace support.)  ~~On native platforms and NodeJS, we fully wrap several different SQLite-based providers, depending on the platform.~~  We also have built a fully in-memory database provider that has no persistence but supports fully transactional semantics, for a fallback in situations where you don't want persistence (ephemeral logins, etc.)
+# ObjectStoreProvider [![Build Status](https://travis-ci.org/Microsoft/NoSQLProvider.svg?branch=master)](https://travis-ci.org/Microsoft/NoSQLProvider)
+We developed NoSQLProvider after needing a simplified interface toobject storage/retrieval that worked not only across all browsers. We also have built a fully in-memory database provider that has no persistence but supports fully transactional semantics, for a fallback in situations where you don't want persistence (ephemeral logins, etc.)
 
-Removed support for ReactNative and SqlLite/WebSQL support.
+# Differences to NoSQLProvider
+This project has some notable differences to [nosqlprovider](https://github.com/microsoft/nosqlprovider), and these differences are why it is a separate repo 
+1. Support for removeRange apis.
+2. Support for getMultiple on any index. 
+3. Unlike in the case of nosqlprovider, the inMemoryProvider is actually mutable. This was mainly done as we enforce immutability using typescript DeepReadonly types. Consumers should be aware of this while consuming the library. In the near future we will change to interfaces throughout the project to return readonly types. It is highly recommended that consumers add lint rules that prevent casting to <any> , <unknown> or operations like Object.assign() which will break the immutability.
 
-~~As part of this work, we had to develop [SyncTasks](https://www.github.com/Microsoft/SyncTasks) as a complete promise library that spurns the A+ convention of deferring all resolutions/rejections to the event loop.  This is because IndexedDB's transactional semantics are such that if control is ever returned to the event loop without a pending query, the transaction is automatically closed.  As such, if you defer resolution of a query, then the transaction closes before you can issue followup queries against it.  To avoid this, we required synchronous resolution of promises, and SyncTasks gives us the ability to chain commands on a single transaction.  Given that IndexedDB was the most limiting transactional scenario that we needed to support, we followed that pattern with all of the other database providers, and designed them such that returning control to the event loop without issuing followup queries automatically resolves the transaction.~~
-
-The bugs that were causing the above transaction closures are now fixed on most major browsers (recent versions). Hence this version of NoSQLProvider removes it. Here is a link to the bug : https://jakearchibald.com/2015/tasks-microtasks-queues-and-schedules/
-
-At this point, known feature work is complete and we are mostly just fixing bugs on the platform moving forward.  If you have feature requests, feel free to file them, just make sure that you have behavior determined across all providers as part of your request, since all features need to be able to work across all the different providers.
+The rest of these changes in the library have been pushed upstream to NoSQLProvider as well. However the mutability point referred to above (3) is something that is irreconcilable as it needs to be enforced across all consumers of nosqlprovider. Hence this repo has been made separately. 
 
 # Examples
-The only current full example is available as part of the ReactXP samples, the [TodoList](https://github.com/Microsoft/reactxp/tree/master/samples/TodoList) sample app.  If you pick up NoSQLProvider and use it in your open source application, please let us know so we can add more example links here!
+None available, we will add some soon!.
 
 # Providers/Platforms/Support
 
-We will soon list all of the providers available out of the box here, and list what platforms they can be used on, with any nuances of that platform.
+Browsers: Firefox, Safari, Edge, Chrome. 
+    Execution Contexts: WebWorkers, SharedWorkers, ServiceWorkers, Browser context.
+
+Desktop Frameworks: WebView2, Electron
+
+Other support: NodeJS
 
 # Usage
 
