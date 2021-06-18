@@ -2,9 +2,9 @@
 
 We developed ObjectStoreProvider after needing a simplified interface toobject storage/retrieval that worked not only across all browsers. We also have built a fully in-memory database provider that has no persistence but supports fully transactional semantics, for a fallback in situations where you don't want persistence (ephemeral logins, etc.)
 
-# Differences to ObjectStoreProvider
+# Differences to NoSqlProvider
 
-This project has some notable differences to [ObjectStoreProvider](https://github.com/microsoft/ObjectStoreProvider), and these differences are why it is a separate repo
+This project has some notable differences to [NoSqlProvider](https://github.com/microsoft/nosqlprovider), and these differences are why it is a separate repo
 
 1. Support for removeRange apis.
 2. Support for getMultiple on any index.
