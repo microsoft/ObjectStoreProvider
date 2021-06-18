@@ -1,5 +1,5 @@
 /**
- * NoSqlProvider.ts
+ * ObjectStoreProvider.ts
  * Author: David de Regt
  * Copyright: Microsoft 2016
  *

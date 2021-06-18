@@ -4,7 +4,7 @@
 /src/obj
 *.user
 /src/typings
-/NoSQLProviderTestsPack.js
+/ObjectStoreProviderTestsPack.js
 /.vscode
 test.html
 tsconfig.json

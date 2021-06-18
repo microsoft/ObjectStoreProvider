@@ -2,13 +2,13 @@ var path = require('path');
 var webpack = require('webpack');
 
 var webpackConfig = {
-    entry: './src/tests/NoSqlProviderTests.ts',
+    entry: './src/tests/ObjectStoreProviderTests.ts',
     
     output: {
-        filename: './NoSQLProviderTestsPack.js',
+        filename: './ObjectStoreProviderTestsPack.js',
     },
 
-    externals: [ 'sqlite3', 'indexeddb-js', 'fs' ],
+    externals: [ 'indexeddb-js', 'fs' ],
     
     resolve: {
         modules: [

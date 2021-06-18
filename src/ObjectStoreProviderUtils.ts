@@ -1,14 +1,14 @@
-﻿ /**
- * NoSqlProviderUtils.ts
+ /**
+ * ObjectStoreProviderUtils.ts
  * Author: David de Regt
  * Copyright: Microsoft 2015
  *
- * Reusable helper functions for NoSqlProvider providers/transactions/etc.
+ * Reusable helper functions for ObjectStoreProvider providers/transactions/etc.
  */
 
 import { map, isArray, some, isNull, isDate, get, isUndefined, isObject } from 'lodash';
 
-import { KeyComponentType, KeyPathType, KeyType } from './NoSqlProvider';
+import { KeyComponentType, KeyPathType, KeyType } from './ObjectStoreProvider';
 
 // Extending interfaces that should be in lib.d.ts but aren't for some reason.
 declare global {
@@ -41,7 +41,7 @@ export function trimArray<TValue>(array: Array<TValue>, trimLength: number): Arr
     }
 
     let ret = new Array<TValue>(trimLength);
-    for(let j = 0; j < trimLength; j++) {
+    for (let j = 0; j < trimLength; j++) {
         ret[j] = array[j];
     }
     return ret;

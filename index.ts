@@ -20,7 +20,7 @@ export {
     DBClosure,
     OnCloseHandler,
     openListOfProviders
- } from './src/NoSqlProvider';
+ } from './src/ObjectStoreProvider';
 export {
     isIE,
     isSafari,
@@ -34,7 +34,7 @@ export {
     serializeNumberToOrderableString,
     serializeValueToOrderableString,
     formListOfSerializedKeys
- } from './src/NoSqlProviderUtils';
+ } from './src/ObjectStoreProviderUtils';
 export {
     ErrorCatcher, DBIndex, DBStore,
     SimpleTransactionIndexHelper, SimpleTransactionStoreHelper

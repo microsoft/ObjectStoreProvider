@@ -2,8 +2,9 @@
     "compilerOptions": {
         "declaration": true,
         "noResolve": false,
-        "module": "commonjs",
-        "target": "es5",
+        "module": "esnext",
+        "moduleResolution": "node",
+        "target": "es6",
         "outDir": "dist/",
         "typeRoots": [
             "node_modules/@types"
@@ -18,12 +19,7 @@
         "strictNullChecks": true,
         "forceConsistentCasingInFileNames": true,
         "strict": true,
-        "sourceMap": true,
-        "lib": [
-            "es2015",
-            "dom",
-            "es2016"
-        ]
+        "sourceMap": true
     },
     "filesGlob": [
         "src/**/*{ts,tsx}"

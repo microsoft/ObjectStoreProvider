@@ -1,14 +1,23 @@
 import * as assert from 'assert';
 import { find, each, times, values, keys, some, filter } from 'lodash';
 
-import { KeyComponentType, DbSchema, DbProvider, openListOfProviders, QuerySortOrder, FullTextTermResolution, IDBCloseConnectionPayload, OnCloseHandler } from '../NoSqlProvider';
+import { 
+    KeyComponentType, 
+    DbSchema, 
+    DbProvider, 
+    openListOfProviders, 
+    QuerySortOrder, 
+    FullTextTermResolution, 
+    IDBCloseConnectionPayload, 
+    OnCloseHandler 
+} from '../ObjectStoreProvider';
 
 import { InMemoryProvider } from '../InMemoryProvider';
 import { IndexedDbProvider } from '../IndexedDbProvider';
 
 import { 
     serializeValueToOrderableString
-} from '../NoSqlProviderUtils';
+} from '../ObjectStoreProviderUtils';
 
 let cleanupFile = false;
 type TestObj = { id?: string, val: string };
@@ -26,7 +35,7 @@ function openProvider(providerName: string, schema: DbSchema, wipeFirst: boolean
     } else {
         throw new Error('Provider not found for name: ' + providerName);
     }
-    const dbName = providerName.indexOf('sqlite3memory') !== -1 ? ':memory:' : 'test';
+    const dbName = 'test';
     return openListOfProviders([provider], dbName, schema, wipeFirst, false);
 }
 
@@ -36,7 +45,7 @@ function sleep(timeMs: number): Promise<void> {
     });
 }
 
-describe('NoSqlProvider', function () {
+describe('ObjectStoreProvider', function () {
     this.timeout(60 * 1000);
     after(done => {
         if (cleanupFile) {

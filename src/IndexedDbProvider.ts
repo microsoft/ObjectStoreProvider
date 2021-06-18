@@ -3,19 +3,19 @@
  * Author: David de Regt
  * Copyright: Microsoft 2015
  *
- * NoSqlProvider provider setup for IndexedDB, a web browser storage module.
+ * ObjectStoreProvider provider setup for IndexedDB, a web browser storage module.
  */
 
 import { each, some, find, includes, isObject, attempt, isError, map, filter, compact, clone, isArray, noop, flatten, join } from 'lodash';
 
 import { DbIndexFTSFromRangeQueries, getFullTextIndexWordsForItem } from './FullTextSearchHelpers';
 import { DbProvider, DbSchema, DbStore, DbTransaction, StoreSchema, DbIndex, QuerySortOrder, IndexSchema,
-    IDBCloseConnectionEventDetails, IDBCloseConnectionPayload, OnCloseHandler } from './NoSqlProvider';
-import { ItemType, KeyPathType, KeyType } from './NoSqlProvider';
+    IDBCloseConnectionEventDetails, IDBCloseConnectionPayload, OnCloseHandler } from './ObjectStoreProvider';
+import { ItemType, KeyPathType, KeyType } from './ObjectStoreProvider';
 import {
     isIE, isCompoundKeyPath, serializeKeyToString, getKeyForKeypath, arrayify, formListOfKeys,
     getValueForSingleKeypath, getSerializedKeyForKeypath
-} from './NoSqlProviderUtils';
+} from './ObjectStoreProviderUtils';
 import { TransactionToken, TransactionLockHelper } from './TransactionLockHelper';
 
 const IndexPrefix = 'nsp_i_';

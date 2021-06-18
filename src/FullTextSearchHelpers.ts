@@ -12,8 +12,8 @@ import {
 } from 'lodash';
 import { Ranges, trim } from 'regexp-i18n';
 
-import { DbIndex, IndexSchema, QuerySortOrder, FullTextTermResolution, ItemType, KeyType } from './NoSqlProvider';
-import { getValueForSingleKeypath, getSerializedKeyForKeypath } from './NoSqlProviderUtils';
+import { DbIndex, IndexSchema, QuerySortOrder, FullTextTermResolution, ItemType, KeyType } from './ObjectStoreProvider';
+import { getValueForSingleKeypath, getSerializedKeyForKeypath } from './ObjectStoreProviderUtils';
 
 const _whitespaceRegexMatch = /\S+/g;
 

@@ -3,4 +3,5 @@
 /src/bin
 /src/obj
 *.user
-/NoSQLProviderTestsPack.js
+/ObjectStoreProviderTestsPack.js
+/dist

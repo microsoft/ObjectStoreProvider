@@ -3,7 +3,7 @@
  * Author: David de Regt
  * Copyright: Microsoft 2015
  *
- * NoSqlProvider provider setup for a non-persisted in-memory database backing provider.
+ * ObjectStoreProvider provider setup for a non-persisted in-memory database backing provider.
  */
 
 import { attempt, isError, each, includes, compact, map, find, values, flatten, dropRight, takeRight, drop, take } from 'lodash';
@@ -11,11 +11,11 @@ import { DbIndexFTSFromRangeQueries, getFullTextIndexWordsForItem } from './Full
 import {
     StoreSchema, DbProvider, DbSchema, DbTransaction,
     DbIndex, IndexSchema, DbStore, QuerySortOrder, ItemType, KeyPathType, KeyType
-} from './NoSqlProvider';
+} from './ObjectStoreProvider';
 import {
     arrayify, serializeKeyToString, formListOfSerializedKeys,
     getSerializedKeyForKeypath, getValueForSingleKeypath, MAX_COUNT, trimArray
-} from './NoSqlProviderUtils';
+} from './ObjectStoreProviderUtils';
 import { TransactionToken, TransactionLockHelper } from './TransactionLockHelper';
 import {
     empty, RedBlackTreeStructure, set, iterateFromIndex,
@@ -405,28 +405,28 @@ class InMemoryIndex extends DbIndexFTSFromRangeQueries {
     }
 
     getAll(reverseOrSortOrder?: boolean | QuerySortOrder, limit?: number, offset?: number): Promise<ItemType[]> {
-        limit = limit ? limit : 
+        const definedLimit = limit ? limit : 
             this.isUniqueIndex() ? this._rbIndex._size :
             MAX_COUNT;
-        offset = offset ? offset : 0;
-        const data = new Array<ItemType>(limit);
+        let definedOffset = offset ? offset : 0;
+        const data = new Array<ItemType>(definedLimit);
         const reverse = (reverseOrSortOrder === true || reverseOrSortOrder === QuerySortOrder.Reverse);
         // when index is not unique, we cannot use offset as a starting index
-        const iterator = iterateFromIndex(reverse, this.isUniqueIndex() ? offset : 0, this._rbIndex);
+        const iterator = iterateFromIndex(reverse, this.isUniqueIndex() ? definedOffset : 0, this._rbIndex);
         let i = 0;
         for (const item of iterator) {
             // when index is not unique, each node may contain multiple items
-            if (!this.isUniqueIndex()){
+            if (!this.isUniqueIndex()) {
                 let count = item.value.length;
-                const minOffsetCount = Math.min(count, offset);
+                const minOffsetCount = Math.min(count, definedOffset);
                 count -= minOffsetCount;
-                offset -= minOffsetCount;
+                definedOffset -= minOffsetCount;
                 // we have skipped all values in this index, go to the next one
                 if (count === 0) {
                     continue;
                 }
 
-                const values = this._getKeyValues(item.key, limit - i, item.value.length - count, reverse)
+                const values = this._getKeyValues(item.key, definedLimit - i, item.value.length - count, reverse);
 
                 values.forEach((v, j) => {
                     data[i + j] = v;
@@ -438,13 +438,13 @@ class InMemoryIndex extends DbIndexFTSFromRangeQueries {
                 i++;
             }
             
-            if (i >= limit) {
+            if (i >= definedLimit) {
                 break;
             }
         }
         // if index is not unique, trim the empty slots in data
         // if we used MAX_COUNT to construct it.
-        if (!this.isUniqueIndex() && i!==limit) {
+        if (!this.isUniqueIndex() && i !== definedLimit) {
             return Promise.resolve(trimArray(data, i));
         } else {
             return Promise.resolve(data);
@@ -550,7 +550,6 @@ class InMemoryIndex extends DbIndexFTSFromRangeQueries {
         if (offset <= 0 && limit >= idxValues.length) {
             return reverse ? idxValues.slice().reverse() : idxValues;
         }
-
 
         const itemsToDrop = Math.min(limit, offset);
         const itemsToTake = Math.min(limit, idxValues.length - offset);

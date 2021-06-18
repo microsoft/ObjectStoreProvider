@@ -3,10 +3,10 @@
  * Author: David de Regt
  * Copyright: Microsoft 2017
  *
- * Reusable helper classes for clients of NoSqlProvider to build more type-safe stores/indexes.
+ * Reusable helper classes for clients of ObjectStoreProvider to build more type-safe stores/indexes.
  */
 
-import { DbIndex, QuerySortOrder, FullTextTermResolution, ItemType, KeyType, DbStore } from './NoSqlProvider';
+import { DbIndex, QuerySortOrder, FullTextTermResolution, ItemType, KeyType, DbStore } from './ObjectStoreProvider';
 
 export var ErrorCatcher: ((err: any) => Promise<any>)|undefined = undefined;
 

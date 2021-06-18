@@ -10,7 +10,7 @@
 import { ok } from 'assert';
 import { map, some, find, each, Dictionary, findIndex } from 'lodash';
 
-import { DbSchema } from './NoSqlProvider';
+import { DbSchema } from './ObjectStoreProvider';
 
 export interface TransactionToken {
     readonly completionPromise: Promise<void>;
@@ -20,11 +20,10 @@ export interface TransactionToken {
 
 export class Deferred<T> {
     private _promise: Promise<T>;
-    private _reject: (reason?: any) => void = <(reason?: any) => void>(<unknown>undefined);
-    private _resolve: (value?: T | PromiseLike<T> | undefined) => void
-        = <(value?: T | PromiseLike<T> | undefined) => void>(<unknown>undefined);
+    private _reject?: (reason?: any) => void;
+    private _resolve?: (value: T | PromiseLike<T>) => void;
     constructor() {
-        this._promise = new Promise((resolve, reject) => {
+        this._promise = new Promise<T>((resolve, reject) => {
             this._reject = reject;
             this._resolve = resolve;
         });
@@ -34,12 +33,12 @@ export class Deferred<T> {
         return this._promise;
     }
 
-    public resolve(value?: T | PromiseLike<T> | undefined) {
-        return this._resolve(value);
+    public resolve(value: T | PromiseLike<T>) {
+        return this._resolve && this._resolve(value);
     }
 
     public reject(reason?: any) {
-        return this._reject(reason);
+        return this._reject && this._reject(reason);
     }
 }
 
