@@ -1,31 +1,24 @@
 {
-    "compilerOptions": {
-        "declaration": true,
-        "noResolve": false,
-        "module": "esnext",
-        "moduleResolution": "node",
-        "target": "es6",
-        "outDir": "dist/",
-        "typeRoots": [
-            "node_modules/@types"
-        ],
-        "downlevelIteration": true,
-        "noImplicitAny": true,
-        "noImplicitReturns": true,
-        "noImplicitThis": true,
-        "noUnusedLocals": true,
-        "noUnusedParameters": true,
-        "strictPropertyInitialization": true,
-        "strictNullChecks": true,
-        "forceConsistentCasingInFileNames": true,
-        "strict": true,
-        "sourceMap": true
-    },
-    "filesGlob": [
-        "src/**/*{ts,tsx}"
-    ],
-    "exclude": [
-        "dist",
-        "node_modules"
-    ]
+  "compilerOptions": {
+    "declaration": true,
+    "noResolve": false,
+    "module": "esnext",
+    "moduleResolution": "node",
+    "target": "es6",
+    "outDir": "dist/",
+    "typeRoots": ["node_modules/@types"],
+    "downlevelIteration": true,
+    "noImplicitAny": true,
+    "noImplicitReturns": true,
+    "noImplicitThis": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "strictPropertyInitialization": true,
+    "strictNullChecks": true,
+    "forceConsistentCasingInFileNames": true,
+    "strict": true,
+    "sourceMap": true
+  },
+  "filesGlob": ["src/**/*{ts,tsx}"],
+  "exclude": ["dist", "node_modules"]
 }

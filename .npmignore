@@ -10,3 +10,7 @@ test.html
 tsconfig.json
 webpack.config.js
 README.md
+.eslintrc.js
+.npmrc
+.prettierignore
+.prettierrc.json
