@@ -14,3 +14,5 @@ README.md
 .npmrc
 .prettierignore
 .prettierrc.json
+.travis.yml
+src
