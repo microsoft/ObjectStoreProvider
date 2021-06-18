@@ -128,7 +128,7 @@ export class IndexedDbProvider extends DbProvider {
     throw new Error("Undefined context");
   }
 
-  static WrapRequest<T>(req: IDBRequest): Promise<T> {
+  static WrapRequest<T>(req: IDBRequest<T>): Promise<T> {
     return new Promise((resolve, reject) => {
       req.onsuccess = (/*ev*/) => {
         resolve(req.result);
@@ -155,9 +155,8 @@ export class IndexedDbProvider extends DbProvider {
 
     if (wipeIfExists) {
       try {
-        await IndexedDbProvider.WrapRequest(
-          this._dbFactory.deleteDatabase(dbName)
-        );
+        let req = this._dbFactory.deleteDatabase(dbName);
+        await IndexedDbProvider.WrapRequest(req);
       } catch (e) {
         // Don't care
       }
@@ -795,9 +794,9 @@ class IndexedDbStore implements DbStore {
                         key: key,
                         refkey: refKey,
                       };
-                      return IndexedDbProvider.WrapRequest<void>(
+                      return IndexedDbProvider.WrapRequest(
                         indexStore.put(indexObj)
-                      );
+                      ).then(() => void 0);
                     });
                     return Promise.all(iputters);
                   })
@@ -828,7 +827,9 @@ class IndexedDbStore implements DbStore {
               delete (item as any)["nsp_pk"];
             }
 
-            promises.push(IndexedDbProvider.WrapRequest<void>(req));
+            promises.push(
+              IndexedDbProvider.WrapRequest(req).then(() => void 0)
+            );
           });
         }
 
@@ -918,9 +919,7 @@ class IndexedDbStore implements DbStore {
                 );
                 // Also remember to nuke the item from the actual store
                 promises.push(
-                  IndexedDbProvider.WrapRequest<void>(
-                    this._store["delete"](key)
-                  )
+                  IndexedDbProvider.WrapRequest(this._store["delete"](key))
                 );
                 return Promise.all(promises).then(noop);
               }
@@ -929,7 +928,7 @@ class IndexedDbStore implements DbStore {
           );
         }
 
-        return IndexedDbProvider.WrapRequest<void>(this._store["delete"](key));
+        return IndexedDbProvider.WrapRequest(this._store["delete"](key));
       })
     ).then(noop);
   }
@@ -1124,12 +1123,6 @@ class IndexedDbIndex extends DbIndexFTSFromRangeQueries {
     });
     if (isError(keys)) {
       return Promise.reject(keys);
-    }
-
-    if (this._store.get && !this._fakeComplicatedKeys) {
-      return Promise.all<object[]>(
-        map(keys, (key) => IndexedDbProvider.WrapRequest(this._store.get(key)))
-      ).then(compact);
     }
 
     // when dealing with fakeComplicatedKeys, the store tries to store key and refkey, not the entire object.

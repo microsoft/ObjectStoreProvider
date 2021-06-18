@@ -1,6 +1,5 @@
-var assert = require("assert"); // Mocha doesn't work with import * as syntax, hence this hack.
+import { assert } from "chai"; // Mocha doesn't work with import * as syntax, hence this hack.
 import { find, each, times, values, keys, some, filter } from "lodash";
-
 import {
   KeyComponentType,
   DbSchema,
@@ -17,7 +16,6 @@ import { IndexedDbProvider } from "../IndexedDbProvider";
 
 import { serializeValueToOrderableString } from "../ObjectStoreProviderUtils";
 
-let cleanupFile = false;
 type TestObj = { id?: string; val: string };
 
 function openProvider(
@@ -38,7 +36,7 @@ function openProvider(
   } else {
     throw new Error("Provider not found for name: " + providerName);
   }
-  const dbName = ":memory:";
+  const dbName = "test";
   return openListOfProviders([provider], dbName, schema, wipeFirst, false);
 }
 
@@ -52,20 +50,6 @@ function sleep(timeMs: number): Promise<void> {
 
 describe("ObjectStoreProvider", function () {
   this.timeout(5 * 60 * 1000);
-  after((done) => {
-    if (cleanupFile) {
-      var fs = require("fs");
-      fs.unlink("test", (err: any) => {
-        if (err) {
-          throw err;
-        }
-        console.log("path/file.txt was deleted");
-        done();
-      });
-    } else {
-      done();
-    }
-  });
 
   let provsToTest: string[];
   if (typeof window === "undefined") {
@@ -144,16 +128,20 @@ describe("ObjectStoreProvider", function () {
                     .put("test", { id: "a", val: "b" })
                     //then delete
                     .then(() => prov.deleteDatabase())
+                    .catch((e) => prov.close().then(() => Promise.reject(e)))
                 );
               })
               .then(() => openProvider(provName, schema, false))
               .then((prov) => {
-                return prov.get("test", "a").then((retVal) => {
-                  const ret = retVal as TestObj;
-                  // not found
-                  assert(!ret);
-                  return prov.close();
-                });
+                return prov
+                  .get("test", "a")
+                  .then((retVal) => {
+                    const ret = retVal as TestObj;
+                    // not found
+                    assert(!ret);
+                  })
+                  .then(() => prov.close())
+                  .catch((e) => prov.close().then(() => Promise.reject(e)));
               })
               .then(
                 () => done(),
@@ -176,7 +164,8 @@ describe("ObjectStoreProvider", function () {
                 // insert some stuff
                 return prov
                   .put("test", { id: "a", val: "b" })
-                  .then(() => prov.deleteDatabase());
+                  .then(() => prov.deleteDatabase())
+                  .catch((e) => prov.close().then(() => Promise.reject(e)));
               })
               .then(() => {
                 //this should not happen
@@ -185,11 +174,14 @@ describe("ObjectStoreProvider", function () {
               .catch(() => {
                 // as expected, didn't delete anything
                 return openProvider(provName, schema, false).then((prov) =>
-                  prov.get("test", "a").then((retVal) => {
-                    const ret = retVal as TestObj;
-                    assert.equal(ret.val, "b");
-                    return prov.close();
-                  })
+                  prov
+                    .get("test", "a")
+                    .then((retVal) => {
+                      const ret = retVal as TestObj;
+                      assert.equal(ret.val, "b");
+                    })
+                    .then(() => prov.close())
+                    .catch((e) => prov.close().then(() => Promise.reject(e)))
                 );
               })
               .then(
@@ -201,7 +193,7 @@ describe("ObjectStoreProvider", function () {
       });
 
       describe("Expected database closure", () => {
-        if (provName.indexOf("indexeddb") === -1) {
+        if (provName.indexOf("indexeddbonclose") === -1) {
           xit("Skip expected DB closure for in-memory provider", () => {
             // noop
           });
@@ -218,8 +210,13 @@ describe("ObjectStoreProvider", function () {
               ],
             };
 
+            let checkOnce = false;
             // arrange - spy function
             let handleOnClose = (payload: IDBCloseConnectionPayload) => {
+              if (checkOnce) {
+                return;
+              }
+              checkOnce = true;
               assert.equal(
                 payload.name,
                 "test",
@@ -238,9 +235,7 @@ describe("ObjectStoreProvider", function () {
             };
 
             openProvider(provName, schema, true, handleOnClose)
-              .then((prov) => {
-                return prov.close();
-              })
+              .then((prov) => prov.close())
               .then(
                 () => done(),
                 (err) => done(err)
@@ -250,7 +245,7 @@ describe("ObjectStoreProvider", function () {
       });
 
       describe("Unexpected database closure", () => {
-        if (provName.indexOf("indexeddb") === -1) {
+        if (provName.indexOf("indexeddbonclose") === -1) {
           xit("Skip unexpected DB closure for in-memory provider", () => {
             // noop
           });
@@ -266,9 +261,13 @@ describe("ObjectStoreProvider", function () {
                 },
               ],
             };
-
+            let checkOnce = false;
             // arrange - spy function
             let handleOnClose = (payload: IDBCloseConnectionPayload) => {
+              if (checkOnce) {
+                return;
+              }
+              checkOnce = true;
               assert.equal(
                 payload.name,
                 "test",
@@ -288,14 +287,13 @@ describe("ObjectStoreProvider", function () {
 
             openProvider(provName, schema, true, handleOnClose)
               .then((prov) => {
-                if (typeof prov === typeof IndexedDbProvider) {
-                  let db = (prov as IndexedDbProvider)["_db"];
-                  if (db && db.onclose) {
-                    db.onclose(new Event("unexpectedClosure"));
-                  }
+                let db = (prov as IndexedDbProvider)["_db"];
+                if (db && db.onclose) {
+                  db.onclose(new Event("unexpectedClosure"));
                 }
-                return Promise.resolve();
+                return sleep(5).then(() => prov); // wait for an event tick for the DOM event to be processed
               })
+              .then((prov) => prov.close())
               .then(
                 () => done(),
                 (err) => done(err)
@@ -801,12 +799,9 @@ describe("ObjectStoreProvider", function () {
                   tt2count,
                   tt3,
                   tt3count,
-                ]).then(() => {
-                  return prov.close();
-                });
-              } else {
-                return prov.close();
+                ]);
               }
+              return Promise.resolve(void 0);
             });
           });
         };
@@ -1076,8 +1071,8 @@ describe("ObjectStoreProvider", function () {
                 const ret = retVal as TestObj[];
                 assert.equal(ret.length, 2, "getRange++ lim2 off1 rev");
                 assert.equal((ret[0] as TestObj).val, "val4");
-                [9, 8].forEach((v) => {
-                  assert(find(ret, (r) => r.id === "id" + v));
+                [3, 4].forEach((v) => {
+                  assert(find(ret, (r) => r.val === "val" + v));
                 });
               });
 
@@ -1097,8 +1092,8 @@ describe("ObjectStoreProvider", function () {
                 const ret = retVal as TestObj[];
                 assert.equal(ret.length, 2, "getRange++ lim2 off1 rev");
                 assert.equal((ret[0] as TestObj).val, "val4");
-                [9, 8].forEach((v) => {
-                  assert(find(ret, (r) => r.id === "id" + v));
+                [3, 4].forEach((v) => {
+                  assert(find(ret, (r) => r.val === "val" + v));
                 });
               });
 
@@ -1307,11 +1302,9 @@ describe("ObjectStoreProvider", function () {
                   tt2count,
                   tt3,
                   tt3count,
-                ]).then(() => {
-                  return prov.close();
-                });
+                ]);
               } else {
-                return prov.close();
+                return Promise.resolve(void 0);
               }
             });
           });
@@ -1332,20 +1325,22 @@ describe("ObjectStoreProvider", function () {
             true
           )
             .then((prov) => {
-              return prov.put("test", { id: "a", val: "b" }).then(() => {
-                return prov.get("test", "a").then((retVal) => {
-                  const ret = retVal as TestObj;
-                  assert.equal(ret.val, "b");
+              return prov
+                .put("test", { id: "a", val: "b" })
+                .then(() => {
+                  return prov.get("test", "a").then((retVal) => {
+                    const ret = retVal as TestObj;
+                    assert.equal(ret.val, "b");
 
-                  return prov.getAll("test", undefined).then((ret2Val) => {
-                    const ret2 = ret2Val as TestObj[];
-                    assert.equal(ret2.length, 1);
-                    assert.equal(ret2[0].val, "b");
-
-                    return prov.close();
+                    return prov.getAll("test", undefined).then((ret2Val) => {
+                      const ret2 = ret2Val as TestObj[];
+                      assert.equal(ret2.length, 1);
+                      assert.equal(ret2[0].val, "b");
+                    });
                   });
-                });
-              });
+                })
+                .then(() => prov.close())
+                .catch((e) => prov.close().then(() => Promise.reject(e)));
             })
             .then(
               () => done(),
@@ -1375,6 +1370,8 @@ describe("ObjectStoreProvider", function () {
                 .then(() => prov.put("test", objToPut))
                 .then(() => prov.get("test", "a"))
                 .then((retVal) => assert.equal((retVal as TestObj).val, "c"))
+                .then(() => prov.close())
+                .catch((e) => prov.close().then(() => Promise.reject(e)))
                 .then(() => done())
             )
             .catch((e) => done(e));
@@ -1395,17 +1392,20 @@ describe("ObjectStoreProvider", function () {
             true
           )
             .then((prov) => {
-              return prov.put("test", []).then(() => {
-                return prov.getAll("test", undefined).then((rets) => {
-                  assert(!!rets);
-                  assert.equal(rets.length, 0);
-                  return prov.getMultiple("test", []).then((rets) => {
+              return prov
+                .put("test", [])
+                .then(() => {
+                  return prov.getAll("test", undefined).then((rets) => {
                     assert(!!rets);
                     assert.equal(rets.length, 0);
-                    return prov.close();
+                    return prov.getMultiple("test", []).then((rets) => {
+                      assert(!!rets);
+                      assert.equal(rets.length, 0);
+                    });
                   });
-                });
-              });
+                })
+                .then(() => prov.close())
+                .catch((e) => prov.close().then(() => Promise.reject(e)));
             })
             .then(
               () => done(),
@@ -1441,9 +1441,10 @@ describe("ObjectStoreProvider", function () {
                     .then((rets) => {
                       assert(!!rets);
                       assert.equal(rets.length, 2);
-                      return prov.close();
                     });
-                });
+                })
+                .then(() => prov.close())
+                .catch((e) => prov.close().then(() => Promise.reject(e)));
             })
             .then(
               () => done(),
@@ -1491,13 +1492,14 @@ describe("ObjectStoreProvider", function () {
                                 assert(!!rets);
                                 assert.equal(rets.length, 1);
                                 assert.equal(rets[0].id, "a5");
-                                return prov.close();
                               });
                           });
                       });
                     });
                   });
-                });
+                })
+                .then(() => prov.close())
+                .catch((e) => prov.close().then(() => Promise.reject(e)));
             })
             .then(
               () => done(),
@@ -1541,11 +1543,12 @@ describe("ObjectStoreProvider", function () {
                         assert.equal(rets[2].id, "a2");
                         assert.equal(rets[3].id, "a8");
                         assert.equal(rets[4].id, "a9");
-                        return prov.close();
                       });
                     });
                   });
-                });
+                })
+                .then(() => prov.close())
+                .catch((e) => prov.close().then(() => Promise.reject(e)));
             })
             .then(
               () => done(),
@@ -1594,11 +1597,12 @@ describe("ObjectStoreProvider", function () {
                             assert.equal(rets[3].id, "a3");
                             assert.equal(rets[4].id, "a8");
                             assert.equal(rets[5].id, "a9");
-                            return prov.close();
                           });
                       });
                   });
-                });
+                })
+                .then(() => prov.close())
+                .catch((e) => prov.close().then(() => Promise.reject(e)));
             })
             .then(
               () => done(),
@@ -1647,11 +1651,12 @@ describe("ObjectStoreProvider", function () {
                             assert.equal(rets[3].id, "a7");
                             assert.equal(rets[4].id, "a8");
                             assert.equal(rets[5].id, "a9");
-                            return prov.close();
                           });
                       });
                   });
-                });
+                })
+                .then(() => prov.close())
+                .catch((e) => prov.close().then(() => Promise.reject(e)));
             })
             .then(
               () => done(),
@@ -1701,11 +1706,12 @@ describe("ObjectStoreProvider", function () {
                             assert.equal(rets[4].id, "a7");
                             assert.equal(rets[5].id, "a8");
                             assert.equal(rets[6].id, "a9");
-                            return prov.close();
                           });
                       });
                   });
-                });
+                })
+                .then(() => prov.close())
+                .catch((e) => prov.close().then(() => Promise.reject(e)));
             })
             .then(
               () => done(),
@@ -1749,11 +1755,12 @@ describe("ObjectStoreProvider", function () {
                         assert.equal(rets[2].id, "a3");
                         assert.equal(rets[3].id, "a4");
                         assert.equal(rets[4].id, "a5");
-                        return prov.close();
                       });
                     });
                   });
-                });
+                })
+                .then(() => prov.close())
+                .catch((e) => prov.close().then(() => Promise.reject(e)));
             })
             .then(
               () => done(),
@@ -1792,11 +1799,12 @@ describe("ObjectStoreProvider", function () {
                         const rets = retVals as TestObj[];
                         assert(!!rets);
                         assert.equal(rets.length, 0);
-                        return prov.close();
                       });
                     });
                   });
-                });
+                })
+                .then(() => prov.close())
+                .catch((e) => prov.close().then(() => Promise.reject(e)));
             })
             .then(
               () => done(),
@@ -1823,7 +1831,9 @@ describe("ObjectStoreProvider", function () {
                 .put("test", { id: { x: "a" }, val: "b" })
                 .then(
                   () => {
-                    assert(false, "Shouldn't get here");
+                    return prov
+                      .close()
+                      .then(() => assert(false, "Shouldn't get here"));
                   },
                   () => {
                     // Woot, failed like it's supposed to
@@ -1856,7 +1866,9 @@ describe("ObjectStoreProvider", function () {
             .then((prov) => {
               return tester(prov, undefined, false, (obj, v) => {
                 obj.id = v;
-              });
+              })
+                .then(() => prov.close())
+                .catch((e) => prov.close().then(() => Promise.reject(e)));
             })
             .then(
               () => done(),
@@ -1892,7 +1904,9 @@ describe("ObjectStoreProvider", function () {
                 .then((prov) => {
                   return tester(prov, "index", false, (obj, v) => {
                     obj.a = v;
-                  });
+                  })
+                    .then(() => prov.close())
+                    .catch((e) => prov.close().then(() => Promise.reject(e)));
                 })
                 .then(
                   () => done(),
@@ -1919,7 +1933,9 @@ describe("ObjectStoreProvider", function () {
             .then((prov) => {
               return tester(prov, undefined, false, (obj, v) => {
                 obj.a = { b: v };
-              });
+              })
+                .then(() => prov.close())
+                .catch((e) => prov.close().then(() => Promise.reject(e)));
             })
             .then(
               () => done(),
@@ -1950,7 +1966,9 @@ describe("ObjectStoreProvider", function () {
             .then((prov) => {
               return tester(prov, "index", false, (obj, v) => {
                 obj.a = { b: v };
-              });
+              })
+                .then(() => prov.close())
+                .catch((e) => prov.close().then(() => Promise.reject(e)));
             })
             .then(
               () => done(),
@@ -1976,7 +1994,9 @@ describe("ObjectStoreProvider", function () {
               return tester(prov, undefined, true, (obj, v1, v2) => {
                 obj.a = v1;
                 obj.b = v2;
-              });
+              })
+                .then(() => prov.close())
+                .catch((e) => prov.close().then(() => Promise.reject(e)));
             })
             .then(
               () => done(),
@@ -2008,7 +2028,9 @@ describe("ObjectStoreProvider", function () {
               return tester(prov, "index", true, (obj, v1, v2) => {
                 obj.a = v1;
                 obj.b = v2;
-              });
+              })
+                .then(() => prov.close())
+                .catch((e) => prov.close().then(() => Promise.reject(e)));
             })
             .then(
               () => done(),
@@ -2101,12 +2123,10 @@ describe("ObjectStoreProvider", function () {
                               assert.equal(r.val, "b");
                             });
                           });
-                        return Promise.all([g1, g2, g2b, g2c, g3, g4]).then(
-                          () => {
-                            return prov.close();
-                          }
-                        );
+                        return Promise.all([g1, g2, g2b, g2c, g3, g4]);
                       })
+                      .then(() => prov.close())
+                      .catch((e) => prov.close().then(() => Promise.reject(e)))
                   );
                 })
                 .then(
@@ -2189,9 +2209,8 @@ describe("ObjectStoreProvider", function () {
                       assert.equal(ret.length, 0);
                     });
                 })
-                .then(() => {
-                  return prov.close();
-                });
+                .then(() => prov.close())
+                .catch((e) => prov.close().then(() => Promise.reject(e)));
             })
             .then(
               () => done(),
@@ -2244,10 +2263,10 @@ describe("ObjectStoreProvider", function () {
                       const ret = retVal as TestObj[];
                       assert.equal(ret.length, 0);
                     });
-                  return Promise.all([g, g1]).then(() => {
-                    return prov.close();
-                  });
-                });
+                  return Promise.all([g, g1]);
+                })
+                .then(() => prov.close())
+                .catch((e) => prov.close().then(() => Promise.reject(e)));
             })
             .then(
               () => done(),
@@ -2334,10 +2353,10 @@ describe("ObjectStoreProvider", function () {
                           assert.equal(r.val, "b");
                         });
                       });
-                    return Promise.all([g1, g2, g2b, g2c, g3, g4]).then(() => {
-                      return prov.close();
-                    });
+                    return Promise.all([g1, g2, g2b, g2c, g3, g4]);
                   })
+                  .then(() => prov.close())
+                  .catch((e) => prov.close().then(() => Promise.reject(e)))
               );
             })
             .then(
@@ -2422,9 +2441,8 @@ describe("ObjectStoreProvider", function () {
                       assert.equal(ret.length, 0);
                     });
                 })
-                .then(() => {
-                  return prov.close();
-                });
+                .then(() => prov.close())
+                .catch((e) => prov.close().then(() => Promise.reject(e)));
             })
             .then(
               () => done(),
@@ -2457,7 +2475,9 @@ describe("ObjectStoreProvider", function () {
             .then((prov) => {
               return nonUniqueTester(prov, "index", false, (obj, v) => {
                 obj.a = v;
-              });
+              })
+                .then(() => prov.close())
+                .catch((e) => prov.close().then(() => Promise.reject(e)));
             })
             .then(
               () => done(),
@@ -2510,9 +2530,8 @@ describe("ObjectStoreProvider", function () {
                       return undefined;
                     }
                   )
-                  .then(() => {
-                    return prov.close();
-                  });
+                  .then(() => prov.close())
+                  .catch((e) => prov.close().then(() => Promise.reject(e)));
               })
               .then(
                 () => done(),
@@ -2558,8 +2577,9 @@ describe("ObjectStoreProvider", function () {
                   })
                   .then(() => {
                     assert.ok(checked);
-                    return prov.close();
-                  });
+                  })
+                  .then(() => prov.close())
+                  .catch((e) => prov.close().then(() => Promise.reject(e)));
               })
               .then(() => {
                 done();
@@ -2620,9 +2640,8 @@ describe("ObjectStoreProvider", function () {
                       assert.ok(check1 && check2);
                     });
                   })
-                  .then(() => {
-                    return prov.close();
-                  });
+                  .then(() => prov.close())
+                  .catch((e) => prov.close().then(() => Promise.reject(e)));
               })
               .then(
                 () => done(),
@@ -2699,9 +2718,10 @@ describe("ObjectStoreProvider", function () {
               true
             )
               .then((prov) => {
-                return prov.put("test", { id: "abc" }).then(() => {
-                  return prov.close();
-                });
+                return prov
+                  .put("test", { id: "abc" })
+                  .then(() => prov.close())
+                  .catch((e) => prov.close().then(() => Promise.reject(e)));
               })
               .then(() => {
                 return openProvider(
@@ -2717,10 +2737,13 @@ describe("ObjectStoreProvider", function () {
                   },
                   false
                 ).then((prov) => {
-                  return prov.get("test", "abc").then((item) => {
-                    assert(!!item);
-                    return prov.close();
-                  });
+                  return prov
+                    .get("test", "abc")
+                    .then((item) => {
+                      assert(!!item);
+                    })
+                    .then(() => prov.close())
+                    .catch((e) => prov.close().then(() => Promise.reject(e)));
                 });
               })
               .then(
@@ -2744,9 +2767,10 @@ describe("ObjectStoreProvider", function () {
               true
             )
               .then((prov) => {
-                return prov.put("test", { id: "abc" }).then(() => {
-                  return prov.close();
-                });
+                return prov
+                  .put("test", { id: "abc" })
+                  .then(() => prov.close())
+                  .catch((e) => prov.close().then(() => Promise.reject(e)));
               })
               .then(() => {
                 return openProvider(
@@ -2785,10 +2809,10 @@ describe("ObjectStoreProvider", function () {
                         assert(!!item);
                         assert.equal(item.id, "def");
                       });
-                      return Promise.all([p1, p2, p3, p4]).then(() => {
-                        return prov.close();
-                      });
-                    });
+                      return Promise.all([p1, p2, p3, p4]);
+                    })
+                    .then(() => prov.close())
+                    .catch((e) => prov.close().then(() => Promise.reject(e)));
                 });
               })
               .then(
@@ -2812,9 +2836,10 @@ describe("ObjectStoreProvider", function () {
               true
             )
               .then((prov) => {
-                return prov.put("test", { id: "abc" }).then(() => {
-                  return prov.close();
-                });
+                return prov
+                  .put("test", { id: "abc" })
+                  .then(() => prov.close())
+                  .catch((e) => prov.close().then(() => Promise.reject(e)));
               })
               .then(() => {
                 return openProvider(
@@ -2870,9 +2895,10 @@ describe("ObjectStoreProvider", function () {
               true
             )
               .then((prov) => {
-                return prov.put("test", { id: "abc", tt: "abc" }).then(() => {
-                  return prov.close();
-                });
+                return prov
+                  .put("test", { id: "abc", tt: "abc" })
+                  .then(() => prov.close())
+                  .catch((e) => prov.close().then(() => Promise.reject(e)));
               })
               .then(() => {
                 return openProvider(
@@ -2922,9 +2948,10 @@ describe("ObjectStoreProvider", function () {
               true
             )
               .then((prov) => {
-                return prov.put("test", { id: "abc", tt: "a" }).then(() => {
-                  return prov.close();
-                });
+                return prov
+                  .put("test", { id: "abc", tt: "a" })
+                  .then(() => prov.close())
+                  .catch((e) => prov.close().then(() => Promise.reject(e)));
               })
               .then(() => {
                 return openProvider(
@@ -2965,9 +2992,9 @@ describe("ObjectStoreProvider", function () {
                     .then((items) => {
                       assert.equal(items.length, 0);
                     });
-                  return Promise.all([p1, p2, p3]).then(() => {
-                    return prov.close();
-                  });
+                  return Promise.all([p1, p2, p3])
+                    .then(() => prov.close())
+                    .catch((e) => prov.close().then(() => Promise.reject(e)));
                 });
               })
               .then(
@@ -3000,9 +3027,10 @@ describe("ObjectStoreProvider", function () {
               true
             )
               .then((prov) => {
-                return prov.put("test", values(data)).then(() => {
-                  return prov.close();
-                });
+                return prov
+                  .put("test", values(data))
+                  .then(() => prov.close())
+                  .catch((e) => prov.close().then(() => Promise.reject(e)));
               })
               .then(() => {
                 return openProvider(
@@ -3040,9 +3068,8 @@ describe("ObjectStoreProvider", function () {
                         assert.equal(originalRecord.tt, dbRecordToValidate.tt);
                       });
                     })
-                    .then(() => {
-                      return prov.close();
-                    });
+                    .then(() => prov.close())
+                    .catch((e) => prov.close().then(() => Promise.reject(e)));
                 });
               });
           }
@@ -3079,9 +3106,10 @@ describe("ObjectStoreProvider", function () {
                 true
               )
                 .then((prov) => {
-                  return prov.put("test", { id: "abc", tt: true }).then(() => {
-                    return prov.close();
-                  });
+                  return prov
+                    .put("test", { id: "abc", tt: true })
+                    .then(() => prov.close())
+                    .catch((e) => prov.close().then(() => Promise.reject(e)));
                 })
                 .then(() => {
                   return openProvider(
@@ -3103,8 +3131,10 @@ describe("ObjectStoreProvider", function () {
                     },
                     false
                   ).then(
-                    () => {
-                      return Promise.reject("Should not work");
+                    (prov) => {
+                      return prov
+                        .close()
+                        .then(() => Promise.reject("Should not work"));
                     },
                     () => {
                       return Promise.resolve();
@@ -3135,9 +3165,8 @@ describe("ObjectStoreProvider", function () {
               .then((prov) => {
                 return prov
                   .put("test", { id: "abc", tt: ["a", "b"] })
-                  .then(() => {
-                    return prov.close();
-                  });
+                  .then(() => prov.close())
+                  .catch((e) => prov.close().then(() => Promise.reject(e)));
               })
               .then(() => {
                 return openProvider(
@@ -3183,9 +3212,9 @@ describe("ObjectStoreProvider", function () {
                     .then((items) => {
                       assert.equal(items.length, 0);
                     });
-                  return Promise.all([p1, p1b, p2, p3]).then(() => {
-                    return prov.close();
-                  });
+                  return Promise.all([p1, p1b, p2, p3])
+                    .then(() => prov.close())
+                    .catch((e) => prov.close().then(() => Promise.reject(e)));
                 });
               })
               .then(
@@ -3218,9 +3247,8 @@ describe("ObjectStoreProvider", function () {
               .then((prov) => {
                 return prov
                   .put("test", { id: "abc", tt: ["x", "y"], ttb: ["a", "b"] })
-                  .then(() => {
-                    return prov.close();
-                  });
+                  .then(() => prov.close())
+                  .catch((e) => prov.close().then(() => Promise.reject(e)));
               })
               .then(() => {
                 return openProvider(
@@ -3271,9 +3299,9 @@ describe("ObjectStoreProvider", function () {
                     .then((items) => {
                       assert.equal(items.length, 0);
                     });
-                  return Promise.all([p1, p1b, p1c, p2, p3]).then(() => {
-                    return prov.close();
-                  });
+                  return Promise.all([p1, p1b, p1c, p2, p3])
+                    .then(() => prov.close())
+                    .catch((e) => prov.close().then(() => Promise.reject(e)));
                 });
               })
               .then(
@@ -3303,9 +3331,10 @@ describe("ObjectStoreProvider", function () {
               true
             )
               .then((prov) => {
-                return prov.put("test", { id: "abc", tt: "a" }).then(() => {
-                  return prov.close();
-                });
+                return prov
+                  .put("test", { id: "abc", tt: "a" })
+                  .then(() => prov.close())
+                  .catch((e) => prov.close().then(() => Promise.reject(e)));
               })
               .then(() => {
                 return openProvider(
@@ -3363,9 +3392,8 @@ describe("ObjectStoreProvider", function () {
               .then((prov) => {
                 return prov
                   .put("test", { id: "abc", tt: "a", ttb: "b" })
-                  .then(() => {
-                    return prov.close();
-                  });
+                  .then(() => prov.close())
+                  .catch((e) => prov.close().then(() => Promise.reject(e)));
               })
               .then(() => {
                 return openProvider(
@@ -3401,9 +3429,9 @@ describe("ObjectStoreProvider", function () {
                     .then((items) => {
                       assert.equal(items.length, 0);
                     });
-                  return Promise.all([p1, p2, p3]).then(() => {
-                    return prov.close();
-                  });
+                  return Promise.all([p1, p2, p3])
+                    .then(() => prov.close())
+                    .catch((e) => prov.close().then(() => Promise.reject(e)));
                 });
               })
               .then(
@@ -3477,9 +3505,9 @@ describe("ObjectStoreProvider", function () {
                     .then((items) => {
                       assert.equal(items.length, 0);
                     });
-                  return Promise.all([p1, p2, p3]).then(() => {
-                    return prov.close();
-                  });
+                  return Promise.all([p1, p2, p3])
+                    .then(() => prov.close())
+                    .catch((e) => prov.close().then(() => Promise.reject(e)));
                 });
               })
               .then(
@@ -3510,9 +3538,10 @@ describe("ObjectStoreProvider", function () {
               true
             )
               .then((prov) => {
-                return prov.put("test", { id: "abc", tt: "a" }).then(() => {
-                  return prov.close();
-                });
+                return prov
+                  .put("test", { id: "abc", tt: "a" })
+                  .then(() => prov.close())
+                  .catch((e) => prov.close().then(() => Promise.reject(e)));
               })
               .then(() => {
                 return openProvider(
@@ -3554,9 +3583,9 @@ describe("ObjectStoreProvider", function () {
                     .then((items) => {
                       assert.equal(items.length, 0);
                     });
-                  return Promise.all([p1, p2, p3]).then(() => {
-                    return prov.close();
-                  });
+                  return Promise.all([p1, p2, p3])
+                    .then(() => prov.close())
+                    .catch((e) => prov.close().then(() => Promise.reject(e)));
                 });
               })
               .then(
@@ -3589,9 +3618,8 @@ describe("ObjectStoreProvider", function () {
               .then((prov) => {
                 return prov
                   .put("test", { id: "abc", tt: ["a", "b"] })
-                  .then(() => {
-                    return prov.close();
-                  });
+                  .then(() => prov.close())
+                  .catch((e) => prov.close().then(() => Promise.reject(e)));
               })
               .then(() => {
                 return openProvider(
@@ -3638,9 +3666,9 @@ describe("ObjectStoreProvider", function () {
                     .then((items) => {
                       assert.equal(items.length, 0);
                     });
-                  return Promise.all([p1, p1b, p2, p3]).then(() => {
-                    return prov.close();
-                  });
+                  return Promise.all([p1, p1b, p2, p3])
+                    .then(() => prov.close())
+                    .catch((e) => prov.close().then(() => Promise.reject(e)));
                 });
               })
               .then(
@@ -3674,9 +3702,8 @@ describe("ObjectStoreProvider", function () {
               .then((prov) => {
                 return prov
                   .put("test", { id: "abc", tt: ["a", "b"] })
-                  .then(() => {
-                    return prov.close();
-                  });
+                  .then(() => prov.close())
+                  .catch((e) => prov.close().then(() => Promise.reject(e)));
               })
               .then(() => {
                 return openProvider(
@@ -3723,9 +3750,9 @@ describe("ObjectStoreProvider", function () {
                     .then((items) => {
                       assert.equal(items.length, 0);
                     });
-                  return Promise.all([p1, p1b, p2, p3]).then(() => {
-                    return prov.close();
-                  });
+                  return Promise.all([p1, p1b, p2, p3])
+                    .then(() => prov.close())
+                    .catch((e) => prov.close().then(() => Promise.reject(e)));
                 });
               })
               .then(
@@ -3749,9 +3776,10 @@ describe("ObjectStoreProvider", function () {
               true
             )
               .then((prov) => {
-                return prov.put("test", { id: "abc" }).then(() => {
-                  return prov.close();
-                });
+                return prov
+                  .put("test", { id: "abc" })
+                  .then(() => prov.close())
+                  .catch((e) => prov.close().then(() => Promise.reject(e)));
               })
               .then(() => {
                 return openProvider(
@@ -3797,9 +3825,11 @@ describe("ObjectStoreProvider", function () {
                           assert.equal(items.length, 1);
                           assert.equal(items[0].id, "def");
                         });
-                      return Promise.all([p1, p2, p3, p4]).then(() => {
-                        return prov.close();
-                      });
+                      return Promise.all([p1, p2, p3, p4])
+                        .then(() => prov.close())
+                        .catch((e) =>
+                          prov.close().then(() => Promise.reject(e))
+                        );
                     });
                 });
               })
@@ -3826,9 +3856,8 @@ describe("ObjectStoreProvider", function () {
               .then((prov) => {
                 return prov
                   .put("test", { id: "abc", content: "ghi" })
-                  .then(() => {
-                    return prov.close();
-                  });
+                  .then(() => prov.close())
+                  .catch((e) => prov.close().then(() => Promise.reject(e)));
               })
               .then(() => {
                 return openProvider(
@@ -3861,9 +3890,9 @@ describe("ObjectStoreProvider", function () {
                       assert.equal(items.length, 1);
                       assert.equal(items[0].id, "abc");
                     });
-                  return Promise.all([p1, p2]).then(() => {
-                    return prov.close();
-                  });
+                  return Promise.all([p1, p2])
+                    .then(() => prov.close())
+                    .catch((e) => prov.close().then(() => Promise.reject(e)));
                 });
               })
               .then(
@@ -3896,9 +3925,8 @@ describe("ObjectStoreProvider", function () {
               .then((prov) => {
                 return prov
                   .put("test", { id: "abc", content: "ghi" })
-                  .then(() => {
-                    return prov.close();
-                  });
+                  .then(() => prov.close())
+                  .catch((e) => prov.close().then(() => Promise.reject(e)));
               })
               .then(() => {
                 return openProvider(
@@ -3933,9 +3961,9 @@ describe("ObjectStoreProvider", function () {
                         return Promise.resolve();
                       }
                     );
-                  return Promise.all([p1, p2]).then(() => {
-                    return prov.close();
-                  });
+                  return Promise.all([p1, p2])
+                    .then(() => prov.close())
+                    .catch((e) => prov.close().then(() => Promise.reject(e)));
                 });
               })
               .then(
@@ -3961,9 +3989,10 @@ describe("ObjectStoreProvider", function () {
                 true
               )
                 .then((prov) => {
-                  return prov.put("test", { id: "abc", tt: "a" }).then(() => {
-                    return prov.close();
-                  });
+                  return prov
+                    .put("test", { id: "abc", tt: "a" })
+                    .then(() => prov.close())
+                    .catch((e) => prov.close().then(() => Promise.reject(e)));
                 })
                 .then(() => {
                   return openProvider(
@@ -4008,9 +4037,11 @@ describe("ObjectStoreProvider", function () {
                           assert.equal(items[0].id, "bcd");
                           assert.equal(items[0].tt, "b");
                         });
-                      return Promise.all([p1, p2, p3]).then(() => {
-                        return prov.close();
-                      });
+                      return Promise.all([p1, p2, p3])
+                        .then(() => prov.close())
+                        .catch((e) =>
+                          prov.close().then(() => Promise.reject(e))
+                        );
                     })
                   );
                 })
@@ -4037,9 +4068,8 @@ describe("ObjectStoreProvider", function () {
                 .then((prov) => {
                   return prov
                     .put("test", { id: "abc", tt: "a", zz: "b" })
-                    .then(() => {
-                      return prov.close();
-                    });
+                    .then(() => prov.close())
+                    .catch((e) => prov.close().then(() => Promise.reject(e)));
                 })
                 .then(() => {
                   return openProvider(
@@ -4092,9 +4122,9 @@ describe("ObjectStoreProvider", function () {
                         assert.equal(items[0].tt, "a");
                         assert.equal(items[0].zz, "b");
                       });
-                    return Promise.all([p1, p2, p3]).then(() => {
-                      return prov.close();
-                    });
+                    return Promise.all([p1, p2, p3])
+                      .then(() => prov.close())
+                      .catch((e) => prov.close().then(() => Promise.reject(e)));
                   });
                 })
                 .then(
@@ -4127,9 +4157,8 @@ describe("ObjectStoreProvider", function () {
                 .then((prov) => {
                   return prov
                     .put("test", { id: "abc", tt: "a", zz: "b" })
-                    .then(() => {
-                      return prov.close();
-                    });
+                    .then(() => prov.close())
+                    .catch((e) => prov.close().then(() => Promise.reject(e)));
                 })
                 .then(() => {
                   return openProvider(
@@ -4168,9 +4197,9 @@ describe("ObjectStoreProvider", function () {
                         assert.equal(items[0].tt, "a");
                         assert.equal(items[0].zz, "b");
                       });
-                    return Promise.all([p1, p2]).then(() => {
-                      return prov.close();
-                    });
+                    return Promise.all([p1, p2])
+                      .then(() => prov.close())
+                      .catch((e) => prov.close().then(() => Promise.reject(e)));
                   });
                 })
                 .then(
@@ -4196,9 +4225,8 @@ describe("ObjectStoreProvider", function () {
                 .then((prov) => {
                   return prov
                     .put("test", { id: "abc", tt: "a", zz: "aa" })
-                    .then(() => {
-                      return prov.close();
-                    });
+                    .then(() => prov.close())
+                    .catch((e) => prov.close().then(() => Promise.reject(e)));
                 })
                 .then(() => {
                   return openProvider(
@@ -4223,9 +4251,8 @@ describe("ObjectStoreProvider", function () {
                   ).then((prov) => {
                     return prov
                       .put("test", { id: "bcd", tt: "b", zz: "bb" })
-                      .then(() => {
-                        return prov.close();
-                      });
+                      .then(() => prov.close())
+                      .catch((e) => prov.close().then(() => Promise.reject(e)));
                   });
                 })
                 .then(() => {
@@ -4282,9 +4309,9 @@ describe("ObjectStoreProvider", function () {
                         // second index wasn't backfilled
                         assert.equal(items.length, 0);
                       });
-                    return Promise.all([p1, p2, p3, p4]).then(() => {
-                      return prov.close();
-                    });
+                    return Promise.all([p1, p2, p3, p4])
+                      .then(() => prov.close())
+                      .catch((e) => prov.close().then(() => Promise.reject(e)));
                   });
                 })
                 .then(
@@ -4316,9 +4343,8 @@ describe("ObjectStoreProvider", function () {
                 .then((prov) => {
                   return prov
                     .put("test", { id: "abc", content: "ghi" })
-                    .then(() => {
-                      return prov.close();
-                    });
+                    .then(() => prov.close())
+                    .catch((e) => prov.close().then(() => Promise.reject(e)));
                 })
                 .then(() => {
                   return openProvider(
@@ -4354,9 +4380,9 @@ describe("ObjectStoreProvider", function () {
                           return Promise.resolve();
                         }
                       );
-                    return Promise.all([p1, p2]).then(() => {
-                      return prov.close();
-                    });
+                    return Promise.all([p1, p2])
+                      .then(() => prov.close())
+                      .catch((e) => prov.close().then(() => Promise.reject(e)));
                   });
                 })
                 .then(
@@ -4389,9 +4415,8 @@ describe("ObjectStoreProvider", function () {
                 .then((prov) => {
                   return prov
                     .put("test", { id: "abc", tt: "a", zz: "aa" })
-                    .then(() => {
-                      return prov.close();
-                    });
+                    .then(() => prov.close())
+                    .catch((e) => prov.close().then(() => Promise.reject(e)));
                 })
                 .then(() => {
                   return openProvider(
@@ -4432,9 +4457,9 @@ describe("ObjectStoreProvider", function () {
                       }
                     );
 
-                    return Promise.all([p1, p2]).then(() => {
-                      return prov.close();
-                    });
+                    return Promise.all([p1, p2])
+                      .then(() => prov.close())
+                      .catch((e) => prov.close().then(() => Promise.reject(e)));
                   });
                 })
                 .then(
@@ -4450,7 +4475,7 @@ describe("ObjectStoreProvider", function () {
         openProvider(
           provName,
           {
-            version: 1,
+            version: 2,
             stores: [
               {
                 name: "test",
@@ -4796,9 +4821,9 @@ describe("ObjectStoreProvider", function () {
                   p31,
                   p32,
                   p33,
-                ]).then(() => {
-                  return prov.close();
-                });
+                ])
+                  .then(() => prov.close())
+                  .catch((e) => prov.close().then(() => Promise.reject(e)));
               });
           })
           .then(

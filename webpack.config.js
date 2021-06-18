@@ -21,7 +21,7 @@ var webpackConfig = {
         // Compile TS.
         test: /\.tsx?$/,
         exclude: /node_modules/,
-        loader: "awesome-typescript-loader",
+        loader: "ts-loader",
       },
     ],
   },
