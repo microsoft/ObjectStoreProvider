@@ -7,7 +7,7 @@
     "ci-test": "npm run build && npm run test",
     "test": "npm run build && mocha -r esm dist/src/tests/ObjectStoreProvider.spec.js --timeout 5000",
     "webtest": "webpack --watch",
-    "build": "npm run lint && tsc",
+    "build": "npm run lint && npx tsc",
     "lint": "npx eslint && npx prettier --check .",
     "prettier": "npx prettier --write ."
   },

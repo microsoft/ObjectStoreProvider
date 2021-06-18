@@ -139,7 +139,7 @@ export class IndexedDbProvider extends DbProvider {
     });
   }
 
-  open(
+  async open(
     dbName: string,
     schema: DbSchema,
     wipeIfExists: boolean,
@@ -155,7 +155,9 @@ export class IndexedDbProvider extends DbProvider {
 
     if (wipeIfExists) {
       try {
-        this._dbFactory.deleteDatabase(dbName);
+        await IndexedDbProvider.WrapRequest(
+          this._dbFactory.deleteDatabase(dbName)
+        );
       } catch (e) {
         // Don't care
       }

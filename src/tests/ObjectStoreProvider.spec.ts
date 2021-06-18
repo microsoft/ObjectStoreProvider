@@ -38,7 +38,7 @@ function openProvider(
   } else {
     throw new Error("Provider not found for name: " + providerName);
   }
-  const dbName = "test";
+  const dbName = ":memory:";
   return openListOfProviders([provider], dbName, schema, wipeFirst, false);
 }
 
@@ -51,7 +51,7 @@ function sleep(timeMs: number): Promise<void> {
 }
 
 describe("ObjectStoreProvider", function () {
-  this.timeout(120 * 1000);
+  this.timeout(5 * 60 * 1000);
   after((done) => {
     if (cleanupFile) {
       var fs = require("fs");
@@ -201,7 +201,7 @@ describe("ObjectStoreProvider", function () {
       });
 
       describe("Expected database closure", () => {
-        if (provName.indexOf("indexeddbprovider") === -1) {
+        if (provName.indexOf("indexeddb") === -1) {
           xit("Skip expected DB closure for in-memory provider", () => {
             // noop
           });
@@ -250,7 +250,7 @@ describe("ObjectStoreProvider", function () {
       });
 
       describe("Unexpected database closure", () => {
-        if (provName.indexOf("indexeddbprovider") === -1) {
+        if (provName.indexOf("indexeddb") === -1) {
           xit("Skip unexpected DB closure for in-memory provider", () => {
             // noop
           });
@@ -1353,9 +1353,9 @@ describe("ObjectStoreProvider", function () {
             );
         });
 
-        it("Putting the same primary key should overwrite", async () => {
+        it("Putting the same primary key should overwrite", (done) => {
           const objToPut = { id: "a", val: "b" };
-          const prov = await openProvider(
+          openProvider(
             provName,
             {
               version: 1,
@@ -1367,15 +1367,17 @@ describe("ObjectStoreProvider", function () {
               ],
             },
             true
-          );
-
-          await prov.put("test", objToPut);
-
-          objToPut.val = "c";
-          await prov.put("test", objToPut);
-          const retVal = await prov.get("test", "a");
-          const ret = retVal as TestObj;
-          assert.equal(ret.val, "c");
+          )
+            .then((prov) =>
+              prov
+                .put("test", objToPut)
+                .then(() => (objToPut.val = "c"))
+                .then(() => prov.put("test", objToPut))
+                .then(() => prov.get("test", "a"))
+                .then((retVal) => assert.equal((retVal as TestObj).val, "c"))
+                .then(() => done())
+            )
+            .catch((e) => done(e));
         });
 
         it("Empty gets/puts", (done) => {
