@@ -35,7 +35,7 @@ jobs:
           cmd: ci-test # will run `yarn install` command
 
       # Runs a set of commands using the runners shell
-      - run: npm publish
+      - run: npm publish --access public
         name: Publish  package
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
