@@ -52,13 +52,8 @@ describe("ObjectStoreProvider", function () {
   this.timeout(5 * 60 * 1000);
 
   let provsToTest: string[];
-  if (typeof window === "undefined") {
-    // Non-browser environment...
-    provsToTest = ["memory"];
-  } else {
-    provsToTest = ["memory"];
-    provsToTest.push("indexeddb", "indexeddbfakekeys", "indexeddbonclose");
-  }
+  provsToTest = ["memory"];
+  provsToTest.push("indexeddb", "indexeddbfakekeys", "indexeddbonclose");
 
   it("Number/value/type sorting", () => {
     const pairsToTest = [
