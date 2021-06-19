@@ -6,8 +6,6 @@
  * Several of the different providers need various types of help enforcing exclusive/readonly transactions.  This helper keeps
  * store-specific lock info and releases transactions at the right time, when the underlying provider can't handle it.
  */
-
-import { ok } from "assert";
 import { map, some, find, each, Dictionary, findIndex } from "lodash";
 
 import { DbSchema } from "./ObjectStoreProvider";
@@ -211,18 +209,20 @@ export class TransactionLockHelper {
   private _cleanTransaction(token: TransactionToken) {
     if (token.exclusive) {
       each(token.storeNames, (storeName) => {
-        ok(
-          this._exclusiveLocks[storeName],
-          "Missing expected exclusive lock for store: " + storeName
-        );
+        if (!this._exclusiveLocks[storeName]) {
+          throw new Error(
+            "Missing expected exclusive lock for store: " + storeName
+          );
+        }
         this._exclusiveLocks[storeName] = false;
       });
     } else {
       each(token.storeNames, (storeName) => {
-        ok(
-          this._readOnlyCounts[storeName] > 0,
-          "Missing expected readonly lock for store: " + storeName
-        );
+        if (!(this._readOnlyCounts[storeName] > 0)) {
+          throw new Error(
+            "Missing expected readonly lock for store: " + storeName
+          );
+        }
         this._readOnlyCounts[storeName]--;
       });
     }

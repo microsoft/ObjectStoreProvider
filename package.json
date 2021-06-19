@@ -23,7 +23,9 @@
     "regexp-i18n": "^1.3.2",
     "ts-loader": "8.0.0"
   },
-  "sideEffects": false,
+  "sideEffects": [
+    "./src/Promise.ts"
+  ],
   "devDependencies": {
     "@types/assert": "^1.5.4",
     "@types/chai": "^4.2.18",
@@ -42,7 +44,7 @@
     "sinon": "^6.3.4",
     "ts-node": "^10.0.0",
     "typescript": "^4.3.4",
-    "webpack": "^4.20.2",
+    "webpack": "^5.39.1",
     "webpack-cli": "^3.1.1"
   },
   "repository": {
