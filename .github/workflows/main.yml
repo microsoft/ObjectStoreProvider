@@ -34,13 +34,11 @@ jobs:
       - name: Setup Chrome
         uses: browser-actions/setup-chrome@latest
       - run: |
-          chrome --version
           export CHROME_BIN=chrome
 
       - name: Setup firefox
         uses: browser-actions/setup-firefox@latest
       - run: |
-          firefox --version
           export FIREFOX_BIN=firefox
 
       - name: CI BUILD + UT
