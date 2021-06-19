@@ -1,9 +1,5 @@
 /node_modules
-/src/.vs
-/src/bin
-/src/obj
 *.user
-/src/typings
 /ObjectStoreProviderTestsPack.js
 /.vscode
 test.html
@@ -15,4 +11,5 @@ README.md
 .prettierignore
 .prettierrc.json
 .travis.yml
-src
+/src
+index.ts
