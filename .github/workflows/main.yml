@@ -19,16 +19,6 @@ jobs:
   build:
     # The type of runner that the job will run on
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        browser: [chrome, firefox]
-        version: [stable]
-        include:
-          - browser: chrome
-            version: stable
-            disableunifiedplan: true
-          - browser: firefox
-            version: esr
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
       # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
@@ -40,11 +30,17 @@ jobs:
         with:
           cmd: install # will run `yarn install` command
 
+      - name: Set Firefox Env Variable
+        run: export FIREFOX_BIN=$(which firefox)
+
+      - name: Set Chrome Env Variable
+        run: export CHROME_BIN=$(which chrome)
+
+      - name: Print environment variables
+        run: echo "$CHROME_BIN"
+
       - name: CI BUILD + UT
         run: npm run ci-test
-        env:
-          CHROME_BIN: browsers/bin/chrome-${{matrix.version}}
-          FIREFOX_BIN: browsers/bin/firefox-${{matrix.version}}
 
       - name: "Automated Version Bump"
         uses: "phips28/gh-action-bump-version@master"
