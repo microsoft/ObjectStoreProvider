@@ -35,6 +35,11 @@ jobs:
           cmd: ci-test # will run `yarn install` command
 
       # Runs a set of commands using the runners shell
+      - run: echo "//npm.pkg.github.com/:_authToken=${{ secrets.GITHUB_TOKEN }}" > $GITHUB_WORKSPACE/.npmrc
+        name: Set access token
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - run: npm publish --access public
         name: Publish  package
         env:

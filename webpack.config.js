@@ -1,6 +1,6 @@
 var path = require("path");
 var webpack = require("webpack");
-var NodePolyfillPlugin = require("node-polyfill-webpack-plugin")
+var NodePolyfillPlugin = require("node-polyfill-webpack-plugin");
 
 var webpackConfig = {
   entry: "./src/tests/ObjectStoreProvider.spec.ts",
@@ -23,11 +23,9 @@ var webpackConfig = {
         exclude: /node_modules/,
         loader: "ts-loader",
       },
-    ]
+    ],
   },
-  plugins: [
-    new NodePolyfillPlugin()
-  ],
+  plugins: [new NodePolyfillPlugin()],
   mode: "development",
 };
 
