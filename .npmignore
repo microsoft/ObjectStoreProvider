@@ -1,8 +1,6 @@
 /node_modules
 *.user
-/ObjectStoreProviderTestsPack.js
 /.vscode
-test.html
 tsconfig.json
 webpack.config.js
 README.md
@@ -10,6 +8,10 @@ README.md
 .npmrc
 .prettierignore
 .prettierrc.json
-.travis.yml
+.yarnclean
+karma.*.conf.js
 /src
 index.ts
+*.spec.js
+/.github
+/dist/src/tests

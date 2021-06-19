@@ -19,6 +19,6 @@
     "strict": true,
     "sourceMap": true
   },
-  "filesGlob": ["src/**/*{ts,tsx}"],
+  "filesGlob": ["src/**/*.ts"],
   "exclude": ["dist", "node_modules"]
 }

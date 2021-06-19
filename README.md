@@ -36,19 +36,30 @@ Coming soon.
 ### Source
 
 ```bash
-npm install
-npm run build
+yarn install
+yarn build
 ```
 
 ### Tests
 
 ```bash
-npm install
-npm run webtest
+yarn install
+yarn ci-test
 ```
 
 ## Testing
 
-1. Compile tests
-1. Open test.html in browser
-1. You can add `?grep=foo` to the URL to run only tests containing 'foo' in the name
+If a test fails and you need to run the individual tests, see which test command failed from the above run .i.e karma.sharedworker.conf.js, karma.webworker.conf.js, karma.browser.conf.js
+Once identified, simply run the following
+
+```bash
+yarn install
+yarn build
+yarn test:debug:<target>
+```
+
+Where `<target>` is either `webworker`, `sharedworker` or `browser`.
+Look through package.json for more details.
+The default runner will launch both firefox + chrome in debug mode.
+
+To iterate over tests, instead of the `yarn build` command mentioned above, run `yarn watch` instead.
