@@ -12,6 +12,9 @@
     "prettier": "npx prettier --write ."
   },
   "main": "dist/index.js",
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com"
+  },
   "dependencies": {
     "@collectable/core": "^5.0.1",
     "@collectable/red-black-tree": "^5.0.1",
