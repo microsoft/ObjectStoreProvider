@@ -37,7 +37,7 @@ jobs:
         run: export CHROME_BIN=$(which chrome)
 
       - name: Print environment variables
-        run: echo "$CHROME_BIN"
+        run: echo "CHROME_BIN = $CHROME_BIN  FIREFOX_BIN = $FIREFOX_BIN"
 
       - name: CI BUILD + UT
         run: npm run ci-test
