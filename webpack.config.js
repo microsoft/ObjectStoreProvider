@@ -5,10 +5,10 @@ var webpackConfig = {
   entry: "./src/tests/ObjectStoreProvider.spec.ts",
 
   output: {
-    filename: "./ObjectStoreProviderTestsPack.js",
+    filename: "./ObjectStoreProvider.spec.js",
   },
 
-  externals: ["indexeddb-js", "fs"],
+  externals: ["fs"],
 
   resolve: {
     modules: [path.resolve("./src"), path.resolve("./node_modules")],
