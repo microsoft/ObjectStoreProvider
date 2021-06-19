@@ -1,6 +1,6 @@
 {
   "name": "@microsoft/objectstoreprovider",
-  "version": "0.6.44",
+  "version": "0.6.25",
   "description": "A cross-browser object store library",
   "author": "Mukundan Kavanur Kidambi <mukav@microsoft.com>",
   "scripts": {
