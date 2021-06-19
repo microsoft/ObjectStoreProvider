@@ -30,6 +30,14 @@ jobs:
         with:
           cmd: install # will run `yarn install` command
 
+      - uses: browser-actions/setup-chrome@latest
+        name: Setup Chrome
+      - run: chrome --version
+
+      - name: Setup firefox
+        uses: browser-actions/setup-firefox@latest
+      - run: firefox --version
+
       - uses: borales/actions-yarn@v2.3.0
         name: CI BUILD + UT
         with:
