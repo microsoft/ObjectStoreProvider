@@ -23,25 +23,30 @@ jobs:
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
       # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
-      - uses: actions/checkout@v2
+      - name: Checkout
+        uses: actions/checkout@v2
 
-      - uses: borales/actions-yarn@v2.3.0
-        name: Yarn install
+      - name: Yarn install
+        uses: borales/actions-yarn@v2.3.0
         with:
           cmd: install # will run `yarn install` command
 
-      - uses: browser-actions/setup-chrome@latest
-        name: Setup Chrome
-      - run: chrome --version
+      - name: Setup Chrome
+        uses: browser-actions/setup-chrome@latest
+      - run: |
+          chrome --version
+          export CHROME_BIN=chrome
 
       - name: Setup firefox
         uses: browser-actions/setup-firefox@latest
-      - run: firefox --version
+      - run: |
+          firefox --version
+          export FIREFOX_BIN=firefox
 
-      - uses: borales/actions-yarn@v2.3.0
-        name: CI BUILD + UT
+      - name: CI BUILD + UT
+        uses: borales/actions-yarn@v2.3.0
         with:
-          cmd: ci-test # will run `yarn install` command
+          cmd: ci-test # will run `yarn ci-test` command
 
       - name: "Automated Version Bump"
         uses: "phips28/gh-action-bump-version@master"
@@ -49,12 +54,12 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       # Runs a set of commands using the runners shell
-      - run: echo "//npm.pkg.github.com/:_authToken=${{ secrets.GITHUB_TOKEN }}" > $GITHUB_WORKSPACE/.npmrc
-        name: Set access token
+      - name: Set access token
+        run: echo "//npm.pkg.github.com/:_authToken=${{ secrets.GITHUB_TOKEN }}" > $GITHUB_WORKSPACE/.npmrc
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - run: npm publish --access public
-        name: Publish  package
+      - name: Publish  package
+        run: npm publish --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
