@@ -2,9 +2,9 @@
   "compilerOptions": {
     "declaration": true,
     "noResolve": false,
-    "module": "esnext",
+    "module": "CommonJS",
     "moduleResolution": "node",
-    "target": "es6",
+    "target": "ES5",
     "outDir": "dist/",
     "typeRoots": ["node_modules/@types"],
     "downlevelIteration": true,
@@ -17,7 +17,8 @@
     "strictNullChecks": true,
     "forceConsistentCasingInFileNames": true,
     "strict": true,
-    "sourceMap": true
+    "sourceMap": true,
+    "lib": ["ES2015", "DOM", "ES2016"]
   },
   "filesGlob": ["src/**/*.ts"],
   "exclude": ["dist", "node_modules"]
