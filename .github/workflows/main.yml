@@ -28,10 +28,10 @@ jobs:
       # Sets up Node and an .npmrc file. This is the official Github supported way to set up node.
       - uses: actions/setup-node@v2
         with:
-          node-version: '16'
-          registry-url: 'https://registry.npmjs.org'
-          cache: 'yarn'
-          always-auth: 'true'
+          node-version: "16"
+          registry-url: "https://registry.npmjs.org"
+          cache: "yarn"
+          always-auth: "true"
 
       - name: Install packages
         run: yarn --frozen-lockfile
@@ -51,7 +51,7 @@ jobs:
       - name: "Automated Version Bump"
         uses: "phips28/gh-action-bump-version@master"
         with:
-          tag-prefix: 'v'
+          tag-prefix: "v"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
