@@ -64,7 +64,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Final check for version bump
-        id: actions_project_version_check
         uses: "thomastay/actions-project-version-check@v2"
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
