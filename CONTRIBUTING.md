@@ -12,3 +12,8 @@ instructions provided by the bot. You will only need to do this once across all 
 This project has adopted the [Microsoft Open Source Code of Conduct](https://opensource.microsoft.com/codeofconduct/).
 For more information see the [Code of Conduct FAQ](https://opensource.microsoft.com/codeofconduct/faq/)
 or contact [opencode@microsoft.com](mailto:opencode@microsoft.com) with any additional questions or comments.
+
+# Rules
+
+1. Do not push to master. Create a branch and push to it. The branch policy will forbid this.
+1. You don't need to manually squash your commits. All commits will be merged via a squash commit.

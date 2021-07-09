@@ -1,19 +1,17 @@
-# This is a basic workflow to help you get started with Actions
+# This is a workflow that runs on PR builds.
 
-name: CI
+name: "PR build"
 
 # Controls when the action will run.
 on:
-  # Triggers the workflow on push or pull request events but only for the master branch
-  push:
-    branches: [master]
+  # Triggers the workflow on pull request events for the master branch
   pull_request:
     branches: [master]
 
   # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
 
-# A workflow run ais made up of one or more jobs that can run sequentially or in parallel
+# A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
   # This workflow contains a single job called "build"
   build:
@@ -28,7 +26,7 @@ jobs:
       # Sets up Node and an .npmrc file. This is the official Github supported way to set up node.
       - uses: actions/setup-node@v2
         with:
-          node-version: "16"
+          node-version: "12"
           registry-url: "https://registry.npmjs.org"
           cache: "yarn"
           always-auth: "true"
@@ -48,14 +46,28 @@ jobs:
       - name: CI BUILD + UT
         run: yarn ci-test
 
+      - name: Check whether version was bumped in PR
+        id: actions_project_version_check
+        uses: "thomastay/actions-project-version-check@v2"
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          file-to-check: package.json
+          fail-build-if-not-bumped: false
+          target-branch: master
+
       - name: "Automated Version Bump"
         uses: "phips28/gh-action-bump-version@master"
+        if: ${{ steps.actions_project_version_check.outputs.semver == 'no-update' }}
         with:
           tag-prefix: "v"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Publish package
-        run: yarn publish --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      - name: Final check for version bump
+        id: actions_project_version_check
+        uses: "thomastay/actions-project-version-check@v2"
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          file-to-check: package.json
+          fail-build-if-not-bumped: true
+          target-branch: master
