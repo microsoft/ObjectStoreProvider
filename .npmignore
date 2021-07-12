@@ -15,3 +15,4 @@ index.ts
 *.spec.js
 /.github
 /dist/src/tests
+*.log

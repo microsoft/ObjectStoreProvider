@@ -1,3 +1,6 @@
+// Copyright (c) Microsoft Corporation.
+// Licensed under the MIT License.
+
 import { assert } from "chai"; // Mocha doesn't work with import * as syntax, hence this hack.
 import { find, each, times, values, keys, some, filter } from "lodash";
 import {

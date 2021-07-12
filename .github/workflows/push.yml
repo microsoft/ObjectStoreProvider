@@ -1,0 +1,51 @@
+# This is a workflow that runs on every successful merge to master
+
+name: CI
+
+# Controls when the action will run.
+on:
+  # Triggers the workflow on push events for the master branch
+  push:
+    branches: [master]
+
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+
+# A workflow run is made up of one or more jobs that can run sequentially or in parallel
+jobs:
+  bump-version-and-publish:
+    # The type of runner that the job will run on
+    runs-on: ubuntu-latest
+    # Steps represent a sequence of tasks that will be executed as part of the job
+    steps:
+      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      # Sets up Node and an .npmrc file. This is the official Github supported way to set up node.
+      - uses: actions/setup-node@v2
+        with:
+          node-version: "12"
+          registry-url: "https://registry.npmjs.org"
+          cache: "yarn"
+          always-auth: "true"
+
+      - name: Install packages
+        run: yarn --frozen-lockfile
+
+      - name: Set Firefox Env Variable
+        run: export FIREFOX_BIN=$(which firefox)
+
+      - name: Set Chrome Env Variable
+        run: export CHROME_BIN=$(which chrome)
+
+      - name: Print environment variables
+        run: echo "CHROME_BIN = $CHROME_BIN  FIREFOX_BIN = $FIREFOX_BIN"
+
+      - name: CI BUILD + UT
+        run: yarn ci-test
+
+      - name: Publish package
+        run: yarn publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

@@ -1,6 +1,6 @@
 {
   "name": "@microsoft/objectstoreprovider",
-  "version": "0.6.28",
+  "version": "0.6.29",
   "description": "A cross-browser object store library",
   "author": "Mukundan Kavanur Kidambi <mukav@microsoft.com>",
   "scripts": {
@@ -19,7 +19,7 @@
   },
   "main": "dist/index.js",
   "publishConfig": {
-    "registry": "https://npm.pkg.github.com"
+    "registry": "https://registry.npmjs.org"
   },
   "dependencies": {
     "@collectable/core": "^5.0.1",
