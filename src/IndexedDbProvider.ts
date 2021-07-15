@@ -56,6 +56,7 @@ import {
   TransactionToken,
   TransactionLockHelper,
 } from "./TransactionLockHelper";
+import { wrapAndWait, wrapArray, wrapRequest } from "./WrapRequest";
 
 const IndexPrefix = "nsp_i_";
 
@@ -128,17 +129,6 @@ export class IndexedDbProvider extends DbProvider {
     throw new Error("Undefined context");
   }
 
-  static WrapRequest<T>(req: IDBRequest<T>): Promise<T> {
-    return new Promise((resolve, reject) => {
-      req.onsuccess = (/*ev*/) => {
-        resolve(req.result);
-      };
-      req.onerror = (ev) => {
-        reject(ev);
-      };
-    });
-  }
-
   async open(
     dbName: string,
     schema: DbSchema,
@@ -156,7 +146,7 @@ export class IndexedDbProvider extends DbProvider {
     if (wipeIfExists) {
       try {
         let req = this._dbFactory.deleteDatabase(dbName);
-        await IndexedDbProvider.WrapRequest(req);
+        await wrapAndWait(req);
       } catch (e) {
         // Don't care
       }
@@ -354,7 +344,7 @@ export class IndexedDbProvider extends DbProvider {
       });
     };
 
-    const promise = IndexedDbProvider.WrapRequest<IDBDatabase>(dbOpen);
+    const promise = wrapRequest<IDBDatabase>(dbOpen);
 
     return promise.then(
       (db) => {
@@ -677,7 +667,7 @@ class IndexedDbStore implements DbStore {
       }
     }
 
-    return IndexedDbProvider.WrapRequest(this._store.get(key)).then((val) =>
+    return wrapRequest<any>(this._store.get(key)).then((val) =>
       removeFullTextMetadataAndReturn(this._schema, val)
     );
   }
@@ -702,7 +692,7 @@ class IndexedDbStore implements DbStore {
     // There isn't a more optimized way to do this with indexeddb, have to get the results one by one
     return Promise.all(
       map(keys, (key) =>
-        IndexedDbProvider.WrapRequest(this._store.get(key)).then((val) =>
+        wrapRequest<any>(this._store.get(key)).then((val) =>
           removeFullTextMetadataAndReturn(this._schema, val)
         )
       )
@@ -794,9 +784,7 @@ class IndexedDbStore implements DbStore {
                         key: key,
                         refkey: refKey,
                       };
-                      return IndexedDbProvider.WrapRequest(
-                        indexStore.put(indexObj)
-                      ).then(() => void 0);
+                      return wrapAndWait(indexStore.put(indexObj));
                     });
                     return Promise.all(iputters);
                   })
@@ -827,9 +815,7 @@ class IndexedDbStore implements DbStore {
               delete (item as any)["nsp_pk"];
             }
 
-            promises.push(
-              IndexedDbProvider.WrapRequest(req).then(() => void 0)
-            );
+            promises.push(wrapAndWait(req));
           });
         }
 
@@ -874,61 +860,57 @@ class IndexedDbStore implements DbStore {
           )
         ) {
           // If we're faking keys and there's any multientry indexes, we have to do the way more complicated version...
-          return IndexedDbProvider.WrapRequest<any>(this._store.get(key)).then(
-            (item) => {
-              if (item) {
-                // Go through each multiEntry index and nuke the referenced items from the sub-stores
-                let promises = map(
-                  filter(this._schema.indexes, (index) => !!index.multiEntry),
-                  (index) => {
-                    let indexStore = find(
-                      this._indexStores,
-                      (store) =>
-                        store.name === this._schema.name + "_" + index.name
+          return wrapRequest(this._store.get(key)).then((item) => {
+            if (item) {
+              // Go through each multiEntry index and nuke the referenced items from the sub-stores
+              let promises = map(
+                filter(this._schema.indexes, (index) => !!index.multiEntry),
+                (index) => {
+                  let indexStore = find(
+                    this._indexStores,
+                    (store) =>
+                      store.name === this._schema.name + "_" + index.name
+                  )!!!;
+                  const refKey = attempt(() => {
+                    // We need to reference the PK of the actual row we're using here, so calculate the actual PK -- if it's
+                    // compound, we're already faking complicated keys, so we know to serialize it to a string.  If not, use the
+                    // raw value.
+                    const tempRefKey = getKeyForKeypath(
+                      item,
+                      this._schema.primaryKeyPath
                     )!!!;
-                    const refKey = attempt(() => {
-                      // We need to reference the PK of the actual row we're using here, so calculate the actual PK -- if it's
-                      // compound, we're already faking complicated keys, so we know to serialize it to a string.  If not, use the
-                      // raw value.
-                      const tempRefKey = getKeyForKeypath(
-                        item,
-                        this._schema.primaryKeyPath
-                      )!!!;
-                      return isArray(this._schema.primaryKeyPath)
-                        ? serializeKeyToString(
-                            tempRefKey,
-                            this._schema.primaryKeyPath
-                          )
-                        : tempRefKey;
-                    });
-                    if (isError(refKey)) {
-                      return Promise.reject<void>(refKey);
-                    }
-
-                    // First clear out the old values from the index store for the refkey
-                    const cursorReq = indexStore
-                      .index("refkey")
-                      .openCursor(IDBKeyRange.only(refKey));
-                    return IndexedDbIndex.iterateOverCursorRequest(
-                      cursorReq,
-                      (cursor) => {
-                        cursor["delete"]();
-                      }
-                    );
+                    return isArray(this._schema.primaryKeyPath)
+                      ? serializeKeyToString(
+                          tempRefKey,
+                          this._schema.primaryKeyPath
+                        )
+                      : tempRefKey;
+                  });
+                  if (isError(refKey)) {
+                    return Promise.reject<void>(refKey);
                   }
-                );
-                // Also remember to nuke the item from the actual store
-                promises.push(
-                  IndexedDbProvider.WrapRequest(this._store["delete"](key))
-                );
-                return Promise.all(promises).then(noop);
-              }
-              return undefined;
+
+                  // First clear out the old values from the index store for the refkey
+                  const cursorReq = indexStore
+                    .index("refkey")
+                    .openCursor(IDBKeyRange.only(refKey));
+                  return IndexedDbIndex.iterateOverCursorRequest(
+                    cursorReq,
+                    (cursor) => {
+                      cursor["delete"]();
+                    }
+                  );
+                }
+              );
+              // Also remember to nuke the item from the actual store
+              promises.push(wrapAndWait(this._store["delete"](key)));
+              return Promise.all(promises).then(noop);
             }
-          );
+            return undefined;
+          });
         }
 
-        return IndexedDbProvider.WrapRequest(this._store["delete"](key));
+        return wrapAndWait(this._store["delete"](key));
       })
     ).then(noop);
   }
@@ -1017,9 +999,7 @@ class IndexedDbStore implements DbStore {
       storesToClear = storesToClear.concat(this._indexStores);
     }
 
-    let promises = map(storesToClear, (store) =>
-      IndexedDbProvider.WrapRequest(store.clear())
-    );
+    let promises = map(storesToClear, (store) => wrapAndWait(store.clear()));
 
     return Promise.all(promises).then(noop);
   }
@@ -1053,9 +1033,7 @@ class IndexedDbIndex extends DbIndexFTSFromRangeQueries {
       ).then((rets) => {
         // Now get the original items using the refkeys from the index store, which are PKs on the main store
         const getters = map(rets, (ret) =>
-          IndexedDbProvider.WrapRequest(
-            this._fakedOriginalStore!!!.get(ret.refkey)
-          )
+          wrapRequest<any>(this._fakedOriginalStore!!!.get(ret.refkey))
         );
         return Promise.all(getters);
       });
@@ -1078,9 +1056,7 @@ class IndexedDbIndex extends DbIndexFTSFromRangeQueries {
       !offset &&
       !this._fakeComplicatedKeys
     ) {
-      return IndexedDbProvider.WrapRequest(
-        this._store.getAll(undefined, limit)
-      );
+      return wrapArray(this._store.getAll(undefined, limit));
     }
     // ************************* Don't change this null to undefined, IE chokes on it... *****************************
     // ************************* Don't change this null to undefined, IE chokes on it... *****************************
@@ -1110,7 +1086,7 @@ class IndexedDbIndex extends DbIndexFTSFromRangeQueries {
       !offset &&
       !this._fakeComplicatedKeys
     ) {
-      return IndexedDbProvider.WrapRequest(this._store.getAll(keyRange, limit));
+      return wrapArray(this._store.getAll(keyRange, limit));
     }
     const req = this._store.openCursor(keyRange, reverse ? "prev" : "next");
     return this._resolveCursorResult(req, limit, offset);
@@ -1169,7 +1145,7 @@ class IndexedDbIndex extends DbIndexFTSFromRangeQueries {
       !offset &&
       !this._fakeComplicatedKeys
     ) {
-      return IndexedDbProvider.WrapRequest(this._store.getAll(keyRange, limit));
+      return wrapArray(this._store.getAll(keyRange, limit));
     }
     const req = this._store.openCursor(keyRange, reverse ? "prev" : "next");
     return this._resolveCursorResult(req, limit, offset);
@@ -1256,9 +1232,7 @@ class IndexedDbIndex extends DbIndexFTSFromRangeQueries {
       return Promise.reject<string[]>(keyRange);
     }
     if (this._store.getAllKeys && !this._fakeComplicatedKeys) {
-      return IndexedDbProvider.WrapRequest<any[]>(
-        this._store.getAllKeys(keyRange)
-      );
+      return wrapArray(this._store.getAllKeys(keyRange));
     }
 
     let keys: any[] = [];
