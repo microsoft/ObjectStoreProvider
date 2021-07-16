@@ -151,6 +151,7 @@ class InMemoryTransaction implements DbTransaction {
     this._stores.forEach((store) => {
       store.internal_commitPendingData();
     });
+    this._stores.clear();
   }
 
   getCompletionPromise(): Promise<void> {
@@ -211,7 +212,6 @@ class InMemoryStore implements DbStore {
   }
 
   internal_commitPendingData(): void {
-    // no need for extra work, simply flush the undo buffer.
     this._data.commit();
     // Indices were already updated, theres no need to update them now.
   }

@@ -1,24 +1,21 @@
 /**
- * Implements a map that can be rolled back, with *single-use* commit.
+ * Interface for a map that can be rolled back, with *single-use* commit.
  * Used to roll back transactions.
  * Once a commit occurs, no more mutations are intended to happen.
+ * Mutating the map after committing is considered undefined behavior.
+ * Mutation after a rollback is allowed.
  * Optimized for the case where rollbacks are uncommon.
+ *
+ * Note: the original map passed to the map is considered a "borrowed" value,
+ * and thus must be mutated properly. After a commit, the "borrowed" value MUST contain
+ * the latest changes.
  *
  * Rollback map implementation:
  * A very simple map with an infinite undo buffer.
+ *
+ * CopyRollback map implementation:
+ *   Copies the old map into a separate map. Used when the original map is very small.
  */
-
-const op = {
-  set: 0,
-  remove: 1,
-} as const;
-
-type OP = typeof op[keyof typeof op];
-
-/**
- * By trial and error: the average number of operations done to a transaction.
- */
-const THRESHOLD = 40;
 export interface IRollbackMap<K, V> {
   // These mutating functions have to have additional work
 
@@ -61,12 +58,24 @@ export interface IRollbackMap<K, V> {
   get size(): number;
 }
 
+/**
+ * By trial and error: the average number of operations done to a transaction.
+ */
+const THRESHOLD = 40;
+
 export function makeRollbackMap<K, V>(m: Map<K, V>): IRollbackMap<K, V> {
   if (m.size < THRESHOLD) {
     return new CopyRollbackMap(m);
   }
   return new RollbackMap(m);
 }
+
+const op = {
+  set: 0,
+  remove: 1,
+} as const;
+
+type OP = typeof op[keyof typeof op];
 
 export class RollbackMap<K, V> implements IRollbackMap<K, V> {
   private m: Map<K, V>;
@@ -121,8 +130,8 @@ export class RollbackMap<K, V> implements IRollbackMap<K, V> {
   }
 
   commit(): void {
-    this.buf = [];
-    Object.freeze(this.m);
+    // do nothing, since we have single use commits now.
+    // the GC will clean things up.
   }
 
   // These functions are just proxying the map interface
@@ -189,11 +198,11 @@ export class CopyRollbackMap<K, V> implements IRollbackMap<K, V> {
     return this.m;
   }
   rollback(): void {
-    this.m = new Map(this.orig);
+    this.m.clear();
+    this.orig.forEach((v, k) => this.m.set(k, v));
   }
   commit(): void {
-    this.orig = this.m;
-    Object.freeze(this.m);
+    // do nothing, since we have a single-use commit.
   }
   get(k: K): V | undefined {
     return this.m.get(k);
