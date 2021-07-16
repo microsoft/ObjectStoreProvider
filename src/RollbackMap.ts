@@ -1,7 +1,11 @@
 /**
- * A very simple map with an infinite undo buffer.
+ * Implements a map that can be rolled back, with *single-use* commit.
  * Used to roll back transactions.
+ * Once a commit occurs, no more mutations are intended to happen.
  * Optimized for the case where rollbacks are uncommon.
+ *
+ * Rollback map implementation:
+ * A very simple map with an infinite undo buffer.
  */
 
 const op = {
@@ -118,6 +122,7 @@ export class RollbackMap<K, V> implements IRollbackMap<K, V> {
 
   commit(): void {
     this.buf = [];
+    Object.freeze(this.m);
   }
 
   // These functions are just proxying the map interface
@@ -184,10 +189,11 @@ export class CopyRollbackMap<K, V> implements IRollbackMap<K, V> {
     return this.m;
   }
   rollback(): void {
-    this.m = this.orig;
+    this.m = new Map(this.orig);
   }
   commit(): void {
     this.orig = this.m;
+    Object.freeze(this.m);
   }
   get(k: K): V | undefined {
     return this.m.get(k);
