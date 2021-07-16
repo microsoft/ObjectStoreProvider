@@ -63,6 +63,7 @@ import {
   remove,
   iterateFromFirst,
 } from "@collectable/red-black-tree";
+import { RollbackMap } from "./RollbackMap";
 export interface StoreData {
   data: Map<string, ItemType>;
   indices: Map<string, InMemoryIndex>;
@@ -200,33 +201,30 @@ class InMemoryTransaction implements DbTransaction {
 }
 
 class InMemoryStore implements DbStore {
-  private _committedStoreData: Map<string, ItemType>;
-  private _mergedData: Map<string, ItemType>;
+  private _data: RollbackMap<string, ItemType>;
   private _storeSchema: StoreSchema;
   private _indices: Map<string, InMemoryIndex>;
   constructor(private _trans: InMemoryTransaction, storeInfo: StoreData) {
     this._storeSchema = storeInfo.schema;
-    this._committedStoreData = new Map(storeInfo.data);
     this._indices = storeInfo.indices;
-    this._mergedData = storeInfo.data;
+    this._data = new RollbackMap(storeInfo.data);
   }
 
   internal_commitPendingData(): void {
-    this._committedStoreData = new Map(this._mergedData);
+    // no need for extra work, simply flush the undo buffer.
+    this._data.flushUndoBuffer();
     // Indices were already updated, theres no need to update them now.
   }
 
   internal_rollbackPendingData(): void {
-    this._mergedData.clear();
-    this._committedStoreData.forEach((val, key) => {
-      this._mergedData.set(key, val);
-    });
+    this._data.rollbackToOriginal();
+
     // Recreate all indexes on a roll back.
     each(this._storeSchema.indexes, (index) => {
       this._indices.set(
         index.name,
         new InMemoryIndex(
-          this._mergedData,
+          this._data.current,
           index,
           this._storeSchema.primaryKeyPath
         )
@@ -242,7 +240,7 @@ class InMemoryStore implements DbStore {
       return Promise.reject(joinedKey);
     }
 
-    return Promise.resolve(this._mergedData.get(joinedKey));
+    return Promise.resolve(this._data.get(joinedKey));
   }
 
   getMultiple(keyOrKeys: KeyType | KeyType[]): Promise<ItemType[]> {
@@ -257,7 +255,7 @@ class InMemoryStore implements DbStore {
     }
 
     return Promise.resolve(
-      compact(map(joinedKeys, (key) => this._mergedData.get(key)))
+      compact(joinedKeys.map((key) => this._data.get(key)))
     );
   }
 
@@ -271,7 +269,7 @@ class InMemoryStore implements DbStore {
           item,
           this._storeSchema.primaryKeyPath
         )!!!;
-        const existingItem = this._mergedData.get(pk);
+        const existingItem = this._data.get(pk);
         if (existingItem) {
           // We're going to overwrite the PK anyways - don't remove PK
           this._removeFromIndices(
@@ -280,7 +278,7 @@ class InMemoryStore implements DbStore {
             /** RemovePrimaryKey */ false
           );
         }
-        this._mergedData.set(pk, item);
+        this._data.set(pk, item);
         (this.openPrimaryKey() as InMemoryIndex).put(item);
         if (this._storeSchema.indexes) {
           for (const index of this._storeSchema.indexes) {
@@ -346,7 +344,7 @@ class InMemoryStore implements DbStore {
       this._indices.set(
         "pk",
         new InMemoryIndex(
-          this._mergedData,
+          this._data.current,
           undefined as any,
           this._storeSchema.primaryKeyPath
         )
@@ -370,7 +368,7 @@ class InMemoryStore implements DbStore {
       this._indices.set(
         indexSchema.name,
         new InMemoryIndex(
-          this._mergedData,
+          this._data.current,
           indexSchema,
           this._storeSchema.primaryKeyPath
         )
@@ -386,12 +384,12 @@ class InMemoryStore implements DbStore {
       return Promise.reject<void>("InMemoryTransaction already closed");
     }
 
-    this._mergedData = new Map();
+    this._data.clear();
     each(this._storeSchema.indexes, (index) => {
       this._indices.set(
         index.name,
         new InMemoryIndex(
-          this._mergedData,
+          this._data.current,
           index,
           this._storeSchema.primaryKeyPath
         )
@@ -406,8 +404,8 @@ class InMemoryStore implements DbStore {
     }
 
     each(keys, (key) => {
-      const existingItem = this._mergedData.get(key);
-      this._mergedData.delete(key);
+      const existingItem = this._data.get(key);
+      this._data.delete(key);
       if (existingItem) {
         this._removeFromIndices(key, existingItem, /* RemovePK */ true);
       }
