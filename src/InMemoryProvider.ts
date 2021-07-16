@@ -184,8 +184,9 @@ class InMemoryTransaction implements DbTransaction {
         "Store not found in transaction-scoped store list: " + storeName
       );
     }
-    if (this._stores.has(storeName)) {
-      return this._stores.get(storeName)!!!;
+    const existingStore = this._stores.get(storeName);
+    if (existingStore !== undefined) {
+      return existingStore;
     }
     const store = this._prov.internal_getStore(storeName);
     if (!store) {
