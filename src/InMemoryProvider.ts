@@ -63,7 +63,7 @@ import {
   remove,
   iterateFromFirst,
 } from "@collectable/red-black-tree";
-import { RollbackMap } from "./RollbackMap";
+import { IRollbackMap, makeRollbackMap } from "./RollbackMap";
 export interface StoreData {
   data: Map<string, ItemType>;
   indices: Map<string, InMemoryIndex>;
@@ -201,23 +201,23 @@ class InMemoryTransaction implements DbTransaction {
 }
 
 class InMemoryStore implements DbStore {
-  private _data: RollbackMap<string, ItemType>;
+  private _data: IRollbackMap<string, ItemType>;
   private _storeSchema: StoreSchema;
   private _indices: Map<string, InMemoryIndex>;
   constructor(private _trans: InMemoryTransaction, storeInfo: StoreData) {
     this._storeSchema = storeInfo.schema;
     this._indices = storeInfo.indices;
-    this._data = new RollbackMap(storeInfo.data);
+    this._data = makeRollbackMap(storeInfo.data);
   }
 
   internal_commitPendingData(): void {
     // no need for extra work, simply flush the undo buffer.
-    this._data.flushUndoBuffer();
+    this._data.commit();
     // Indices were already updated, theres no need to update them now.
   }
 
   internal_rollbackPendingData(): void {
-    this._data.rollbackToOriginal();
+    this._data.rollback();
 
     // Recreate all indexes on a roll back.
     each(this._storeSchema.indexes, (index) => {
