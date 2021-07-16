@@ -11,24 +11,24 @@ const op = {
 
 type OP = typeof op[keyof typeof op];
 
-export class RollbackMap<T, U> {
-  private m: Map<T, U>;
-  private buf: [OP, T, U][] = [];
+export class RollbackMap<K, V> {
+  private m: Map<K, V>;
+  private buf: [OP, K, V][] = [];
 
-  constructor(m_: Map<T, U>) {
+  constructor(m_: Map<K, V>) {
     this.m = m_;
   }
 
   // These mutating functions have to have additional work
 
-  set(k: T, v: U): Map<T, U> {
+  set(k: K, v: V): Map<K, V> {
     this.buf.push([op.set, k, v]);
     return this.m.set(k, v);
   }
 
-  delete(k: T): boolean {
+  delete(k: K): boolean {
     const v = this.m.get(k);
-    if (!v) {
+    if (v === undefined) {
       return false;
     }
     this.buf.push([op.remove, k, v]);
@@ -42,7 +42,7 @@ export class RollbackMap<T, U> {
 
   // special functions unique to this class
 
-  get current(): Map<T, U> {
+  get current(): Map<K, V> {
     return this.m;
   }
 
@@ -69,11 +69,11 @@ export class RollbackMap<T, U> {
 
   // These functions are just proxying the map interface
 
-  get(k: T): U | undefined {
+  get(k: K): V | undefined {
     return this.m.get(k);
   }
 
-  has(k: T): boolean {
+  has(k: K): boolean {
     return this.m.has(k);
   }
 
@@ -90,7 +90,7 @@ export class RollbackMap<T, U> {
   }
 
   forEach(
-    callbackfn: (value: U, key: T, map: Map<T, U>) => void,
+    callbackfn: (value: V, key: K, map: Map<K, V>) => void,
     thisArg?: any
   ) {
     return this.m.forEach(callbackfn, thisArg);
