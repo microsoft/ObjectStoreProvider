@@ -1409,7 +1409,7 @@ describe("ObjectStoreProvider", function () {
                 .then(() => prov.getOnly("test", "index", "b"))
                 // non-unique index should have two items: a and c primary keys
                 .then((retVal) => assert.equal((retVal as TestObj[]).length, 2))
-                // add another item with the same pk as the first one, 
+                // add another item with the same pk as the first one,
                 // it should overwrite the "a" item, but also keep the "c" item in the index
                 .then(() => (objToPut = { id: "a", val: "b" }))
                 .then(() => prov.put("test", objToPut))
