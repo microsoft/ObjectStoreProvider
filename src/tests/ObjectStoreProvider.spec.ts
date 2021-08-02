@@ -1375,6 +1375,54 @@ describe("ObjectStoreProvider", function () {
             .catch((e) => done(e));
         });
 
+        it("Putting the same secondary non-unique key should overwrite", (done) => {
+          let objToPut = { id: "a", val: "b" };
+          openProvider(
+            provName,
+            {
+              version: 1,
+              stores: [
+                {
+                  name: "test",
+                  primaryKeyPath: "id",
+                  indexes: [
+                    {
+                      name: "index",
+                      keyPath: "val",
+                      unique: false,
+                      includeDataInIndex: true,
+                    },
+                  ],
+                },
+              ],
+            },
+            true
+          )
+            .then((prov) =>
+              prov
+                .put("test", objToPut)
+                // add another item with the same index value
+                .then(() => (objToPut = { id: "c", val: "b" }))
+                .then(() => prov.put("test", objToPut))
+                .then(() => prov.get("test", "a"))
+                .then((retVal) => assert.equal((retVal as TestObj).val, "b"))
+                .then(() => prov.getOnly("test", "index", "b"))
+                // non-unique index should have two items: a and c primary keys
+                .then((retVal) => assert.equal((retVal as TestObj[]).length, 2))
+                // add another item with the same pk as the first one, 
+                // it should overwrite the "a" item, but also keep the "c" item in the index
+                .then(() => (objToPut = { id: "a", val: "b" }))
+                .then(() => prov.put("test", objToPut))
+                .then(() => prov.getOnly("test", "index", "b"))
+                // non-unique index should still have two items
+                .then((retVal) => assert.equal((retVal as TestObj[]).length, 2))
+                .then(() => prov.close())
+                .catch((e) => prov.close().then(() => Promise.reject(e)))
+                .then(() => done())
+            )
+            .catch((e) => done(e));
+        });
+
         it("Empty gets/puts", (done) => {
           openProvider(
             provName,

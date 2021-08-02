@@ -428,10 +428,20 @@ class InMemoryStore implements DbStore {
       (this.openPrimaryKey() as InMemoryIndex).remove(key);
     }
 
-    each(this._storeSchema.indexes, (index) => {
+    each(this._storeSchema.indexes, (index: IndexSchema) => {
       const ind = this.openIndex(index.name) as InMemoryIndex;
-      const keys = ind.internal_getKeysFromItem(item);
-      each(keys, (key) => ind.remove(key));
+      const indexKeys = ind.internal_getKeysFromItem(item);
+
+      // when it's a unique index, value is the item.
+      // in case of a non-unique index, value is an array of items,
+      // and we want to only remove items that have the same primary key
+      if (ind.isUniqueIndex()) {
+        each(indexKeys, (indexKey: string) => ind.remove(indexKey));
+      } else {
+        each(indexKeys, (idxKey: string) =>
+          ind.remove({ idxKey, primaryKey: key })
+        );
+      }
     });
   }
 }
@@ -529,11 +539,39 @@ class InMemoryIndex extends DbIndexFTSFromRangeQueries {
     return Promise.resolve(compact(flatten(values)));
   }
 
-  public remove(key: string, skipTransactionOnCreation?: boolean) {
+  public remove(
+    key: string | { primaryKey: string; idxKey: string },
+    skipTransactionOnCreation?: boolean
+  ) {
     if (!skipTransactionOnCreation && !this._trans!.internal_isOpen()) {
       throw new Error("InMemoryTransaction already closed");
     }
-    remove(key, this._rbIndex);
+
+    if (typeof key === "string") {
+      remove(key, this._rbIndex);
+    } else {
+      const idxItems = get(key.idxKey, this._rbIndex);
+      if (!idxItems) {
+        return;
+      }
+
+      const idxItemsWithoutItem = idxItems.filter((idxItem) => {
+        const idxItemPrimaryKeyVal = getSerializedKeyForKeypath(
+          idxItem,
+          this._primaryKeyPath
+        )!!!;
+        return idxItemPrimaryKeyVal !== key.primaryKey;
+      });
+
+      // removed all items? remove the index tree node
+      // otherwise, update the index value with the new array
+      // sans the primary key item
+      if (idxItemsWithoutItem?.length === 0) {
+        remove(key.idxKey, this._rbIndex);
+      } else {
+        set<string, ItemType[]>(key.idxKey, idxItemsWithoutItem, this._rbIndex);
+      }
+    }
   }
 
   getAll(
