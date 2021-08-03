@@ -669,7 +669,7 @@ class InMemoryIndex extends DbIndexFTSFromRangeQueries {
         }
 
         const values = this._getKeyValues(
-          item.key,
+          item[0],
           definedLimit - i,
           (item.value?.length || 0) - count,
           reverse
