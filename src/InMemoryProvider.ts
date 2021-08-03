@@ -51,18 +51,9 @@ import {
   TransactionToken,
   TransactionLockHelper,
 } from "./TransactionLockHelper";
-import {
-  empty,
-  RedBlackTreeStructure,
-  set,
-  iterateFromIndex,
-  iterateKeysFromFirst,
-  get,
-  iterateKeysFromLast,
-  has,
-  remove,
-  iterateFromFirst,
-} from "@collectable/red-black-tree";
+
+import BTree from "sorted-btree";
+
 export interface StoreData {
   data: Map<string, ItemType>;
   indices: Map<string, InMemoryIndex>;
@@ -448,7 +439,7 @@ class InMemoryStore implements DbStore {
 
 // Note: Currently maintains nothing interesting -- rebuilds the results every time from scratch.  Scales like crap.
 class InMemoryIndex extends DbIndexFTSFromRangeQueries {
-  private _rbIndex: RedBlackTreeStructure<string, ItemType[]>;
+  private _bTreeIndex: BTree<string, ItemType[]>;
   private _trans?: InMemoryTransaction;
   constructor(
     _mergedData: Map<string, ItemType>,
@@ -456,10 +447,7 @@ class InMemoryIndex extends DbIndexFTSFromRangeQueries {
     primaryKeyPath: KeyPathType
   ) {
     super(indexSchema, primaryKeyPath);
-    this._rbIndex = empty<string, ItemType[]>(
-      (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0),
-      true
-    );
+    this._bTreeIndex = new BTree();
     this.put(values(_mergedData), true);
   }
 
@@ -504,12 +492,12 @@ class InMemoryIndex extends DbIndexFTSFromRangeQueries {
 
       each(keys, (key) => {
         // For non-unique indexes we want to overwrite
-        if (!this.isUniqueIndex() && has(key, this._rbIndex)) {
-          const existingItems = get(key, this._rbIndex)!!! as ItemType[];
+        if (!this.isUniqueIndex() && this._bTreeIndex.has(key)) {
+          const existingItems = this._bTreeIndex.get(key)!!! as ItemType[];
           existingItems.push(item);
-          set<string, ItemType[]>(key, existingItems, this._rbIndex);
+          this._bTreeIndex.set(key, existingItems);
         } else {
-          set(key, [item], this._rbIndex);
+          this._bTreeIndex.set(key, [item]);
         }
       });
     });
@@ -534,7 +522,7 @@ class InMemoryIndex extends DbIndexFTSFromRangeQueries {
 
     let values = [] as ItemType[];
     for (const key of joinedKeys) {
-      values.push(get(key, this._rbIndex) as ItemType[]);
+      values.push(this._bTreeIndex.get(key) as ItemType[]);
     }
     return Promise.resolve(compact(flatten(values)));
   }
@@ -548,9 +536,9 @@ class InMemoryIndex extends DbIndexFTSFromRangeQueries {
     }
 
     if (typeof key === "string") {
-      remove(key, this._rbIndex);
+      this._bTreeIndex.delete(key);
     } else {
-      const idxItems = get(key.idxKey, this._rbIndex);
+      const idxItems = this._bTreeIndex.get(key.idxKey);
       if (!idxItems) {
         return;
       }
@@ -567,9 +555,9 @@ class InMemoryIndex extends DbIndexFTSFromRangeQueries {
       // otherwise, update the index value with the new array
       // sans the primary key item
       if (idxItemsWithoutItem?.length === 0) {
-        remove(key.idxKey, this._rbIndex);
+        this._bTreeIndex.delete(key.idxKey);
       } else {
-        set<string, ItemType[]>(key.idxKey, idxItemsWithoutItem, this._rbIndex);
+        this._bTreeIndex.set(key.idxKey, idxItemsWithoutItem);
       }
     }
   }
@@ -582,7 +570,7 @@ class InMemoryIndex extends DbIndexFTSFromRangeQueries {
     const definedLimit = limit
       ? limit
       : this.isUniqueIndex()
-      ? this._rbIndex._size
+      ? this._bTreeIndex._size
       : MAX_COUNT;
     let definedOffset = offset ? offset : 0;
     const data = new Array<ItemType>(definedLimit);
@@ -590,16 +578,19 @@ class InMemoryIndex extends DbIndexFTSFromRangeQueries {
       reverseOrSortOrder === true ||
       reverseOrSortOrder === QuerySortOrder.Reverse;
     // when index is not unique, we cannot use offset as a starting index
-    const iterator = iterateFromIndex(
-      reverse,
-      this.isUniqueIndex() ? definedOffset : 0,
-      this._rbIndex
-    );
+    let skip = this.isUniqueIndex() ? definedOffset : 0;
+    const iterator = reverse
+      ? this._bTreeIndex.entriesReversed()
+      : this._bTreeIndex.entries();
     let i = 0;
     for (const item of iterator) {
+      if (skip > 0) {
+        skip--;
+        continue;
+      }
       // when index is not unique, each node may contain multiple items
       if (!this.isUniqueIndex()) {
-        let count = item.value.length;
+        let count = item[1].length;
         const minOffsetCount = Math.min(count, definedOffset);
         count -= minOffsetCount;
         definedOffset -= minOffsetCount;
@@ -609,9 +600,9 @@ class InMemoryIndex extends DbIndexFTSFromRangeQueries {
         }
 
         const values = this._getKeyValues(
-          item.key,
+          item[0],
           definedLimit - i,
-          item.value.length - count,
+          item[1].length - count,
           reverse
         );
 
@@ -621,7 +612,7 @@ class InMemoryIndex extends DbIndexFTSFromRangeQueries {
 
         i += values.length;
       } else {
-        data[i] = item.value[0];
+        data[i] = item[1][0];
         i++;
       }
 
@@ -671,16 +662,17 @@ class InMemoryIndex extends DbIndexFTSFromRangeQueries {
       limit = limit
         ? limit
         : this.isUniqueIndex()
-        ? this._rbIndex._size
+        ? this._bTreeIndex._size
         : MAX_COUNT;
       offset = offset ? offset : 0;
       const keyLow = serializeKeyToString(keyLowRange, this._keyPath);
       const keyHigh = serializeKeyToString(keyHighRange, this._keyPath);
       const iterator = reverse
-        ? iterateKeysFromLast(this._rbIndex)
-        : iterateKeysFromFirst(this._rbIndex);
+        ? this._bTreeIndex.entriesReversed()
+        : this._bTreeIndex.entries();
       let values = [] as ItemType[];
-      for (const key of iterator) {
+      for (const entry of iterator) {
+        const key = entry[0];
         if (
           (key > keyLow || (key === keyLow && !lowRangeExclusive)) &&
           (key < keyHigh || (key === keyHigh && !highRangeExclusive))
@@ -690,7 +682,7 @@ class InMemoryIndex extends DbIndexFTSFromRangeQueries {
               offset--;
               continue;
             } else {
-              const idxValues = get(key, this._rbIndex) as ItemType[];
+              const idxValues = this._bTreeIndex.get(key) as ItemType[];
               offset -= idxValues.length;
               // if offset >= 0, we skipped just enough, or we still need to skip more
               // if offset < 0, we need to get some of the values from the index
@@ -704,7 +696,7 @@ class InMemoryIndex extends DbIndexFTSFromRangeQueries {
           }
 
           if (this.isUniqueIndex()) {
-            values = values.concat(get(key, this._rbIndex) as ItemType[]);
+            values = values.concat(this._bTreeIndex.get(key) as ItemType[]);
           } else {
             values = values.concat(
               this._getKeyValues(
@@ -767,7 +759,7 @@ class InMemoryIndex extends DbIndexFTSFromRangeQueries {
     if (limit <= 0) {
       return [];
     }
-    const idxValues = get(key, this._rbIndex) as ItemType[];
+    const idxValues = this._bTreeIndex.get(key) as ItemType[];
 
     // get may return undefined, if the key is not found
     if (!idxValues) {
@@ -801,9 +793,10 @@ class InMemoryIndex extends DbIndexFTSFromRangeQueries {
   ): string[] {
     const keyLow = serializeKeyToString(keyLowRange, this._keyPath);
     const keyHigh = serializeKeyToString(keyHighRange, this._keyPath);
-    const iterator = iterateKeysFromFirst(this._rbIndex);
+    const iterator = this._bTreeIndex.entries();
     const keys = [];
-    for (const key of iterator) {
+    for (const entry of iterator) {
+      const key = entry[0];
       if (
         (key > keyLow || (key === keyLow && !lowRangeExclusive)) &&
         (key < keyHigh || (key === keyHigh && !highRangeExclusive))
@@ -823,17 +816,17 @@ class InMemoryIndex extends DbIndexFTSFromRangeQueries {
   ): number {
     const keyLow = serializeKeyToString(keyLowRange, this._keyPath);
     const keyHigh = serializeKeyToString(keyHighRange, this._keyPath);
-    const iterator = iterateFromFirst(this._rbIndex);
+    const iterator = this._bTreeIndex.entries();
     let keyCount = 0;
     for (const item of iterator) {
       if (
-        (item.key > keyLow || (item.key === keyLow && !lowRangeExclusive)) &&
-        (item.key < keyHigh || (item.key === keyHigh && !highRangeExclusive))
+        (item[0] > keyLow || (item[0] === keyLow && !lowRangeExclusive)) &&
+        (item[0] < keyHigh || (item[0] === keyHigh && !highRangeExclusive))
       ) {
         if (this.isUniqueIndex()) {
           keyCount++;
         } else {
-          keyCount += item.value.length;
+          keyCount += item[1].length;
         }
       }
     }
@@ -842,13 +835,13 @@ class InMemoryIndex extends DbIndexFTSFromRangeQueries {
 
   countAll(): Promise<number> {
     if (this.isUniqueIndex()) {
-      return Promise.resolve(this._rbIndex._size);
+      return Promise.resolve(this._bTreeIndex._size);
     } else {
       const keyCount = attempt(() => {
-        const iterator = iterateFromFirst(this._rbIndex);
+        const iterator = this._bTreeIndex.entries();
         let keyCount = 0;
         for (const item of iterator) {
-          keyCount += item.value.length;
+          keyCount += item[1].length;
         }
         return keyCount;
       });
