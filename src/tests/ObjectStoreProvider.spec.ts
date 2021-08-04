@@ -28,8 +28,10 @@ function openProvider(
   handleOnClose?: OnCloseHandler
 ) {
   let provider: DbProvider;
-  if (providerName === "memory") {
-    provider = new InMemoryProvider();
+  if (providerName === "memory-rbtree") {
+    provider = new InMemoryProvider("red-black-tree");
+  } else if (providerName === "memory-btree") {
+    provider = new InMemoryProvider("b+tree");
   } else if (providerName === "indexeddb") {
     provider = new IndexedDbProvider();
   } else if (providerName === "indexeddbfakekeys") {
@@ -55,7 +57,7 @@ describe("ObjectStoreProvider", function () {
   this.timeout(5 * 60 * 1000);
 
   let provsToTest: string[];
-  provsToTest = ["memory"];
+  provsToTest = ["memory-rbtree", "memory-btree"];
   provsToTest.push("indexeddb", "indexeddbfakekeys", "indexeddbonclose");
 
   it("Number/value/type sorting", () => {
