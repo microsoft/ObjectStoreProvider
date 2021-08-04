@@ -18,7 +18,6 @@ export interface IOrderedMap<K, V> {
    * @param overwrite Whether to overwrite an existing key-value pair
    *        (default: true). If this is false and there is an existing
    *        key-value pair then this method has no effect.
-   * @returns true if a new key-value pair was added.
    * @description Computational complexity: O(log size)
    * Note: when overwriting a previous entry, the key is updated
    * as well as the value. This has no effect unless the new key
@@ -36,7 +35,6 @@ export interface IOrderedMap<K, V> {
   /**
    * Removes a single key-value pair from the B+ tree.
    * @param key Key to find
-   * @returns true if a pair was found and removed, false otherwise.
    * @description Computational complexity: O(log size)
    */
   delete(key: K): void;
@@ -45,25 +43,16 @@ export interface IOrderedMap<K, V> {
    *  @param lowestKey First key to be iterated, or undefined to start at
    *         minKey(). If the specified key doesn't exist then iteration
    *         starts at the next higher key (according to the comparator).
-   *  @param reusedArray Optional array used repeatedly to store key-value
-   *         pairs, to avoid creating a new array on every iteration.
    */
   entries(
-    lowestKey?: K,
-    reusedArray?: (K | V)[]
+    lowestKey?: K
   ): IterableIterator<IKeyValuePair<K, V>>;
   /** Returns an iterator that provides items in reversed order.
    *  @param highestKey Key at which to start iterating, or undefined to
    *         start at maxKey(). If the specified key doesn't exist then iteration
    *         starts at the next lower key (according to the comparator).
-   *  @param reusedArray Optional array used repeatedly to store key-value
-   *         pairs, to avoid creating a new array on every iteration.
-   *  @param skipHighest Iff this flag is true and the highestKey exists in the
-   *         collection, the pair matching highestKey is skipped, not iterated.
    */
   entriesReversed(
-    highestKey?: K,
-    reusedArray?: (K | V)[],
-    skipHighest?: boolean
+    highestKey?: K
   ): IterableIterator<IKeyValuePair<K, V>>;
 }
