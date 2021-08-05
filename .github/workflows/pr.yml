@@ -59,7 +59,7 @@ jobs:
         uses: "phips28/gh-action-bump-version@master"
         if: ${{ steps.actions_project_version_check.outputs.semver == 'no-update' }}
         with:
-          tag-prefix: "v"
+          skip-tag: "true"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
