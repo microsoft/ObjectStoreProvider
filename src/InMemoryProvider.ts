@@ -542,6 +542,12 @@ class InMemoryIndex extends DbIndexFTSFromRangeQueries {
     return Promise.resolve(compact(flatten(values)));
   }
 
+  /**
+   * Removes item from index. For non-unique indices, a pair of index value and a primary key is required.
+   * @param key a string, if it's a unique index, a pair of key value and a primary key, if it's a non-unique index
+   * @param skipTransactionOnCreation
+   * @returns
+   */
   public remove(
     key: string | { primaryKey: string; idxKey: string },
     skipTransactionOnCreation?: boolean
@@ -566,10 +572,10 @@ class InMemoryIndex extends DbIndexFTSFromRangeQueries {
         return idxItemPrimaryKeyVal !== key.primaryKey;
       });
 
-      // removed all items? remove the index tree node
+      // if we removed all items, remove the index tree node.
       // otherwise, update the index value with the new array
       // sans the primary key item
-      if (idxItemsWithoutItem?.length === 0) {
+      if (idxItemsWithoutItem.length === 0) {
         this._indexTree.delete(key.idxKey);
       } else {
         this._indexTree.set(key.idxKey, idxItemsWithoutItem);
@@ -603,6 +609,7 @@ class InMemoryIndex extends DbIndexFTSFromRangeQueries {
         continue;
       }
 
+      // a hack to account for offset that b+tree library lacks
       if (skip > 0) {
         skip--;
         continue;
