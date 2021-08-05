@@ -44,15 +44,11 @@ export interface IOrderedMap<K, V> {
    *         minKey(). If the specified key doesn't exist then iteration
    *         starts at the next higher key (according to the comparator).
    */
-  entries(
-    lowestKey?: K
-  ): IterableIterator<IKeyValuePair<K, V>>;
+  entries(lowestKey?: K): IterableIterator<IKeyValuePair<K, V>>;
   /** Returns an iterator that provides items in reversed order.
    *  @param highestKey Key at which to start iterating, or undefined to
    *         start at maxKey(). If the specified key doesn't exist then iteration
    *         starts at the next lower key (according to the comparator).
    */
-  entriesReversed(
-    highestKey?: K
-  ): IterableIterator<IKeyValuePair<K, V>>;
+  entriesReversed(highestKey?: K): IterableIterator<IKeyValuePair<K, V>>;
 }
