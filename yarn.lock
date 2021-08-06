@@ -3076,6 +3076,11 @@ socket.io@^3.1.0:
     socket.io-adapter "~2.1.0"
     socket.io-parser "~4.0.3"
 
+sorted-btree@^1.5.0:
+  version "1.5.0"
+  resolved "https://registry.yarnpkg.com/sorted-btree/-/sorted-btree-1.5.0.tgz#57b621c10e124c34122c6c156becda0e4731b19f"
+  integrity sha512-1KzY80r3VpwGLGN/9oWjReUml3czxKfLz4iMV8Ro9KAHCg9xt0HwTkcb20JR+sHCiR5WUJ6uMAbe/HB3gy1qYA==
+
 source-list-map@^2.0.1:
   version "2.0.1"
   resolved "https://registry.yarnpkg.com/source-list-map/-/source-list-map-2.0.1.tgz#3993bd873bfc48479cca9ea3a547835c7c154b34"

@@ -51,22 +51,14 @@ import {
   TransactionToken,
   TransactionLockHelper,
 } from "./TransactionLockHelper";
-import {
-  empty,
-  RedBlackTreeStructure,
-  set,
-  iterateFromIndex,
-  iterateKeysFromFirst,
-  get,
-  iterateKeysFromLast,
-  has,
-  remove,
-  iterateFromFirst,
-} from "@collectable/red-black-tree";
+
+import { createOrderedMap, IOrderedMap, OrderedMapType } from "./ordered-map";
+
 export interface StoreData {
   data: Map<string, ItemType>;
   indices: Map<string, InMemoryIndex>;
   schema: StoreSchema;
+  mapType?: OrderedMapType;
 }
 
 // Very simple in-memory dbprov ider for handling IE inprivate windows (and unit tests, maybe?)
@@ -74,6 +66,12 @@ export class InMemoryProvider extends DbProvider {
   private _stores: Map<string, StoreData> = new Map();
 
   private _lockHelper: TransactionLockHelper | undefined;
+  private readonly _mapType?: OrderedMapType;
+
+  constructor(mapType?: OrderedMapType) {
+    super();
+    this._mapType = mapType;
+  }
 
   open(
     dbName: string,
@@ -88,6 +86,7 @@ export class InMemoryProvider extends DbProvider {
         schema: storeSchema,
         data: new Map(),
         indices: new Map(),
+        mapType: this._mapType,
       });
     });
 
@@ -204,11 +203,13 @@ class InMemoryStore implements DbStore {
   private _mergedData: Map<string, ItemType>;
   private _storeSchema: StoreSchema;
   private _indices: Map<string, InMemoryIndex>;
+  private _mapType?: OrderedMapType;
   constructor(private _trans: InMemoryTransaction, storeInfo: StoreData) {
     this._storeSchema = storeInfo.schema;
     this._committedStoreData = new Map(storeInfo.data);
     this._indices = storeInfo.indices;
     this._mergedData = storeInfo.data;
+    this._mapType = storeInfo.mapType;
   }
 
   internal_commitPendingData(): void {
@@ -228,7 +229,8 @@ class InMemoryStore implements DbStore {
         new InMemoryIndex(
           this._mergedData,
           index,
-          this._storeSchema.primaryKeyPath
+          this._storeSchema.primaryKeyPath,
+          this._mapType
         )
       );
     });
@@ -348,7 +350,8 @@ class InMemoryStore implements DbStore {
         new InMemoryIndex(
           this._mergedData,
           undefined as any,
-          this._storeSchema.primaryKeyPath
+          this._storeSchema.primaryKeyPath,
+          this._mapType
         )
       );
     }
@@ -372,7 +375,8 @@ class InMemoryStore implements DbStore {
         new InMemoryIndex(
           this._mergedData,
           indexSchema,
-          this._storeSchema.primaryKeyPath
+          this._storeSchema.primaryKeyPath,
+          this._mapType
         )
       );
     }
@@ -393,7 +397,8 @@ class InMemoryStore implements DbStore {
         new InMemoryIndex(
           this._mergedData,
           index,
-          this._storeSchema.primaryKeyPath
+          this._storeSchema.primaryKeyPath,
+          this._mapType
         )
       );
     });
@@ -428,28 +433,36 @@ class InMemoryStore implements DbStore {
       (this.openPrimaryKey() as InMemoryIndex).remove(key);
     }
 
-    each(this._storeSchema.indexes, (index) => {
+    each(this._storeSchema.indexes, (index: IndexSchema) => {
       const ind = this.openIndex(index.name) as InMemoryIndex;
-      const keys = ind.internal_getKeysFromItem(item);
-      each(keys, (key) => ind.remove(key));
+      const indexKeys = ind.internal_getKeysFromItem(item);
+
+      // when it's a unique index, value is the item.
+      // in case of a non-unique index, value is an array of items,
+      // and we want to only remove items that have the same primary key
+      if (ind.isUniqueIndex()) {
+        each(indexKeys, (indexKey: string) => ind.remove(indexKey));
+      } else {
+        each(indexKeys, (idxKey: string) =>
+          ind.remove({ idxKey, primaryKey: key })
+        );
+      }
     });
   }
 }
 
 // Note: Currently maintains nothing interesting -- rebuilds the results every time from scratch.  Scales like crap.
 class InMemoryIndex extends DbIndexFTSFromRangeQueries {
-  private _rbIndex: RedBlackTreeStructure<string, ItemType[]>;
+  private _indexTree: IOrderedMap<string, ItemType[]>;
   private _trans?: InMemoryTransaction;
   constructor(
     _mergedData: Map<string, ItemType>,
     indexSchema: IndexSchema,
-    primaryKeyPath: KeyPathType
+    primaryKeyPath: KeyPathType,
+    mapType?: OrderedMapType
   ) {
     super(indexSchema, primaryKeyPath);
-    this._rbIndex = empty<string, ItemType[]>(
-      (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0),
-      true
-    );
+    this._indexTree = createOrderedMap(mapType);
     this.put(values(_mergedData), true);
   }
 
@@ -494,12 +507,12 @@ class InMemoryIndex extends DbIndexFTSFromRangeQueries {
 
       each(keys, (key) => {
         // For non-unique indexes we want to overwrite
-        if (!this.isUniqueIndex() && has(key, this._rbIndex)) {
-          const existingItems = get(key, this._rbIndex)!!! as ItemType[];
+        if (!this.isUniqueIndex() && this._indexTree.has(key)) {
+          const existingItems = this._indexTree.get(key)!!! as ItemType[];
           existingItems.push(item);
-          set<string, ItemType[]>(key, existingItems, this._rbIndex);
+          this._indexTree.set(key, existingItems);
         } else {
-          set(key, [item], this._rbIndex);
+          this._indexTree.set(key, [item]);
         }
       });
     });
@@ -524,16 +537,50 @@ class InMemoryIndex extends DbIndexFTSFromRangeQueries {
 
     let values = [] as ItemType[];
     for (const key of joinedKeys) {
-      values.push(get(key, this._rbIndex) as ItemType[]);
+      values.push(this._indexTree.get(key) as ItemType[]);
     }
     return Promise.resolve(compact(flatten(values)));
   }
 
-  public remove(key: string, skipTransactionOnCreation?: boolean) {
+  /**
+   * Removes item from index. For non-unique indices, a pair of index value and a primary key is required.
+   * @param key a string, if it's a unique index, a pair of key value and a primary key, if it's a non-unique index
+   * @param skipTransactionOnCreation
+   * @returns
+   */
+  public remove(
+    key: string | { primaryKey: string; idxKey: string },
+    skipTransactionOnCreation?: boolean
+  ) {
     if (!skipTransactionOnCreation && !this._trans!.internal_isOpen()) {
       throw new Error("InMemoryTransaction already closed");
     }
-    remove(key, this._rbIndex);
+
+    if (typeof key === "string") {
+      this._indexTree.delete(key);
+    } else {
+      const idxItems = this._indexTree.get(key.idxKey);
+      if (!idxItems) {
+        return;
+      }
+
+      const idxItemsWithoutItem = idxItems.filter((idxItem) => {
+        const idxItemPrimaryKeyVal = getSerializedKeyForKeypath(
+          idxItem,
+          this._primaryKeyPath
+        )!!!;
+        return idxItemPrimaryKeyVal !== key.primaryKey;
+      });
+
+      // if we removed all items, remove the index tree node.
+      // otherwise, update the index value with the new array
+      // sans the primary key item
+      if (idxItemsWithoutItem.length === 0) {
+        this._indexTree.delete(key.idxKey);
+      } else {
+        this._indexTree.set(key.idxKey, idxItemsWithoutItem);
+      }
+    }
   }
 
   getAll(
@@ -544,7 +591,7 @@ class InMemoryIndex extends DbIndexFTSFromRangeQueries {
     const definedLimit = limit
       ? limit
       : this.isUniqueIndex()
-      ? this._rbIndex._size
+      ? this._indexTree.size
       : MAX_COUNT;
     let definedOffset = offset ? offset : 0;
     const data = new Array<ItemType>(definedLimit);
@@ -552,16 +599,24 @@ class InMemoryIndex extends DbIndexFTSFromRangeQueries {
       reverseOrSortOrder === true ||
       reverseOrSortOrder === QuerySortOrder.Reverse;
     // when index is not unique, we cannot use offset as a starting index
-    const iterator = iterateFromIndex(
-      reverse,
-      this.isUniqueIndex() ? definedOffset : 0,
-      this._rbIndex
-    );
+    let skip = this.isUniqueIndex() ? definedOffset : 0;
+    const iterator = reverse
+      ? this._indexTree.entriesReversed()
+      : this._indexTree.entries();
     let i = 0;
     for (const item of iterator) {
+      if (item.key === undefined) {
+        continue;
+      }
+
+      // a hack to account for offset that b+tree library lacks
+      if (skip > 0) {
+        skip--;
+        continue;
+      }
       // when index is not unique, each node may contain multiple items
       if (!this.isUniqueIndex()) {
-        let count = item.value.length;
+        let count = item.value?.length || 0;
         const minOffsetCount = Math.min(count, definedOffset);
         count -= minOffsetCount;
         definedOffset -= minOffsetCount;
@@ -573,7 +628,7 @@ class InMemoryIndex extends DbIndexFTSFromRangeQueries {
         const values = this._getKeyValues(
           item.key,
           definedLimit - i,
-          item.value.length - count,
+          (item.value?.length || 0) - count,
           reverse
         );
 
@@ -583,7 +638,8 @@ class InMemoryIndex extends DbIndexFTSFromRangeQueries {
 
         i += values.length;
       } else {
-        data[i] = item.value[0];
+        // in case of non-unique index, value will be an array of one element
+        data[i] = item.value?.[0] as Object;
         i++;
       }
 
@@ -633,16 +689,20 @@ class InMemoryIndex extends DbIndexFTSFromRangeQueries {
       limit = limit
         ? limit
         : this.isUniqueIndex()
-        ? this._rbIndex._size
+        ? this._indexTree.size
         : MAX_COUNT;
       offset = offset ? offset : 0;
       const keyLow = serializeKeyToString(keyLowRange, this._keyPath);
       const keyHigh = serializeKeyToString(keyHighRange, this._keyPath);
       const iterator = reverse
-        ? iterateKeysFromLast(this._rbIndex)
-        : iterateKeysFromFirst(this._rbIndex);
+        ? this._indexTree.entriesReversed()
+        : this._indexTree.entries();
       let values = [] as ItemType[];
-      for (const key of iterator) {
+      for (const entry of iterator) {
+        const key = entry.key;
+        if (key === undefined) {
+          continue;
+        }
         if (
           (key > keyLow || (key === keyLow && !lowRangeExclusive)) &&
           (key < keyHigh || (key === keyHigh && !highRangeExclusive))
@@ -652,7 +712,7 @@ class InMemoryIndex extends DbIndexFTSFromRangeQueries {
               offset--;
               continue;
             } else {
-              const idxValues = get(key, this._rbIndex) as ItemType[];
+              const idxValues = this._indexTree.get(key) as ItemType[];
               offset -= idxValues.length;
               // if offset >= 0, we skipped just enough, or we still need to skip more
               // if offset < 0, we need to get some of the values from the index
@@ -666,7 +726,7 @@ class InMemoryIndex extends DbIndexFTSFromRangeQueries {
           }
 
           if (this.isUniqueIndex()) {
-            values = values.concat(get(key, this._rbIndex) as ItemType[]);
+            values = values.concat(this._indexTree.get(key) as ItemType[]);
           } else {
             values = values.concat(
               this._getKeyValues(
@@ -729,7 +789,7 @@ class InMemoryIndex extends DbIndexFTSFromRangeQueries {
     if (limit <= 0) {
       return [];
     }
-    const idxValues = get(key, this._rbIndex) as ItemType[];
+    const idxValues = this._indexTree.get(key) as ItemType[];
 
     // get may return undefined, if the key is not found
     if (!idxValues) {
@@ -763,9 +823,14 @@ class InMemoryIndex extends DbIndexFTSFromRangeQueries {
   ): string[] {
     const keyLow = serializeKeyToString(keyLowRange, this._keyPath);
     const keyHigh = serializeKeyToString(keyHighRange, this._keyPath);
-    const iterator = iterateKeysFromFirst(this._rbIndex);
+    const iterator = this._indexTree.entries();
     const keys = [];
-    for (const key of iterator) {
+    for (const entry of iterator) {
+      const key = entry.key;
+      if (key === undefined) {
+        continue;
+      }
+
       if (
         (key > keyLow || (key === keyLow && !lowRangeExclusive)) &&
         (key < keyHigh || (key === keyHigh && !highRangeExclusive))
@@ -785,17 +850,22 @@ class InMemoryIndex extends DbIndexFTSFromRangeQueries {
   ): number {
     const keyLow = serializeKeyToString(keyLowRange, this._keyPath);
     const keyHigh = serializeKeyToString(keyHighRange, this._keyPath);
-    const iterator = iterateFromFirst(this._rbIndex);
+    const iterator = this._indexTree.entries();
     let keyCount = 0;
     for (const item of iterator) {
+      const key = item.key;
+      if (key === undefined) {
+        continue;
+      }
+
       if (
-        (item.key > keyLow || (item.key === keyLow && !lowRangeExclusive)) &&
-        (item.key < keyHigh || (item.key === keyHigh && !highRangeExclusive))
+        (key > keyLow || (key === keyLow && !lowRangeExclusive)) &&
+        (key < keyHigh || (key === keyHigh && !highRangeExclusive))
       ) {
         if (this.isUniqueIndex()) {
           keyCount++;
         } else {
-          keyCount += item.value.length;
+          keyCount += item.value?.length || 0;
         }
       }
     }
@@ -804,13 +874,13 @@ class InMemoryIndex extends DbIndexFTSFromRangeQueries {
 
   countAll(): Promise<number> {
     if (this.isUniqueIndex()) {
-      return Promise.resolve(this._rbIndex._size);
+      return Promise.resolve(this._indexTree.size);
     } else {
       const keyCount = attempt(() => {
-        const iterator = iterateFromFirst(this._rbIndex);
+        const iterator = this._indexTree.entries();
         let keyCount = 0;
         for (const item of iterator) {
-          keyCount += item.value.length;
+          keyCount += item.value?.length || 0;
         }
         return keyCount;
       });
