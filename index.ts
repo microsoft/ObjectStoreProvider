@@ -49,3 +49,4 @@ export {
   TransactionLockHelper,
   TransactionToken,
 } from "./src/TransactionLockHelper";
+export type { OrderedMapType } from "./src/ordered-map";
