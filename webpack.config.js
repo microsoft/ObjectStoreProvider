@@ -3,10 +3,13 @@ var webpack = require("webpack");
 var NodePolyfillPlugin = require("node-polyfill-webpack-plugin");
 
 var webpackConfig = {
-  entry: "./src/tests/ObjectStoreProvider.spec.ts",
+  entry: {
+    ObjectStoreProvider: "./src/tests/ObjectStoreProvider.spec.ts",
+    SortedBTree: "./src/tests/SortedBTree.spec.ts",
+  },
 
   output: {
-    filename: "./ObjectStoreProvider.spec.js",
+    filename: "[name].spec.js",
   },
 
   externals: ["fs"],
