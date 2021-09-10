@@ -31,10 +31,10 @@
     "@frptools/corelib" "^1.1.0"
     "@frptools/structural" "^1.0.0"
 
-"@collectable/red-black-tree@5.0.1":
-  version "5.0.1"
-  resolved "https://registry.yarnpkg.com/@collectable/red-black-tree/-/red-black-tree-5.0.1.tgz#984659265daf753029b57c2ca213bcde792a8664"
-  integrity sha1-mEZZJl2vdTAptXwsohO83nkqhmQ=
+"@collectable/red-black-tree@^5.1.1":
+  version "5.1.1"
+  resolved "https://registry.yarnpkg.com/@collectable/red-black-tree/-/red-black-tree-5.1.1.tgz#9db9c1f13dcea45ef032334801bd431ed6a00855"
+  integrity sha512-xAjh0RKBIcXachRTMCySskheqKfRFn+zuW3SUCqeg4roj00w/3kPeEKor6fHHrcIfk/QAiyVAL8oMkpItr8nzQ==
   dependencies:
     "@collectable/core" "^5.0.1"
 
