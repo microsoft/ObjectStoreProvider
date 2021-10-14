@@ -401,7 +401,7 @@ export abstract class DbProvider {
   ): Promise<ItemType[]> {
     return this._getStoreIndexTransaction(storeName, false, indexName).then(
       (index) => {
-        return index.fullTextSearch(searchPhrase, resolution);
+        return index.fullTextSearch(searchPhrase, resolution, _limit);
       }
     );
   }
