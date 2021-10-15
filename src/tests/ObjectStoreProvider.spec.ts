@@ -4880,7 +4880,7 @@ describe("ObjectStoreProvider", function () {
           );
       });
 
-      it("Full Text Index - Returns only the limit passed", async () => {
+      it("Full Text Index - Returns only the limit passed for OR resolution", async () => {
         return openProvider(
           provName,
           {
@@ -4910,6 +4910,44 @@ describe("ObjectStoreProvider", function () {
           prov.put("test", itemsToPut).then(() => {
             prov
               .fullTextSearch("test", "i", "a", FullTextTermResolution.Or, 10)
+              .then((results) => {
+                assert.equal(results.length, 10);
+                prov.close();
+              });
+          });
+        });
+      });
+
+      it("Full Text Index - Returns only the limit passed for AND resolution", async () => {
+        return openProvider(
+          provName,
+          {
+            version: 2,
+            stores: [
+              {
+                name: "test",
+                primaryKeyPath: "id",
+                indexes: [
+                  {
+                    name: "i",
+                    keyPath: "txt",
+                    fullText: true,
+                    unique: false,
+                  },
+                ],
+              },
+            ],
+          },
+          true
+        ).then((prov) => {
+          const itemsToPut = [];
+          for (var i = 0; i < 100; i++) {
+            itemsToPut.push({ id: `a${i}`, txt: `aaaaaa${i}` });
+          }
+
+          prov.put("test", itemsToPut).then(() => {
+            prov
+              .fullTextSearch("test", "i", "a", FullTextTermResolution.And, 10)
               .then((results) => {
                 assert.equal(results.length, 10);
                 prov.close();
