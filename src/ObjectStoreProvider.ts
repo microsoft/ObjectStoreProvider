@@ -397,11 +397,11 @@ export abstract class DbProvider {
     indexName: string,
     searchPhrase: string,
     resolution: FullTextTermResolution = FullTextTermResolution.And,
-    _limit?: number
+    limit?: number
   ): Promise<ItemType[]> {
     return this._getStoreIndexTransaction(storeName, false, indexName).then(
       (index) => {
-        return index.fullTextSearch(searchPhrase, resolution);
+        return index.fullTextSearch(searchPhrase, resolution, limit);
       }
     );
   }
