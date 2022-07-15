@@ -204,7 +204,11 @@ class InMemoryStore implements DbStore {
   private _storeSchema: StoreSchema;
   private _indices: Map<string, InMemoryIndex>;
   private _mapType?: OrderedMapType;
-  constructor(private _trans: InMemoryTransaction, storeInfo: StoreData, private _writeNeeded: boolean) {
+  constructor(
+    private _trans: InMemoryTransaction,
+    storeInfo: StoreData,
+    private _writeNeeded: boolean
+  ) {
     this._storeSchema = storeInfo.schema;
     if (this._writeNeeded) this._committedStoreData = new Map(storeInfo.data);
     this._indices = storeInfo.indices;
