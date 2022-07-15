@@ -25,13 +25,14 @@ function openProvider(
   providerName: string,
   schema: DbSchema,
   wipeFirst: boolean,
-  handleOnClose?: OnCloseHandler
+  handleOnClose?: OnCloseHandler,
+  supportsRollback?: boolean
 ) {
   let provider: DbProvider;
   if (providerName === "memory-rbtree") {
-    provider = new InMemoryProvider("red-black-tree");
+    provider = new InMemoryProvider("red-black-tree", supportsRollback);
   } else if (providerName === "memory-btree") {
-    provider = new InMemoryProvider("b+tree");
+    provider = new InMemoryProvider("b+tree", supportsRollback);
   } else if (providerName === "indexeddb") {
     provider = new IndexedDbProvider();
   } else if (providerName === "indexeddbfakekeys") {
@@ -2599,6 +2600,8 @@ describe("ObjectStoreProvider", function () {
                   },
                 ],
               },
+              true,
+              undefined,
               true
             )
               .then((prov) => {
@@ -4983,11 +4986,47 @@ describe("ObjectStoreProvider", function () {
             for (var i = 0; i < 10; i++) {
               itemsToPut.push({ id: `a${i}`, txt: `aaaaaa${i}` });
             }
+            assert.equal((<InMemoryProvider>prov).supportsRollback, false);
             prov.put("test", itemsToPut).then(() => {
               prov.openTransaction(["test"], false).then((transaction) => {
                 const store = <InMemoryStore>transaction.getStore("test");
-                assert.equal(store["_writeNeeded"], false);
+                assert.equal(store["_supportsRollback"], false);
                 assert.equal(store["_committedStoreData"], undefined);
+                prov.close();
+              });
+            });
+          });
+        });
+        it("InMemoryProvider with supportsRollback = true", async () => {
+          return openProvider(
+            provName,
+            {
+              version: 2,
+              stores: [
+                {
+                  name: "test",
+                  primaryKeyPath: "id",
+                },
+              ],
+            },
+            true,
+            undefined,
+            true
+          ).then((prov) => {
+            const itemsToPut = [];
+            for (var i = 0; i < 10; i++) {
+              itemsToPut.push({ id: `a${i}`, txt: `aaaaaa${i}` });
+            }
+            assert.equal((<InMemoryProvider>prov).supportsRollback, true);
+            prov.put("test", itemsToPut).then(() => {
+              prov.openTransaction(["test"], true).then((transaction) => {
+                const store = <InMemoryStore>transaction.getStore("test");
+                assert.equal(store["_supportsRollback"], true);
+                assert.equal(
+                  Array.from(store["_committedStoreData"]?.values() || [])
+                    .length,
+                  10
+                );
                 prov.close();
               });
             });

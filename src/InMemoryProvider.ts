@@ -68,7 +68,10 @@ export class InMemoryProvider extends DbProvider {
   private _lockHelper: TransactionLockHelper | undefined;
   private readonly _mapType?: OrderedMapType;
 
-  constructor(mapType?: OrderedMapType) {
+  constructor(
+    mapType?: OrderedMapType,
+    public supportsRollback: boolean = false
+  ) {
     super();
     this._mapType = mapType;
   }
@@ -105,7 +108,13 @@ export class InMemoryProvider extends DbProvider {
   ): Promise<DbTransaction> {
     return this._lockHelper!!!.openTransaction(storeNames, writeNeeded).then(
       (token: any) =>
-        new InMemoryTransaction(this, this._lockHelper!!!, token, writeNeeded)
+        new InMemoryTransaction(
+          this,
+          this._lockHelper!!!,
+          token,
+          writeNeeded,
+          this.supportsRollback
+        )
     );
   }
 
@@ -128,7 +137,8 @@ class InMemoryTransaction implements DbTransaction {
     private _prov: InMemoryProvider,
     private _lockHelper: TransactionLockHelper,
     private _transToken: TransactionToken,
-    private _writeNeeded: boolean
+    private _writeNeeded: boolean,
+    private _supportsRollback: boolean
   ) {
     // Close the transaction on the next tick.  By definition, anything is completed synchronously here, so after an event tick
     // goes by, there can't have been anything pending.
@@ -156,6 +166,11 @@ class InMemoryTransaction implements DbTransaction {
   }
 
   abort(): void {
+    if (!this._supportsRollback) {
+      throw new Error(
+        "Unable to abort since provider doesn't support rollback"
+      );
+    }
     this._stores.forEach((store) => {
       store.internal_rollbackPendingData();
     });
@@ -188,7 +203,11 @@ class InMemoryTransaction implements DbTransaction {
     if (!store) {
       throw new Error("Store not found: " + storeName);
     }
-    const ims = new InMemoryStore(this, store, this._writeNeeded);
+    const ims = new InMemoryStore(
+      this,
+      store,
+      this._writeNeeded && this._supportsRollback
+    );
     this._stores.set(storeName, ims);
     return ims;
   }
@@ -207,21 +226,30 @@ export class InMemoryStore implements DbStore {
   constructor(
     private _trans: InMemoryTransaction,
     storeInfo: StoreData,
-    private _writeNeeded: boolean
+    private _supportsRollback: boolean
   ) {
     this._storeSchema = storeInfo.schema;
-    if (this._writeNeeded) this._committedStoreData = new Map(storeInfo.data);
+    if (this._supportsRollback) {
+      this._committedStoreData = new Map(storeInfo.data);
+    }
     this._indices = storeInfo.indices;
     this._mergedData = storeInfo.data;
     this._mapType = storeInfo.mapType;
   }
 
   internal_commitPendingData(): void {
-    if (this._writeNeeded) this._committedStoreData = new Map(this._mergedData);
+    if (this._supportsRollback) {
+      this._committedStoreData = new Map(this._mergedData);
+    }
     // Indices were already updated, theres no need to update them now.
   }
 
   internal_rollbackPendingData(): void {
+    if (!this._supportsRollback) {
+      throw new Error(
+        "Unable to rollback since InMemoryStore was created with supportsRollback = false"
+      );
+    }
     this._mergedData.clear();
     this._committedStoreData?.forEach((val, key) => {
       this._mergedData.set(key, val);
