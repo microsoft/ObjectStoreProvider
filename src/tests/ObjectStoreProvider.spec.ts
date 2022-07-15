@@ -14,7 +14,7 @@ import {
   OnCloseHandler,
 } from "../ObjectStoreProvider";
 
-import { InMemoryProvider, InMemoryStore } from "../InMemoryProvider";
+import { InMemoryProvider } from "../InMemoryProvider";
 import { IndexedDbProvider } from "../IndexedDbProvider";
 
 import { serializeValueToOrderableString } from "../ObjectStoreProviderUtils";
@@ -4989,7 +4989,7 @@ describe("ObjectStoreProvider", function () {
             assert.equal((<InMemoryProvider>prov)["_supportsRollback"], false);
             prov.put("test", itemsToPut).then(() => {
               prov.openTransaction(["test"], false).then((transaction) => {
-                const store = <InMemoryStore>transaction.getStore("test");
+                const store = <any>transaction.getStore("test"); // InMemoryStore
                 assert.equal(store["_supportsRollback"], false);
                 assert.equal(store["_committedStoreData"], undefined);
                 prov.close();
@@ -5020,7 +5020,7 @@ describe("ObjectStoreProvider", function () {
             assert.equal((<InMemoryProvider>prov)["_supportsRollback"], true);
             prov.put("test", itemsToPut).then(() => {
               prov.openTransaction(["test"], true).then((transaction) => {
-                const store = <InMemoryStore>transaction.getStore("test");
+                const store = <any>transaction.getStore("test"); // InMemoryStore
                 assert.equal(store["_supportsRollback"], true);
                 assert.equal(
                   Array.from(store["_committedStoreData"]?.values() || [])
