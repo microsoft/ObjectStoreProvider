@@ -14,7 +14,7 @@ import {
   OnCloseHandler,
 } from "../ObjectStoreProvider";
 
-import { InMemoryProvider } from "../InMemoryProvider";
+import { InMemoryProvider, InMemoryStore } from "../InMemoryProvider";
 import { IndexedDbProvider } from "../IndexedDbProvider";
 
 import { serializeValueToOrderableString } from "../ObjectStoreProviderUtils";
