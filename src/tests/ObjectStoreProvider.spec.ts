@@ -14,7 +14,7 @@ import {
   OnCloseHandler,
 } from "../ObjectStoreProvider";
 
-import { InMemoryProvider } from "../InMemoryProvider";
+import { InMemoryProvider, InMemoryStore } from "../InMemoryProvider";
 import { IndexedDbProvider } from "../IndexedDbProvider";
 
 import { serializeValueToOrderableString } from "../ObjectStoreProviderUtils";
@@ -4955,6 +4955,45 @@ describe("ObjectStoreProvider", function () {
           });
         });
       });
+
+      if (provName === "memory-rbtree" || provName === "memory-btree") {
+        it("Doesn't create committedStoreData for read-only operation", async () => {
+          return openProvider(
+            provName,
+            {
+              version: 2,
+              stores: [
+                {
+                  name: "test",
+                  primaryKeyPath: "id",
+                  indexes: [
+                    {
+                      name: "i",
+                      keyPath: "txt",
+                      fullText: true,
+                      unique: false,
+                    },
+                  ],
+                },
+              ],
+            },
+            true
+          ).then((prov) => {
+            const itemsToPut = [];
+            for (var i = 0; i < 10; i++) {
+              itemsToPut.push({ id: `a${i}`, txt: `aaaaaa${i}` });
+            }
+            prov.put("test", itemsToPut).then(() => {
+              prov.openTransaction(["test"], false).then((transaction) => {
+                const store = <InMemoryStore>transaction.getStore("test");
+                assert.equal(store["_writeNeeded"], false);
+                assert.equal(store["_committedStoreData"], undefined);
+                prov.close();
+              });
+            });
+          });
+        });
+      }
     });
   });
 });
