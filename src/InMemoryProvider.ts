@@ -128,19 +128,19 @@ class InMemoryTransaction implements DbTransaction {
     private _prov: InMemoryProvider,
     private _lockHelper: TransactionLockHelper,
     private _transToken: TransactionToken,
-    writeNeeded: boolean
+    private _writeNeeded: boolean
   ) {
     // Close the transaction on the next tick.  By definition, anything is completed synchronously here, so after an event tick
     // goes by, there can't have been anything pending.
-    if (writeNeeded) {
+    if (this._writeNeeded) {
       this._openTimer = setTimeout(() => {
         this._openTimer = undefined;
         this._commitTransaction();
         this._lockHelper.transactionComplete(this._transToken);
       }, 0) as any as number;
     } else {
+      // read-only
       this._openTimer = undefined;
-      this._commitTransaction();
       this._lockHelper.transactionComplete(this._transToken);
     }
   }
@@ -188,7 +188,7 @@ class InMemoryTransaction implements DbTransaction {
     if (!store) {
       throw new Error("Store not found: " + storeName);
     }
-    const ims = new InMemoryStore(this, store);
+    const ims = new InMemoryStore(this, store, this._writeNeeded);
     this._stores.set(storeName, ims);
     return ims;
   }
@@ -199,27 +199,27 @@ class InMemoryTransaction implements DbTransaction {
 }
 
 class InMemoryStore implements DbStore {
-  private _committedStoreData: Map<string, ItemType>;
+  private _committedStoreData?: Map<string, ItemType>;
   private _mergedData: Map<string, ItemType>;
   private _storeSchema: StoreSchema;
   private _indices: Map<string, InMemoryIndex>;
   private _mapType?: OrderedMapType;
-  constructor(private _trans: InMemoryTransaction, storeInfo: StoreData) {
+  constructor(private _trans: InMemoryTransaction, storeInfo: StoreData, private _writeNeeded: boolean) {
     this._storeSchema = storeInfo.schema;
-    this._committedStoreData = new Map(storeInfo.data);
+    if (this._writeNeeded) this._committedStoreData = new Map(storeInfo.data);
     this._indices = storeInfo.indices;
     this._mergedData = storeInfo.data;
     this._mapType = storeInfo.mapType;
   }
 
   internal_commitPendingData(): void {
-    this._committedStoreData = new Map(this._mergedData);
+    if (this._writeNeeded) this._committedStoreData = new Map(this._mergedData);
     // Indices were already updated, theres no need to update them now.
   }
 
   internal_rollbackPendingData(): void {
     this._mergedData.clear();
-    this._committedStoreData.forEach((val, key) => {
+    this._committedStoreData?.forEach((val, key) => {
       this._mergedData.set(key, val);
     });
     // Recreate all indexes on a roll back.
