@@ -69,10 +69,7 @@ export class InMemoryProvider extends DbProvider {
   private readonly _mapType?: OrderedMapType;
   private readonly _supportsRollback?: boolean;
 
-  constructor(
-    mapType?: OrderedMapType,
-    supportsRollback = false
-  ) {
+  constructor(mapType?: OrderedMapType, supportsRollback = false) {
     super();
     this._mapType = mapType;
     this._supportsRollback = supportsRollback;
