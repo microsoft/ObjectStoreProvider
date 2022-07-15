@@ -228,7 +228,7 @@ class InMemoryTransaction implements DbTransaction {
   }
 }
 
-export class InMemoryStore implements DbStore {
+class InMemoryStore implements DbStore {
   private _committedStoreData?: Map<string, ItemType>;
   private _mergedData: Map<string, ItemType>;
   private _storeSchema: StoreSchema;
