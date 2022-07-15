@@ -4986,7 +4986,7 @@ describe("ObjectStoreProvider", function () {
             for (var i = 0; i < 10; i++) {
               itemsToPut.push({ id: `a${i}`, txt: `aaaaaa${i}` });
             }
-            assert.equal((<InMemoryProvider>prov).supportsRollback, false);
+            assert.equal((<InMemoryProvider>prov)["_supportsRollback"], false);
             prov.put("test", itemsToPut).then(() => {
               prov.openTransaction(["test"], false).then((transaction) => {
                 const store = <InMemoryStore>transaction.getStore("test");
@@ -5017,7 +5017,7 @@ describe("ObjectStoreProvider", function () {
             for (var i = 0; i < 10; i++) {
               itemsToPut.push({ id: `a${i}`, txt: `aaaaaa${i}` });
             }
-            assert.equal((<InMemoryProvider>prov).supportsRollback, true);
+            assert.equal((<InMemoryProvider>prov)["_supportsRollback"], true);
             prov.put("test", itemsToPut).then(() => {
               prov.openTransaction(["test"], true).then((transaction) => {
                 const store = <InMemoryStore>transaction.getStore("test");
