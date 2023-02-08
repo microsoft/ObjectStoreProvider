@@ -30,7 +30,7 @@
     "sorted-btree": "^1.5.0"
   },
   "sideEffects": [
-    "./src/Promise.ts"
+    "./src/Promise.extensions.ts"
   ],
   "devDependencies": {
     "@types/assert": "^1.5.4",
