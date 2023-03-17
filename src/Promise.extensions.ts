@@ -1,7 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
-// this is a mosule with side-effects that add polyfills for finally and always
+// this is a module with side-effects that add polyfills for finally and always
 // methods of the Promise
 
 declare interface Promise<T> {
