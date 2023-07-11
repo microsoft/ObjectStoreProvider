@@ -177,25 +177,29 @@ export class IndexedDbProvider extends DbProvider {
         throw new Error("onupgradeneeded: target is null!");
       }
 
-      if (
-        schema.lastUsableVersion &&
-        event.oldVersion < schema.lastUsableVersion
-      ) {
-        // Clear all stores if it's past the usable version
-        console.log(
-          "Old version detected (" + event.oldVersion + "), clearing all data"
-        );
-        each(db.objectStoreNames, (name) => {
-          db.deleteObjectStore(name);
+      // Avoid clearing object stores when event.oldVersion returns 0.
+      // oldVersion returns 0 if db doesn't exist yet: https://developer.mozilla.org/en-US/docs/Web/API/IDBVersionChangeEvent/oldVersion
+      if (event.oldVersion) {
+        if (
+          schema.lastUsableVersion &&
+          event.oldVersion < schema.lastUsableVersion
+        ) {
+          // Clear all stores if it's past the usable version
+          console.log(
+            "Old version detected (" + event.oldVersion + "), clearing all data"
+          );
+          each(db.objectStoreNames, (name) => {
+            db.deleteObjectStore(name);
+          });
+        }
+
+        // Delete dead stores
+        each(db.objectStoreNames, (storeName) => {
+          if (!some(schema.stores, (store) => store.name === storeName)) {
+            db.deleteObjectStore(storeName);
+          }
         });
       }
-
-      // Delete dead stores
-      each(db.objectStoreNames, (storeName) => {
-        if (!some(schema.stores, (store) => store.name === storeName)) {
-          db.deleteObjectStore(storeName);
-        }
-      });
 
       // Create all stores
       each(schema.stores, (storeSchema) => {
