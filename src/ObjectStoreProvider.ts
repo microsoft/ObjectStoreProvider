@@ -11,7 +11,7 @@
  */
 
 import { noop, attempt, isError } from "lodash";
-import "./Promise";
+import "./Promise.extensions";
 // Basic nomenclature types for everyone to agree on.
 export type ItemType = object;
 export type KeyComponentType = string | number | Date;
