@@ -16,10 +16,10 @@ if (typeof Promise.prototype.finally !== "function") {
   Promise.prototype.finally = function (onResolveOrReject) {
     const hasFunctionCallback = typeof onResolveOrReject === "function";
     return this.catch(function (reason: any) {
-      hasFunctionCallback && onResolveOrReject();
+      hasFunctionCallback && onResolveOrReject && onResolveOrReject();
       return Promise.reject(reason);
     }).then(function (result: any) {
-      hasFunctionCallback && onResolveOrReject();
+      hasFunctionCallback && onResolveOrReject && onResolveOrReject();
       return result;
     });
   };
