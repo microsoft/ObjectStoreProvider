@@ -96,11 +96,7 @@ export class IndexedDbProvider extends DbProvider {
   ) {
     super();
 
-    if (!logger) {
-      logger = console;
-    }
-
-    this.logger = logger;
+    this.logger = logger ? logger : console;
 
     if (explicitDbFactory) {
       this._dbFactory = explicitDbFactory;
