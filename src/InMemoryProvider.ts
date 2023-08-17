@@ -175,7 +175,7 @@ class InMemoryTransaction implements DbTransaction {
 
   abort(): void {
     if (!this._supportsRollback) {
-      this.logger?.error(
+      this.logger.error(
         "Unable to abort transaction since provider doesn't support rollback"
       );
       throw new Error(
