@@ -76,7 +76,11 @@ export class InMemoryProvider extends DbProvider {
   private readonly _supportsRollback?: boolean;
   private logger: Logger | undefined;
 
-  constructor(mapType?: OrderedMapType, supportsRollback = false, logger?: Logger) {
+  constructor(
+    mapType?: OrderedMapType,
+    supportsRollback = false,
+    logger?: Logger
+  ) {
     super();
     this._mapType = mapType;
     this._supportsRollback = supportsRollback;
@@ -177,7 +181,9 @@ class InMemoryTransaction implements DbTransaction {
 
   abort(): void {
     if (!this._supportsRollback) {
-      this.logger.error("Unable to abort transaction since provider doesn't support rollback");
+      this.logger.error(
+        "Unable to abort transaction since provider doesn't support rollback"
+      );
       throw new Error(
         "Unable to abort transaction since provider doesn't support rollback"
       );
