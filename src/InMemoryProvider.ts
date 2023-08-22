@@ -45,6 +45,7 @@ import {
   getSerializedKeyForKeypath,
   getValueForSingleKeypath,
   MAX_COUNT,
+  Logger,
   trimArray,
 } from "./ObjectStoreProviderUtils";
 import {
@@ -60,12 +61,6 @@ export interface StoreData {
   schema: StoreSchema;
   mapType?: OrderedMapType;
 }
-
-type Logger = {
-  log(message?: any, ...optionalParams: any[]): void;
-  warn(message?: any, ...optionalParams: any[]): void;
-  error(message?: any, ...optionalParams: any[]): void;
-};
 
 // Very simple in-memory dbprovider for handling IE inprivate windows (and unit tests, maybe?)
 export class InMemoryProvider extends DbProvider {
