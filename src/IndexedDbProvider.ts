@@ -52,6 +52,7 @@ import {
   formListOfKeys,
   getValueForSingleKeypath,
   getSerializedKeyForKeypath,
+  Logger,
 } from "./ObjectStoreProviderUtils";
 import {
   TransactionToken,
@@ -70,12 +71,6 @@ declare global {
     msIndexedDB: IDBFactory;
   }
 }
-
-type Logger = {
-  log(message?: any, ...optionalParams: any[]): void;
-  warn(message?: any, ...optionalParams: any[]): void;
-  error(message?: any, ...optionalParams: any[]): void;
-};
 
 // The DbProvider implementation for IndexedDB.  This one is fairly straightforward since the library's access patterns pretty
 // closely mirror IndexedDB's.  We mostly do a lot of wrapping of the APIs into JQuery promises and have some fancy footwork to
