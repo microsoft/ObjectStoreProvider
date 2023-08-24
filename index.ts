@@ -51,3 +51,4 @@ export {
   TransactionToken,
 } from "./src/TransactionLockHelper";
 export type { OrderedMapType } from "./src/ordered-map";
+export type { Logger } from "./src/ObjectStoreProviderUtils";
