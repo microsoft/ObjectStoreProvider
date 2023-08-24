@@ -26,11 +26,11 @@ declare global {
   }
 }
 
-export type Logger = {
+export interface Logger {
   log(message?: any, ...optionalParams: any[]): void;
   warn(message?: any, ...optionalParams: any[]): void;
   error(message?: any, ...optionalParams: any[]): void;
-};
+}
 
 // Max array length (uint): 2^32 - 1
 export const MAX_COUNT = 4294967295;
