@@ -36,6 +36,7 @@ import {
   QuerySortOrder,
   ItemType,
   KeyPathType,
+  IObjectStoreProviderLogger,
   KeyType,
 } from "./ObjectStoreProvider";
 import {
@@ -45,7 +46,6 @@ import {
   getSerializedKeyForKeypath,
   getValueForSingleKeypath,
   MAX_COUNT,
-  Logger,
   trimArray,
 } from "./ObjectStoreProviderUtils";
 import {
@@ -62,19 +62,18 @@ export interface StoreData {
   mapType?: OrderedMapType;
 }
 
-// Very simple in-memory dbprovider for handling IE inprivate windows (and unit tests, maybe?)
 export class InMemoryProvider extends DbProvider {
   private _stores: Map<string, StoreData> = new Map();
 
   private _lockHelper: TransactionLockHelper | undefined;
   private readonly _mapType?: OrderedMapType;
   private readonly _supportsRollback?: boolean;
-  private logger: Logger;
+  private logger: IObjectStoreProviderLogger;
 
   constructor(
     mapType?: OrderedMapType,
     supportsRollback = false,
-    logger?: Logger
+    logger?: IObjectStoreProviderLogger
   ) {
     super();
     this._mapType = mapType;
@@ -147,7 +146,7 @@ class InMemoryTransaction implements DbTransaction {
     private _transToken: TransactionToken,
     private _writeNeeded: boolean,
     private _supportsRollback: boolean,
-    private logger: Logger
+    private logger: IObjectStoreProviderLogger
   ) {
     // Close the transaction on the next tick.  By definition, anything is completed synchronously here, so after an event tick
     // goes by, there can't have been anything pending.

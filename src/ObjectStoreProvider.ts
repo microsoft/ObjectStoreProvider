@@ -23,6 +23,12 @@ export enum QuerySortOrder {
   Reverse,
 }
 
+export interface IObjectStoreProviderLogger {
+  log(message?: any, ...optionalParams: any[]): void;
+  warn(message?: any, ...optionalParams: any[]): void;
+  error(message?: any, ...optionalParams: any[]): void;
+}
+
 // Schema type describing an index for a store.
 export interface IndexSchema {
   name: string;
