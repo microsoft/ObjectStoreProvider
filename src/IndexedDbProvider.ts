@@ -40,6 +40,7 @@ import {
   IDBCloseConnectionEventDetails,
   IDBCloseConnectionPayload,
   OnCloseHandler,
+  IObjectStoreProviderLogger,
 } from "./ObjectStoreProvider";
 import { ItemType, KeyPathType, KeyType } from "./ObjectStoreProvider";
 import {
@@ -51,7 +52,6 @@ import {
   formListOfKeys,
   getValueForSingleKeypath,
   getSerializedKeyForKeypath,
-  Logger,
 } from "./ObjectStoreProviderUtils";
 import {
   TransactionToken,
@@ -80,14 +80,14 @@ export class IndexedDbProvider extends DbProvider {
   private _handleOnClose: OnCloseHandler | undefined = undefined;
 
   private _lockHelper: TransactionLockHelper | undefined;
-  private logger: Logger;
+  private logger: IObjectStoreProviderLogger;
 
   // By default, it uses the in-browser indexed db factory, but you can pass in an explicit factory.  Currently only used for unit tests.
   constructor(
     explicitDbFactory?: IDBFactory,
     explicitDbFactorySupportsCompoundKeys?: boolean,
     handleOnClose?: OnCloseHandler,
-    logger?: Logger
+    logger?: IObjectStoreProviderLogger
   ) {
     super();
 
@@ -538,7 +538,7 @@ class IndexedDbTransaction implements DbTransaction {
     private _transToken: TransactionToken,
     private _schema: DbSchema,
     private _fakeComplicatedKeys: boolean,
-    private logger: Logger
+    private logger: IObjectStoreProviderLogger
   ) {
     this._stores = map(this._transToken.storeNames, (storeName) =>
       this._trans.objectStore(storeName)

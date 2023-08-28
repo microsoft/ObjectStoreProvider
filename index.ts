@@ -23,6 +23,7 @@ export {
   DBClosure,
   OnCloseHandler,
   openListOfProviders,
+  IObjectStoreProviderLogger,
 } from "./src/ObjectStoreProvider";
 export {
   isIE,
@@ -50,4 +51,3 @@ export {
   TransactionToken,
 } from "./src/TransactionLockHelper";
 export type { OrderedMapType } from "./src/ordered-map";
-export { Logger } from "./src/ObjectStoreProviderUtils";
