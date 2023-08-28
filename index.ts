@@ -23,6 +23,7 @@ export {
   DBClosure,
   OnCloseHandler,
   openListOfProviders,
+  IObjectStoreProviderLogger,
 } from "./src/ObjectStoreProvider";
 export {
   isIE,

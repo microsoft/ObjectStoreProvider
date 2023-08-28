@@ -36,6 +36,7 @@ import {
   QuerySortOrder,
   ItemType,
   KeyPathType,
+  IObjectStoreProviderLogger,
   KeyType,
 } from "./ObjectStoreProvider";
 import {
@@ -61,18 +62,24 @@ export interface StoreData {
   mapType?: OrderedMapType;
 }
 
-// Very simple in-memory dbprov ider for handling IE inprivate windows (and unit tests, maybe?)
 export class InMemoryProvider extends DbProvider {
   private _stores: Map<string, StoreData> = new Map();
 
   private _lockHelper: TransactionLockHelper | undefined;
   private readonly _mapType?: OrderedMapType;
   private readonly _supportsRollback?: boolean;
+  private logger: IObjectStoreProviderLogger;
 
-  constructor(mapType?: OrderedMapType, supportsRollback = false) {
+  constructor(
+    mapType?: OrderedMapType,
+    supportsRollback = false,
+    logger?: IObjectStoreProviderLogger
+  ) {
     super();
     this._mapType = mapType;
     this._supportsRollback = supportsRollback;
+
+    this.logger = logger ? logger : console;
   }
 
   open(
@@ -112,7 +119,8 @@ export class InMemoryProvider extends DbProvider {
           this._lockHelper!!!,
           token,
           writeNeeded,
-          this._supportsRollback!
+          this._supportsRollback!,
+          this.logger
         )
     );
   }
@@ -137,7 +145,8 @@ class InMemoryTransaction implements DbTransaction {
     private _lockHelper: TransactionLockHelper,
     private _transToken: TransactionToken,
     private _writeNeeded: boolean,
-    private _supportsRollback: boolean
+    private _supportsRollback: boolean,
+    private logger: IObjectStoreProviderLogger
   ) {
     // Close the transaction on the next tick.  By definition, anything is completed synchronously here, so after an event tick
     // goes by, there can't have been anything pending.
@@ -166,6 +175,9 @@ class InMemoryTransaction implements DbTransaction {
 
   abort(): void {
     if (!this._supportsRollback) {
+      this.logger.error(
+        "Unable to abort transaction since provider doesn't support rollback"
+      );
       throw new Error(
         "Unable to abort transaction since provider doesn't support rollback"
       );

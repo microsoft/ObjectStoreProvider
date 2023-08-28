@@ -40,6 +40,7 @@ import {
   IDBCloseConnectionEventDetails,
   IDBCloseConnectionPayload,
   OnCloseHandler,
+  IObjectStoreProviderLogger,
 } from "./ObjectStoreProvider";
 import { ItemType, KeyPathType, KeyType } from "./ObjectStoreProvider";
 import {
@@ -79,14 +80,18 @@ export class IndexedDbProvider extends DbProvider {
   private _handleOnClose: OnCloseHandler | undefined = undefined;
 
   private _lockHelper: TransactionLockHelper | undefined;
+  private logger: IObjectStoreProviderLogger;
 
   // By default, it uses the in-browser indexed db factory, but you can pass in an explicit factory.  Currently only used for unit tests.
   constructor(
     explicitDbFactory?: IDBFactory,
     explicitDbFactorySupportsCompoundKeys?: boolean,
-    handleOnClose?: OnCloseHandler
+    handleOnClose?: OnCloseHandler,
+    logger?: IObjectStoreProviderLogger
   ) {
     super();
+
+    this.logger = logger ? logger : console;
 
     if (explicitDbFactory) {
       this._dbFactory = explicitDbFactory;
@@ -185,7 +190,7 @@ export class IndexedDbProvider extends DbProvider {
           event.oldVersion < schema.lastUsableVersion
         ) {
           // Clear all stores if it's past the usable version
-          console.log(
+          this.logger.log(
             "Old version detected (" + event.oldVersion + "), clearing all data"
           );
           each(db.objectStoreNames, (name) => {
@@ -333,7 +338,8 @@ export class IndexedDbProvider extends DbProvider {
             undefined,
             fakeToken,
             schema,
-            this._fakeComplicatedKeys
+            this._fakeComplicatedKeys,
+            this.logger
           );
           const tStore = iTrans.getStore(storeSchema.name);
 
@@ -403,7 +409,7 @@ export class IndexedDbProvider extends DbProvider {
           err.target.error.name === "VersionError"
         ) {
           if (!wipeIfExists) {
-            console.log(
+            this.logger.log(
               "Database version too new, Wiping: " +
                 (err.target.error.message || err.target.error.name)
             );
@@ -513,7 +519,8 @@ export class IndexedDbProvider extends DbProvider {
             this._lockHelper,
             transToken,
             this._schema!!!,
-            this._fakeComplicatedKeys
+            this._fakeComplicatedKeys,
+            this.logger
           )
         );
       }
@@ -530,7 +537,8 @@ class IndexedDbTransaction implements DbTransaction {
     lockHelper: TransactionLockHelper | undefined,
     private _transToken: TransactionToken,
     private _schema: DbSchema,
-    private _fakeComplicatedKeys: boolean
+    private _fakeComplicatedKeys: boolean,
+    private logger: IObjectStoreProviderLogger
   ) {
     this._stores = map(this._transToken.storeNames, (storeName) =>
       this._trans.objectStore(storeName)
@@ -558,7 +566,7 @@ class IndexedDbTransaction implements DbTransaction {
         );
 
         if (history.length > 1) {
-          console.warn(
+          this.logger.warn(
             "IndexedDbTransaction Errored after Resolution, Swallowing. Error: " +
               (this._trans.error ? this._trans.error.message : undefined) +
               ", History: " +
@@ -582,7 +590,7 @@ class IndexedDbTransaction implements DbTransaction {
         );
 
         if (history.length > 1) {
-          console.warn(
+          this.logger.warn(
             "IndexedDbTransaction Aborted after Resolution, Swallowing. Error: " +
               (this._trans.error ? this._trans.error.message : undefined) +
               ", History: " +
