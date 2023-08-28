@@ -52,7 +52,6 @@ import {
   formListOfKeys,
   getValueForSingleKeypath,
   getSerializedKeyForKeypath,
-  Logger,
 } from "./ObjectStoreProviderUtils";
 import {
   TransactionToken,
@@ -623,7 +622,11 @@ class IndexedDbTransaction implements DbTransaction {
     private _transToken: TransactionToken,
     private _schema: DbSchema,
     private _fakeComplicatedKeys: boolean,
+<<<<<<< HEAD
     private logWriter: LogWriter
+=======
+    private logger: IObjectStoreProviderLogger
+>>>>>>> d757f1c (renaming logger interface name and moving it to a proper home)
   ) {
     this._stores = map(this._transToken.storeNames, (storeName) =>
       this._trans.objectStore(storeName)

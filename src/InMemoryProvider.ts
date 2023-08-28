@@ -46,7 +46,6 @@ import {
   getSerializedKeyForKeypath,
   getValueForSingleKeypath,
   MAX_COUNT,
-  Logger,
   trimArray,
 } from "./ObjectStoreProviderUtils";
 import {
