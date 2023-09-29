@@ -178,6 +178,7 @@ export class IndexedDbProvider extends DbProvider {
 
     this._lockHelper = new TransactionLockHelper(schema, true);
 
+    this.logger.log(`Opening db: ${dbName}, version: ${schema.version}`);
     const dbOpen = this._dbFactory.open(dbName, schema.version);
 
     let migrationPutters: Promise<void>[] = [];
@@ -193,6 +194,8 @@ export class IndexedDbProvider extends DbProvider {
         this.logWriter.error(`No transaction, unable to do upgrade`);
         throw new Error("onupgradeneeded: target is null!");
       }
+
+      this.logger.log(`Upgrade needed for db: ${dbName}`);
 
       // Avoid clearing object stores when event.oldVersion returns 0.
       // oldVersion returns 0 if db doesn't exist yet: https://developer.mozilla.org/en-US/docs/Web/API/IDBVersionChangeEvent/oldVersion
@@ -622,11 +625,7 @@ class IndexedDbTransaction implements DbTransaction {
     private _transToken: TransactionToken,
     private _schema: DbSchema,
     private _fakeComplicatedKeys: boolean,
-<<<<<<< HEAD
     private logWriter: LogWriter
-=======
-    private logger: IObjectStoreProviderLogger
->>>>>>> d757f1c (renaming logger interface name and moving it to a proper home)
   ) {
     this._stores = map(this._transToken.storeNames, (storeName) =>
       this._trans.objectStore(storeName)
