@@ -155,20 +155,28 @@ export class IndexedDbProvider extends DbProvider {
 
     if (!this._dbFactory) {
       // Couldn't even find a supported indexeddb object on the browser...
-      return Promise.reject<void>("No support for IndexedDB in this browser");
+      const message = `No support for IndexedDB in this browser, returning`;
+      this.logger.error(message);
+      return Promise.reject<void>(message);
     }
 
     if (wipeIfExists) {
+      this.logger.log(`Wiping db: ${dbName}`);
       try {
         let req = this._dbFactory.deleteDatabase(dbName);
         await IndexedDbProvider.WrapRequest(req);
-      } catch (e) {
+      } catch (e: any) {
         // Don't care
+        this.logger.error(
+          `Wiping db: ${dbName} failed, message: ${e?.message}. Ignoring and proceeding further`
+        );
       }
+      this.logger.log(`Wiping db: ${dbName} success`);
     }
 
     this._lockHelper = new TransactionLockHelper(schema, true);
 
+    this.logger.log(`Opening db: ${dbName}, version: ${schema.version}`);
     const dbOpen = this._dbFactory.open(dbName, schema.version);
 
     let migrationPutters: Promise<void>[] = [];
@@ -179,8 +187,11 @@ export class IndexedDbProvider extends DbProvider {
       const trans = target.transaction;
 
       if (!trans) {
+        this.logger.error(`No transaction, unable to do upgrade`);
         throw new Error("onupgradeneeded: target is null!");
       }
+
+      this.logger.log(`Upgrade needed for db: ${dbName}`);
 
       // Avoid clearing object stores when event.oldVersion returns 0.
       // oldVersion returns 0 if db doesn't exist yet: https://developer.mozilla.org/en-US/docs/Web/API/IDBVersionChangeEvent/oldVersion
@@ -207,6 +218,7 @@ export class IndexedDbProvider extends DbProvider {
       }
 
       // Create all stores
+      this.logger.log(`Creating stores as part of upgrade process`);
       each(schema.stores, (storeSchema) => {
         let store: IDBObjectStore;
         const storeExistedBefore = includes(
@@ -345,6 +357,9 @@ export class IndexedDbProvider extends DbProvider {
 
           const cursorReq = store.openCursor();
           let thisIndexPutters: Promise<void>[] = [];
+          this.logger.log(
+            `Adding store: ${storeSchema.name} to migrationPutters`
+          );
           migrationPutters.push(
             IndexedDbIndex.iterateOverCursorRequest(cursorReq, (cursor) => {
               const err = attempt(() => {
@@ -358,7 +373,14 @@ export class IndexedDbProvider extends DbProvider {
               if (err) {
                 thisIndexPutters.push(Promise.reject<void>(err));
               }
-            }).then(() => Promise.all(thisIndexPutters).then(noop))
+            }).then(
+              () => Promise.all(thisIndexPutters).then(noop),
+              (err) => {
+                this.logger.error(
+                  `Error when iterating over cursor on idb index, message: ${err?.message}`
+                );
+              }
+            )
           );
         }
       });
@@ -368,7 +390,11 @@ export class IndexedDbProvider extends DbProvider {
 
     return promise.then(
       (db) => {
+        this.logger.log(
+          `Waiting for migrationPutters: ${migrationPutters.length} to complete for db: ${dbName}`
+        );
         return Promise.all(migrationPutters).then(() => {
+          this.logger.log(`Opening db: ${dbName} success`);
           this._db = db;
           this._db.onclose = (event: Event) => {
             if (this._handleOnClose) {
@@ -417,6 +443,9 @@ export class IndexedDbProvider extends DbProvider {
             return this.open(dbName, schema, true, verbose);
           }
         }
+        this.logger.error(
+          `Error opening db: ${dbName}, message: ${err?.message}`
+        );
         return Promise.reject<void>(err);
       }
     );
