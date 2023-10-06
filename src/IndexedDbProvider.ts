@@ -178,7 +178,7 @@ export class IndexedDbProvider extends DbProvider {
 
     this._lockHelper = new TransactionLockHelper(schema, true);
 
-    this.logger.log(`Opening db: ${dbName}, version: ${schema.version}`);
+    this.logWriter.log(`Opening db, version: ${schema.version}`, { dbName });
     const dbOpen = this._dbFactory.open(dbName, schema.version);
 
     let migrationPutters: Promise<void>[] = [];
@@ -195,7 +195,7 @@ export class IndexedDbProvider extends DbProvider {
         throw new Error("onupgradeneeded: target is null!");
       }
 
-      this.logger.log(`Upgrade needed for db: ${dbName}`);
+      this.logWriter.log(`Upgrade needed for db`, { dbName });
 
       // Avoid clearing object stores when event.oldVersion returns 0.
       // oldVersion returns 0 if db doesn't exist yet: https://developer.mozilla.org/en-US/docs/Web/API/IDBVersionChangeEvent/oldVersion
@@ -245,6 +245,10 @@ export class IndexedDbProvider extends DbProvider {
           }
 
           // Any is to fix a lib.d.ts issue in TS 2.0.3 - it doesn't realize that keypaths can be compound for some reason...
+          this.logWriter.log(`Store doesn't exist, creating object store`, {
+            dbName,
+            storeName: storeSchema.name,
+          });
           store = db.createObjectStore(storeSchema.name, {
             keyPath: primaryKeyPath,
           } as any);
