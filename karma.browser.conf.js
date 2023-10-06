@@ -6,6 +6,7 @@ module.exports = (config) => {
     files: [
       { pattern: "dist/ObjectStoreProvider.spec.js" },
       { pattern: "dist/SortedBTree.spec.js" },
+      { pattern: "dist/LogWriter.spec.js" },
     ],
     customLaunchers: {
       FirefoxHeadless: {
