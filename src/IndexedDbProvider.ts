@@ -57,6 +57,7 @@ import {
   TransactionToken,
   TransactionLockHelper,
 } from "./TransactionLockHelper";
+import { LogWriter } from "./LogWriter";
 
 const IndexPrefix = "nsp_i_";
 
@@ -80,7 +81,7 @@ export class IndexedDbProvider extends DbProvider {
   private _handleOnClose: OnCloseHandler | undefined = undefined;
 
   private _lockHelper: TransactionLockHelper | undefined;
-  private logger: IObjectStoreProviderLogger;
+  private logWriter: LogWriter;
 
   // By default, it uses the in-browser indexed db factory, but you can pass in an explicit factory.  Currently only used for unit tests.
   constructor(
@@ -91,7 +92,7 @@ export class IndexedDbProvider extends DbProvider {
   ) {
     super();
 
-    this.logger = logger ? logger : console;
+    this.logWriter = new LogWriter(logger ? logger : console);
 
     if (explicitDbFactory) {
       this._dbFactory = explicitDbFactory;
@@ -156,27 +157,28 @@ export class IndexedDbProvider extends DbProvider {
     if (!this._dbFactory) {
       // Couldn't even find a supported indexeddb object on the browser...
       const message = `No support for IndexedDB in this browser, returning`;
-      this.logger.error(message);
+      this.logWriter.error(message);
       return Promise.reject<void>(message);
     }
 
     if (wipeIfExists) {
-      this.logger.log(`Wiping db: ${dbName}`);
+      this.logWriter.log(`Wiping db`, { dbName });
       try {
         let req = this._dbFactory.deleteDatabase(dbName);
         await IndexedDbProvider.WrapRequest(req);
       } catch (e: any) {
         // Don't care
-        this.logger.error(
-          `Wiping db: ${dbName} failed, message: ${e?.message}. Ignoring and proceeding further`
+        this.logWriter.error(
+          `Wiping db failed, message: ${e?.message}. Ignoring and proceeding further`,
+          { dbName }
         );
       }
-      this.logger.log(`Wiping db: ${dbName} success`);
+      this.logWriter.log(`Wiping db success`, { dbName });
     }
 
     this._lockHelper = new TransactionLockHelper(schema, true);
 
-    this.logger.log(`Opening db: ${dbName}, version: ${schema.version}`);
+    this.logWriter.log(`Opening db, version: ${schema.version}`, { dbName });
     const dbOpen = this._dbFactory.open(dbName, schema.version);
 
     let migrationPutters: Promise<void>[] = [];
@@ -187,11 +189,11 @@ export class IndexedDbProvider extends DbProvider {
       const trans = target.transaction;
 
       if (!trans) {
-        this.logger.error(`No transaction, unable to do upgrade`);
+        this.logWriter.error(`No transaction, unable to do upgrade`);
         throw new Error("onupgradeneeded: target is null!");
       }
 
-      this.logger.log(`Upgrade needed for db: ${dbName}`);
+      this.logWriter.log(`Upgrade needed for db`, { dbName });
 
       // Avoid clearing object stores when event.oldVersion returns 0.
       // oldVersion returns 0 if db doesn't exist yet: https://developer.mozilla.org/en-US/docs/Web/API/IDBVersionChangeEvent/oldVersion
@@ -201,8 +203,8 @@ export class IndexedDbProvider extends DbProvider {
           event.oldVersion < schema.lastUsableVersion
         ) {
           // Clear all stores if it's past the usable version
-          this.logger.log(
-            "Old version detected (" + event.oldVersion + "), clearing all data"
+          this.logWriter.log(
+            `Old version detected (${event.oldVersion}), clearing all data`
           );
           each(db.objectStoreNames, (name) => {
             db.deleteObjectStore(name);
@@ -215,10 +217,12 @@ export class IndexedDbProvider extends DbProvider {
             db.deleteObjectStore(storeName);
           }
         });
+
+        this.logWriter.log(`Deleted all object stores`, { dbName });
       }
 
       // Create all stores
-      this.logger.log(`Creating stores as part of upgrade process`);
+      this.logWriter.log(`Creating stores as part of upgrade process`);
       each(schema.stores, (storeSchema) => {
         let store: IDBObjectStore;
         const storeExistedBefore = includes(
@@ -234,6 +238,10 @@ export class IndexedDbProvider extends DbProvider {
           }
 
           // Any is to fix a lib.d.ts issue in TS 2.0.3 - it doesn't realize that keypaths can be compound for some reason...
+          this.logWriter.log(`Store doesn't exist, creating object store`, {
+            dbName,
+            storeName: storeSchema.name,
+          });
           store = db.createObjectStore(storeSchema.name, {
             keyPath: primaryKeyPath,
           } as any);
@@ -273,6 +281,11 @@ export class IndexedDbProvider extends DbProvider {
             }
 
             if (nuke) {
+              this.logWriter.log(`Index no longer exists, deleting`, {
+                dbName,
+                storeName: storeSchema.name,
+                indexName,
+              });
               store.deleteIndex(indexName);
             }
           });
@@ -291,6 +304,10 @@ export class IndexedDbProvider extends DbProvider {
                   throw new Error("Can't use multiEntry and compound keys");
                 } else {
                   // Create an object store for the index
+                  this.logWriter.log(`Creating object store and index`, {
+                    dbName,
+                    storeName: storeSchema.name,
+                  });
                   let indexStore = db.createObjectStore(
                     storeSchema.name + "_" + indexSchema.name,
                     { autoIncrement: true }
@@ -304,6 +321,11 @@ export class IndexedDbProvider extends DbProvider {
                 }
               } else if (isCompoundKeyPath(keyPath)) {
                 // Going to have to hack the compound index into a column, so here it is.
+                this.logWriter.log(`Creating index`, {
+                  dbName,
+                  storeName: storeSchema.name,
+                  indexName: indexSchema.name,
+                });
                 store.createIndex(
                   indexSchema.name,
                   IndexPrefix + indexSchema.name,
@@ -312,11 +334,21 @@ export class IndexedDbProvider extends DbProvider {
                   }
                 );
               } else {
+                this.logWriter.log(`Creating index`, {
+                  dbName,
+                  storeName: storeSchema.name,
+                  indexName: indexSchema.name,
+                });
                 store.createIndex(indexSchema.name, keyPath, {
                   unique: indexSchema.unique,
                 });
               }
             } else if (indexSchema.fullText) {
+              this.logWriter.log(`Creating index`, {
+                dbName,
+                storeName: storeSchema.name,
+                indexName: indexSchema.name,
+              });
               store.createIndex(
                 indexSchema.name,
                 IndexPrefix + indexSchema.name,
@@ -330,6 +362,11 @@ export class IndexedDbProvider extends DbProvider {
                 needsMigrate = true;
               }
             } else {
+              this.logWriter.log(`Creating index`, {
+                dbName,
+                storeName: storeSchema.name,
+                indexName: indexSchema.name,
+              });
               store.createIndex(indexSchema.name, keyPath, {
                 unique: indexSchema.unique,
                 multiEntry: indexSchema.multiEntry,
@@ -351,15 +388,15 @@ export class IndexedDbProvider extends DbProvider {
             fakeToken,
             schema,
             this._fakeComplicatedKeys,
-            this.logger
+            this.logWriter
           );
           const tStore = iTrans.getStore(storeSchema.name);
 
           const cursorReq = store.openCursor();
           let thisIndexPutters: Promise<void>[] = [];
-          this.logger.log(
-            `Adding store: ${storeSchema.name} to migrationPutters`
-          );
+          this.logWriter.log(`Adding store to migrationPutters`, {
+            storeName: storeSchema.name,
+          });
           migrationPutters.push(
             IndexedDbIndex.iterateOverCursorRequest(cursorReq, (cursor) => {
               const err = attempt(() => {
@@ -376,8 +413,9 @@ export class IndexedDbProvider extends DbProvider {
             }).then(
               () => Promise.all(thisIndexPutters).then(noop),
               (err) => {
-                this.logger.error(
-                  `Error when iterating over cursor on idb index, message: ${err?.message}`
+                this.logWriter.error(
+                  `Error when iterating over cursor on idb index, message: ${err?.message}`,
+                  { storeName: storeSchema.name }
                 );
               }
             )
@@ -390,11 +428,12 @@ export class IndexedDbProvider extends DbProvider {
 
     return promise.then(
       (db) => {
-        this.logger.log(
-          `Waiting for migrationPutters: ${migrationPutters.length} to complete for db: ${dbName}`
+        this.logWriter.log(
+          `Waiting for migrationPutters: ${migrationPutters.length} to complete for db`,
+          { dbName }
         );
         return Promise.all(migrationPutters).then(() => {
-          this.logger.log(`Opening db: ${dbName} success`);
+          this.logWriter.log(`Opening db success`, { dbName });
           this._db = db;
           this._db.onclose = (event: Event) => {
             if (this._handleOnClose) {
@@ -435,17 +474,18 @@ export class IndexedDbProvider extends DbProvider {
           err.target.error.name === "VersionError"
         ) {
           if (!wipeIfExists) {
-            this.logger.log(
-              "Database version too new, Wiping: " +
-                (err.target.error.message || err.target.error.name)
+            this.logWriter.log(
+              `Database version too new, Wiping: ${
+                err.target.error.message || err.target.error.name
+              }`
             );
 
             return this.open(dbName, schema, true, verbose);
           }
         }
-        this.logger.error(
-          `Error opening db: ${dbName}, message: ${err?.message}`
-        );
+        this.logWriter.error(`Error opening db, message: ${err?.message}`, {
+          dbName,
+        });
         return Promise.reject<void>(err);
       }
     );
@@ -549,7 +589,7 @@ export class IndexedDbProvider extends DbProvider {
             transToken,
             this._schema!!!,
             this._fakeComplicatedKeys,
-            this.logger
+            this.logWriter
           )
         );
       }
@@ -567,7 +607,7 @@ class IndexedDbTransaction implements DbTransaction {
     private _transToken: TransactionToken,
     private _schema: DbSchema,
     private _fakeComplicatedKeys: boolean,
-    private logger: IObjectStoreProviderLogger
+    private logWriter: LogWriter
   ) {
     this._stores = map(this._transToken.storeNames, (storeName) =>
       this._trans.objectStore(storeName)
@@ -595,7 +635,7 @@ class IndexedDbTransaction implements DbTransaction {
         );
 
         if (history.length > 1) {
-          this.logger.warn(
+          this.logWriter.warn(
             "IndexedDbTransaction Errored after Resolution, Swallowing. Error: " +
               (this._trans.error ? this._trans.error.message : undefined) +
               ", History: " +
@@ -619,7 +659,7 @@ class IndexedDbTransaction implements DbTransaction {
         );
 
         if (history.length > 1) {
-          this.logger.warn(
+          this.logWriter.warn(
             "IndexedDbTransaction Aborted after Resolution, Swallowing. Error: " +
               (this._trans.error ? this._trans.error.message : undefined) +
               ", History: " +

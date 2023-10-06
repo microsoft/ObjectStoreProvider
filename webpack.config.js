@@ -6,6 +6,7 @@ var webpackConfig = {
   entry: {
     ObjectStoreProvider: "./src/tests/ObjectStoreProvider.spec.ts",
     SortedBTree: "./src/tests/SortedBTree.spec.ts",
+    LogWriter: "./src/tests/LogWriter.spec.ts",
   },
 
   output: {
