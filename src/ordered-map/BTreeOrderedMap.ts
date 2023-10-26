@@ -36,7 +36,7 @@ export class BTreeOrderedMap<K = any, V = any> implements IOrderedMap<K, V> {
   }
 
   public *entriesReversed(
-    highestKey?: K
+    highestKey?: K,
   ): IterableIterator<IKeyValuePair<K, V>> {
     for (const value of this._tree.entriesReversed(highestKey)) {
       yield this.toKeyValue(value);

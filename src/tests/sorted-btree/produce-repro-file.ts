@@ -20,7 +20,7 @@ export function cmdToString(
   k: number,
   v: number,
   arrIndex: number,
-  flag: boolean
+  flag: boolean,
 ) {
   switch (cmd) {
     case "GET":
@@ -45,7 +45,7 @@ function exceptLast<T>(arr: T[]): T[] {
 export function produceRepro(
   history: HistoryList,
   comp: TestingComparator,
-  fileName: string | undefined
+  fileName: string | undefined,
 ) {
   let outFileName = fileName;
   if (fileName === "") {
@@ -73,7 +73,7 @@ describe("${outFileName}", () => {
   }
   // last result will have the "assert"
   result += `${FOUR_INDENT}assert.deepEqual(${cmdToString(
-    ..._.last(history)!
+    ..._.last(history)!,
   )}, ${JSON.stringify(finalResult(history, comp))});\n`;
   result += `\
   });
@@ -84,7 +84,7 @@ describe("${outFileName}", () => {
     console.log("Writing generated test case to " + outFileName);
     fs.writeFileSync(
       path.resolve("./src/tests/sorted-btree/generated", outFileName),
-      result
+      result,
     );
   } else {
     console.log("\n\n", result);

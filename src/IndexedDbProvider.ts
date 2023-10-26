@@ -88,7 +88,7 @@ export class IndexedDbProvider extends DbProvider {
     explicitDbFactory?: IDBFactory,
     explicitDbFactorySupportsCompoundKeys?: boolean,
     handleOnClose?: OnCloseHandler,
-    logger?: IObjectStoreProviderLogger
+    logger?: IObjectStoreProviderLogger,
   ) {
     super();
 
@@ -149,7 +149,7 @@ export class IndexedDbProvider extends DbProvider {
     dbName: string,
     schema: DbSchema,
     wipeIfExists: boolean,
-    verbose: boolean
+    verbose: boolean,
   ): Promise<void> {
     // Note: DbProvider returns null instead of a promise that needs waiting for.
     super.open(dbName, schema, wipeIfExists, verbose);
@@ -170,7 +170,7 @@ export class IndexedDbProvider extends DbProvider {
         // Don't care
         this.logWriter.error(
           `Wiping db failed, message: ${e?.message}. Ignoring and proceeding further`,
-          { dbName }
+          { dbName },
         );
       }
       this.logWriter.log(`Wiping db success`, { dbName });
@@ -204,7 +204,7 @@ export class IndexedDbProvider extends DbProvider {
           isActualUpgrade = true;
           // Clear all stores if it's past the usable version
           this.logWriter.log(
-            `Old version detected (${event.oldVersion}), clearing all data`
+            `Old version detected (${event.oldVersion}), clearing all data`,
           );
           each(db.objectStoreNames, (name) => {
             db.deleteObjectStore(name);
@@ -231,7 +231,7 @@ export class IndexedDbProvider extends DbProvider {
         let store: IDBObjectStore;
         const storeExistedBefore = includes(
           db.objectStoreNames,
-          storeSchema.name
+          storeSchema.name,
         );
         if (!storeExistedBefore) {
           // store doesn't exist yet
@@ -256,7 +256,7 @@ export class IndexedDbProvider extends DbProvider {
             let nuke = false;
             const indexSchema = find(
               storeSchema.indexes,
-              (idx) => idx.name === indexName
+              (idx) => idx.name === indexName,
             );
             if (!indexSchema || !isObject(indexSchema)) {
               nuke = true;
@@ -310,7 +310,7 @@ export class IndexedDbProvider extends DbProvider {
                   });
                   let indexStore = db.createObjectStore(
                     storeSchema.name + "_" + indexSchema.name,
-                    { autoIncrement: true }
+                    { autoIncrement: true },
                   );
                   indexStore.createIndex("key", "key");
                   indexStore.createIndex("refkey", "refkey");
@@ -331,7 +331,7 @@ export class IndexedDbProvider extends DbProvider {
                   IndexPrefix + indexSchema.name,
                   {
                     unique: indexSchema.unique,
-                  }
+                  },
                 );
               } else {
                 this.logWriter.log(`Creating index`, {
@@ -355,7 +355,7 @@ export class IndexedDbProvider extends DbProvider {
                 {
                   unique: false,
                   multiEntry: true,
-                }
+                },
               );
 
               if (storeExistedBefore && !indexSchema.doNotBackfill) {
@@ -394,7 +394,7 @@ export class IndexedDbProvider extends DbProvider {
             fakeToken,
             schema,
             this._fakeComplicatedKeys,
-            this.logWriter
+            this.logWriter,
           );
           const tStore = iTrans.getStore(storeSchema.name);
 
@@ -408,7 +408,7 @@ export class IndexedDbProvider extends DbProvider {
               const err = attempt(() => {
                 const item = removeFullTextMetadataAndReturn(
                   storeSchema,
-                  (cursor as any).value
+                  (cursor as any).value,
                 );
 
                 thisIndexPutters.push(tStore.put(item));
@@ -421,10 +421,10 @@ export class IndexedDbProvider extends DbProvider {
               (err) => {
                 this.logWriter.error(
                   `Error when iterating over cursor on idb index, message: ${err?.message}`,
-                  { storeName: storeSchema.name }
+                  { storeName: storeSchema.name },
                 );
-              }
-            )
+              },
+            ),
           );
         }
       });
@@ -439,7 +439,7 @@ export class IndexedDbProvider extends DbProvider {
         if (isActualMigration) {
           this.logWriter.log(
             `Waiting for migrationPutters: ${migrationPutters.length} to complete for db`,
-            { dbName }
+            { dbName },
           );
         }
         return Promise.all(migrationPutters).then(() => {
@@ -489,7 +489,7 @@ export class IndexedDbProvider extends DbProvider {
             this.logWriter.log(
               `Database version too new, Wiping: ${
                 err.target.error.message || err.target.error.name
-              }`
+              }`,
             );
 
             return this.open(dbName, schema, true, verbose);
@@ -502,7 +502,7 @@ export class IndexedDbProvider extends DbProvider {
           }
         );
         return Promise.reject<void>(err);
-      }
+      },
     );
   }
 
@@ -547,7 +547,7 @@ export class IndexedDbProvider extends DbProvider {
 
   openTransaction(
     storeNames: string[],
-    writeNeeded: boolean
+    writeNeeded: boolean,
   ): Promise<DbTransaction> {
     if (!this._db) {
       return Promise.reject("Can't openTransaction, database is closed");
@@ -564,7 +564,7 @@ export class IndexedDbProvider extends DbProvider {
       each(storeNames, (storeName) => {
         let storeSchema = find(
           this._schema!!!.stores,
-          (s) => s.name === storeName
+          (s) => s.name === storeName,
         );
         if (!storeSchema) {
           missingStores.push(storeName);
@@ -580,7 +580,7 @@ export class IndexedDbProvider extends DbProvider {
       });
       if (missingStores.length > 0) {
         return Promise.reject(
-          "Can't find store(s): " + missingStores.join(",")
+          "Can't find store(s): " + missingStores.join(","),
         );
       }
     }
@@ -590,7 +590,7 @@ export class IndexedDbProvider extends DbProvider {
         const trans = attempt(() => {
           return this._db!!!.transaction(
             intStoreNames,
-            writeNeeded ? "readwrite" : "readonly"
+            writeNeeded ? "readwrite" : "readonly",
           );
         });
         if (isError(trans)) {
@@ -604,10 +604,10 @@ export class IndexedDbProvider extends DbProvider {
             transToken,
             this._schema!!!,
             this._fakeComplicatedKeys,
-            this.logWriter
-          )
+            this.logWriter,
+          ),
         );
-      }
+      },
     );
   }
 }
@@ -622,10 +622,10 @@ class IndexedDbTransaction implements DbTransaction {
     private _transToken: TransactionToken,
     private _schema: DbSchema,
     private _fakeComplicatedKeys: boolean,
-    private logWriter: LogWriter
+    private logWriter: LogWriter,
   ) {
     this._stores = map(this._transToken.storeNames, (storeName) =>
-      this._trans.objectStore(storeName)
+      this._trans.objectStore(storeName),
     );
 
     if (lockHelper) {
@@ -646,7 +646,7 @@ class IndexedDbTransaction implements DbTransaction {
 
       this._trans.onerror = () => {
         history.push(
-          "error-" + (this._trans.error ? this._trans.error.message : "")
+          "error-" + (this._trans.error ? this._trans.error.message : ""),
         );
 
         if (history.length > 1) {
@@ -654,7 +654,7 @@ class IndexedDbTransaction implements DbTransaction {
             "IndexedDbTransaction Errored after Resolution, Swallowing. Error: " +
               (this._trans.error ? this._trans.error.message : undefined) +
               ", History: " +
-              history.join(",")
+              history.join(","),
           );
           return;
         }
@@ -664,13 +664,13 @@ class IndexedDbTransaction implements DbTransaction {
           "IndexedDbTransaction OnError: " +
             (this._trans.error ? this._trans.error.message : undefined) +
             ", History: " +
-            history.join(",")
+            history.join(","),
         );
       };
 
       this._trans.onabort = () => {
         history.push(
-          "abort-" + (this._trans.error ? this._trans.error.message : "")
+          "abort-" + (this._trans.error ? this._trans.error.message : ""),
         );
 
         if (history.length > 1) {
@@ -678,7 +678,7 @@ class IndexedDbTransaction implements DbTransaction {
             "IndexedDbTransaction Aborted after Resolution, Swallowing. Error: " +
               (this._trans.error ? this._trans.error.message : undefined) +
               ", History: " +
-              history.join(",")
+              history.join(","),
           );
           return;
         }
@@ -688,7 +688,7 @@ class IndexedDbTransaction implements DbTransaction {
           "IndexedDbTransaction Aborted, Error: " +
             (this._trans.error ? this._trans.error.message : undefined) +
             ", History: " +
-            history.join(",")
+            history.join(","),
         );
       };
     }
@@ -707,7 +707,7 @@ class IndexedDbTransaction implements DbTransaction {
       each(storeSchema.indexes, (indexSchema) => {
         if (indexSchema.multiEntry || indexSchema.fullText) {
           indexStores.push(
-            this._trans.objectStore(storeSchema.name + "_" + indexSchema.name)
+            this._trans.objectStore(storeSchema.name + "_" + indexSchema.name),
           );
         }
       });
@@ -717,7 +717,7 @@ class IndexedDbTransaction implements DbTransaction {
       store,
       indexStores,
       storeSchema,
-      this._fakeComplicatedKeys
+      this._fakeComplicatedKeys,
     );
   }
 
@@ -755,7 +755,7 @@ class IndexedDbStore implements DbStore {
     private _store: IDBObjectStore,
     private _indexStores: IDBObjectStore[],
     private _schema: StoreSchema,
-    private _fakeComplicatedKeys: boolean
+    private _fakeComplicatedKeys: boolean,
   ) {
     // NOP
   }
@@ -774,7 +774,7 @@ class IndexedDbStore implements DbStore {
     }
 
     return IndexedDbProvider.WrapRequest(this._store.get(key)).then((val) =>
-      removeFullTextMetadataAndReturn(this._schema, val)
+      removeFullTextMetadataAndReturn(this._schema, val),
     );
   }
 
@@ -787,7 +787,7 @@ class IndexedDbStore implements DbStore {
         isCompoundKeyPath(this._schema.primaryKeyPath)
       ) {
         return map(keys, (key) =>
-          serializeKeyToString(key, this._schema.primaryKeyPath)
+          serializeKeyToString(key, this._schema.primaryKeyPath),
         );
       }
       return keys;
@@ -799,9 +799,9 @@ class IndexedDbStore implements DbStore {
     return Promise.all(
       map(keys, (key) =>
         IndexedDbProvider.WrapRequest(this._store.get(key)).then((val) =>
-          removeFullTextMetadataAndReturn(this._schema, val)
-        )
-      )
+          removeFullTextMetadataAndReturn(this._schema, val),
+        ),
+      ),
     ).then(compact);
   }
 
@@ -821,7 +821,7 @@ class IndexedDbStore implements DbStore {
             fakedPk = true;
             (item as any)["nsp_pk"] = getSerializedKeyForKeypath(
               item,
-              this._schema.primaryKeyPath
+              this._schema.primaryKeyPath,
             );
           }
 
@@ -829,20 +829,20 @@ class IndexedDbStore implements DbStore {
             if (index.multiEntry || index.fullText) {
               let indexStore = find(
                 this._indexStores,
-                (store) => store.name === this._schema.name + "_" + index.name
+                (store) => store.name === this._schema.name + "_" + index.name,
               )!!!;
 
               let keys: any[];
               if (index.fullText) {
                 keys = getFullTextIndexWordsForItem(
                   <string>index.keyPath,
-                  item
+                  item,
                 );
               } else {
                 // Get each value of the multientry and put it into the index store
                 const valsRaw = getValueForSingleKeypath(
                   item,
-                  <string>index.keyPath
+                  <string>index.keyPath,
                 );
                 // It might be an array of multiple entries, so just always go with array-based logic
                 keys = arrayify(valsRaw);
@@ -854,7 +854,7 @@ class IndexedDbStore implements DbStore {
                 // serialization if the multientry keys ALSO are compound.
                 if (isCompoundKeyPath(index.keyPath)) {
                   keys = map(keys, (val) =>
-                    serializeKeyToString(val, <string>index.keyPath)
+                    serializeKeyToString(val, <string>index.keyPath),
                   );
                 }
 
@@ -865,7 +865,7 @@ class IndexedDbStore implements DbStore {
                 if (isArray(this._schema.primaryKeyPath)) {
                   refKey = serializeKeyToString(
                     refKey,
-                    this._schema.primaryKeyPath
+                    this._schema.primaryKeyPath,
                   );
                 }
               });
@@ -891,12 +891,12 @@ class IndexedDbStore implements DbStore {
                         refkey: refKey,
                       };
                       return IndexedDbProvider.WrapRequest(
-                        indexStore.put(indexObj)
+                        indexStore.put(indexObj),
                       ).then(() => void 0);
                     });
                     return Promise.all(iputters);
                   })
-                  .then(noop)
+                  .then(noop),
               );
             } else if (isCompoundKeyPath(index.keyPath)) {
               (item as any)[IndexPrefix + index.name] =
@@ -924,7 +924,7 @@ class IndexedDbStore implements DbStore {
             }
 
             promises.push(
-              IndexedDbProvider.WrapRequest(req).then(() => void 0)
+              IndexedDbProvider.WrapRequest(req).then(() => void 0),
             );
           });
         }
@@ -951,7 +951,7 @@ class IndexedDbStore implements DbStore {
         isCompoundKeyPath(this._schema.primaryKeyPath)
       ) {
         return map(keys, (key) =>
-          serializeKeyToString(key, this._schema.primaryKeyPath)
+          serializeKeyToString(key, this._schema.primaryKeyPath),
         );
       }
       return keys;
@@ -966,7 +966,7 @@ class IndexedDbStore implements DbStore {
           this._fakeComplicatedKeys &&
           some(
             this._schema.indexes,
-            (index) => index.multiEntry || index.fullText
+            (index) => index.multiEntry || index.fullText,
           )
         ) {
           // If we're faking keys and there's any multientry indexes, we have to do the way more complicated version...
@@ -980,7 +980,7 @@ class IndexedDbStore implements DbStore {
                     let indexStore = find(
                       this._indexStores,
                       (store) =>
-                        store.name === this._schema.name + "_" + index.name
+                        store.name === this._schema.name + "_" + index.name,
                     )!!!;
                     const refKey = attempt(() => {
                       // We need to reference the PK of the actual row we're using here, so calculate the actual PK -- if it's
@@ -988,12 +988,12 @@ class IndexedDbStore implements DbStore {
                       // raw value.
                       const tempRefKey = getKeyForKeypath(
                         item,
-                        this._schema.primaryKeyPath
+                        this._schema.primaryKeyPath,
                       )!!!;
                       return isArray(this._schema.primaryKeyPath)
                         ? serializeKeyToString(
                             tempRefKey,
-                            this._schema.primaryKeyPath
+                            this._schema.primaryKeyPath,
                           )
                         : tempRefKey;
                     });
@@ -1009,23 +1009,23 @@ class IndexedDbStore implements DbStore {
                       cursorReq,
                       (cursor) => {
                         cursor["delete"]();
-                      }
+                      },
                     );
-                  }
+                  },
                 );
                 // Also remember to nuke the item from the actual store
                 promises.push(
-                  IndexedDbProvider.WrapRequest(this._store["delete"](key))
+                  IndexedDbProvider.WrapRequest(this._store["delete"](key)),
                 );
                 return Promise.all(promises).then(noop);
               }
               return undefined;
-            }
+            },
           );
         }
 
         return IndexedDbProvider.WrapRequest(this._store["delete"](key));
-      })
+      }),
     ).then(noop);
   }
 
@@ -1034,7 +1034,7 @@ class IndexedDbStore implements DbStore {
     keyLowRange: KeyType,
     keyHighRange: KeyType,
     lowRangeExclusive?: boolean,
-    highRangeExclusive?: boolean
+    highRangeExclusive?: boolean,
   ): Promise<void> {
     const index = attempt(() => {
       return indexName ? this.openIndex(indexName) : this.openPrimaryKey();
@@ -1047,7 +1047,7 @@ class IndexedDbStore implements DbStore {
         keyLowRange,
         keyHighRange,
         lowRangeExclusive,
-        highRangeExclusive
+        highRangeExclusive,
       )
       .then((keys) => {
         this.remove(keys);
@@ -1057,7 +1057,7 @@ class IndexedDbStore implements DbStore {
   openIndex(indexName: string): DbIndex {
     const indexSchema = find(
       this._schema.indexes,
-      (idx) => idx.name === indexName
+      (idx) => idx.name === indexName,
     );
     if (!indexSchema) {
       throw new Error("Index not found: " + indexName);
@@ -1070,11 +1070,11 @@ class IndexedDbStore implements DbStore {
       const store = find(
         this._indexStores,
         (indexStore) =>
-          indexStore.name === this._schema.name + "_" + indexSchema.name
+          indexStore.name === this._schema.name + "_" + indexSchema.name,
       );
       if (!store) {
         throw new Error(
-          "Indexstore not found: " + this._schema.name + "_" + indexSchema.name
+          "Indexstore not found: " + this._schema.name + "_" + indexSchema.name,
         );
       }
       return new IndexedDbIndex(
@@ -1082,7 +1082,7 @@ class IndexedDbStore implements DbStore {
         indexSchema,
         this._schema.primaryKeyPath,
         this._fakeComplicatedKeys,
-        this._store
+        this._store,
       );
     } else {
       const index = this._store.index(indexName);
@@ -1093,7 +1093,7 @@ class IndexedDbStore implements DbStore {
         index,
         indexSchema,
         this._schema.primaryKeyPath,
-        this._fakeComplicatedKeys
+        this._fakeComplicatedKeys,
       );
     }
   }
@@ -1103,7 +1103,7 @@ class IndexedDbStore implements DbStore {
       this._store,
       undefined,
       this._schema.primaryKeyPath,
-      this._fakeComplicatedKeys
+      this._fakeComplicatedKeys,
     );
   }
 
@@ -1114,7 +1114,7 @@ class IndexedDbStore implements DbStore {
     }
 
     let promises = map(storesToClear, (store) =>
-      IndexedDbProvider.WrapRequest(store.clear())
+      IndexedDbProvider.WrapRequest(store.clear()),
     );
 
     return Promise.all(promises).then(noop);
@@ -1130,7 +1130,7 @@ class IndexedDbIndex extends DbIndexFTSFromRangeQueries {
     indexSchema: IndexSchema | undefined,
     primaryKeyPath: KeyPathType,
     private _fakeComplicatedKeys: boolean,
-    private _fakedOriginalStore?: IDBObjectStore
+    private _fakedOriginalStore?: IDBObjectStore,
   ) {
     super(indexSchema, primaryKeyPath);
   }
@@ -1138,20 +1138,20 @@ class IndexedDbIndex extends DbIndexFTSFromRangeQueries {
   private _resolveCursorResult(
     req: IDBRequest,
     limit?: number,
-    offset?: number
+    offset?: number,
   ): Promise<ItemType[]> {
     if (this._fakeComplicatedKeys && this._fakedOriginalStore) {
       // Get based on the keys from the index store, which have refkeys that point back to the original store
       return IndexedDbIndex.getFromCursorRequest<{ key: string; refkey: any }>(
         req,
         limit,
-        offset
+        offset,
       ).then((rets) => {
         // Now get the original items using the refkeys from the index store, which are PKs on the main store
         const getters = map(rets, (ret) =>
           IndexedDbProvider.WrapRequest(
-            this._fakedOriginalStore!!!.get(ret.refkey)
-          )
+            this._fakedOriginalStore!!!.get(ret.refkey),
+          ),
         );
         return Promise.all(getters);
       });
@@ -1163,7 +1163,7 @@ class IndexedDbIndex extends DbIndexFTSFromRangeQueries {
   getAll(
     reverseOrSortOrder?: boolean | QuerySortOrder,
     limit?: number,
-    offset?: number
+    offset?: number,
   ): Promise<ItemType[]> {
     const reverse =
       reverseOrSortOrder === true ||
@@ -1175,7 +1175,7 @@ class IndexedDbIndex extends DbIndexFTSFromRangeQueries {
       !this._fakeComplicatedKeys
     ) {
       return IndexedDbProvider.WrapRequest(
-        this._store.getAll(undefined, limit)
+        this._store.getAll(undefined, limit),
       );
     }
     // ************************* Don't change this null to undefined, IE chokes on it... *****************************
@@ -1189,7 +1189,7 @@ class IndexedDbIndex extends DbIndexFTSFromRangeQueries {
     key: KeyType,
     reverseOrSortOrder?: boolean | QuerySortOrder,
     limit?: number,
-    offset?: number
+    offset?: number,
   ): Promise<ItemType[]> {
     const keyRange = attempt(() => {
       return this._getKeyRangeForOnly(key);
@@ -1224,7 +1224,7 @@ class IndexedDbIndex extends DbIndexFTSFromRangeQueries {
     // when dealing with fakeComplicatedKeys, the store tries to store key and refkey, not the entire object.
     // therefore it calls getOnly to get the whole object through openCursor
     return Promise.all(map(keys, (key) => this.getOnly(key))).then((vals) =>
-      compact(flatten(vals))
+      compact(flatten(vals)),
     );
   }
   // Warning: This function can throw, make sure to trap.
@@ -1242,14 +1242,14 @@ class IndexedDbIndex extends DbIndexFTSFromRangeQueries {
     highRangeExclusive?: boolean,
     reverseOrSortOrder?: boolean | QuerySortOrder,
     limit?: number,
-    offset?: number
+    offset?: number,
   ): Promise<ItemType[]> {
     const keyRange = attempt(() => {
       return this._getKeyRangeForRange(
         keyLowRange,
         keyHighRange,
         lowRangeExclusive,
-        highRangeExclusive
+        highRangeExclusive,
       );
     });
     if (isError(keyRange)) {
@@ -1276,7 +1276,7 @@ class IndexedDbIndex extends DbIndexFTSFromRangeQueries {
     keyLowRange: KeyType,
     keyHighRange: KeyType,
     lowRangeExclusive?: boolean,
-    highRangeExclusive?: boolean
+    highRangeExclusive?: boolean,
   ): IDBKeyRange {
     if (this._fakeComplicatedKeys && isCompoundKeyPath(this._keyPath)) {
       // IE has to switch to hacky pre-joined-compound-keys
@@ -1284,14 +1284,14 @@ class IndexedDbIndex extends DbIndexFTSFromRangeQueries {
         serializeKeyToString(keyLowRange, this._keyPath),
         serializeKeyToString(keyHighRange, this._keyPath),
         lowRangeExclusive,
-        highRangeExclusive
+        highRangeExclusive,
       );
     }
     return IDBKeyRange.bound(
       keyLowRange,
       keyHighRange,
       lowRangeExclusive,
-      highRangeExclusive
+      highRangeExclusive,
     );
   }
 
@@ -1316,14 +1316,14 @@ class IndexedDbIndex extends DbIndexFTSFromRangeQueries {
     keyLowRange: KeyType,
     keyHighRange: KeyType,
     lowRangeExclusive?: boolean,
-    highRangeExclusive?: boolean
+    highRangeExclusive?: boolean,
   ): Promise<number> {
     let keyRange = attempt(() => {
       return this._getKeyRangeForRange(
         keyLowRange,
         keyHighRange,
         lowRangeExclusive,
-        highRangeExclusive
+        highRangeExclusive,
       );
     });
     if (isError(keyRange)) {
@@ -1338,14 +1338,14 @@ class IndexedDbIndex extends DbIndexFTSFromRangeQueries {
     keyLowRange: KeyType,
     keyHighRange: KeyType,
     lowRangeExclusive?: boolean,
-    highRangeExclusive?: boolean
+    highRangeExclusive?: boolean,
   ): Promise<any[]> {
     const keyRange = attempt(() => {
       return this._getKeyRangeForRange(
         keyLowRange,
         keyHighRange,
         lowRangeExclusive,
-        highRangeExclusive
+        highRangeExclusive,
       );
     });
     if (isError(keyRange)) {
@@ -1353,7 +1353,7 @@ class IndexedDbIndex extends DbIndexFTSFromRangeQueries {
     }
     if (this._store.getAllKeys && !this._fakeComplicatedKeys) {
       return IndexedDbProvider.WrapRequest<any[]>(
-        this._store.getAllKeys(keyRange)
+        this._store.getAllKeys(keyRange),
       );
     }
 
@@ -1369,7 +1369,7 @@ class IndexedDbIndex extends DbIndexFTSFromRangeQueries {
   static getFromCursorRequest<T>(
     req: IDBRequest,
     limit?: number,
-    offset?: number
+    offset?: number,
   ): Promise<T[]> {
     let outList: T[] = [];
     return this.iterateOverCursorRequest(
@@ -1379,7 +1379,7 @@ class IndexedDbIndex extends DbIndexFTSFromRangeQueries {
         outList.push((cursor as any).value);
       },
       limit,
-      offset
+      offset,
     ).then(() => {
       return outList;
     });
@@ -1400,7 +1400,7 @@ class IndexedDbIndex extends DbIndexFTSFromRangeQueries {
     req: IDBRequest,
     func: (cursor: IDBCursor) => void,
     limit?: number,
-    offset?: number
+    offset?: number,
   ): Promise<void> {
     return new Promise((resolve, reject) => {
       let count = 0;

@@ -26,7 +26,7 @@ function openProvider(
   schema: DbSchema,
   wipeFirst: boolean,
   handleOnClose?: OnCloseHandler,
-  supportsRollback?: boolean
+  supportsRollback?: boolean,
 ) {
   let provider: DbProvider;
   if (providerName === "memory-rbtree") {
@@ -91,7 +91,7 @@ describe("ObjectStoreProvider", function () {
       assert(
         serializeValueToOrderableString(pair[0]) <
           serializeValueToOrderableString(pair[1]),
-        "failed for pair: " + pair
+        "failed for pair: " + pair,
       );
     });
 
@@ -146,7 +146,7 @@ describe("ObjectStoreProvider", function () {
               })
               .then(
                 () => done(),
-                (err) => done(err)
+                (err) => done(err),
               );
           });
         } else {
@@ -182,12 +182,12 @@ describe("ObjectStoreProvider", function () {
                       assert.equal(ret.val, "b");
                     })
                     .then(() => prov.close())
-                    .catch((e) => prov.close().then(() => Promise.reject(e)))
+                    .catch((e) => prov.close().then(() => Promise.reject(e))),
                 );
               })
               .then(
                 () => done(),
-                (err) => done(err)
+                (err) => done(err),
               );
           });
         }
@@ -221,17 +221,17 @@ describe("ObjectStoreProvider", function () {
               assert.equal(
                 payload.name,
                 "test",
-                `expectedHandleOnClose: actual: ${payload.name} `
+                `expectedHandleOnClose: actual: ${payload.name} `,
               );
               assert.equal(
                 payload.objectStores,
                 "test",
-                `expectedHandleOnClose: actual: ${payload.objectStores} `
+                `expectedHandleOnClose: actual: ${payload.objectStores} `,
               );
               assert.equal(
                 payload.type,
                 "expectedClosure",
-                `expectedHandleOnClose: type: actual: ${payload.type}`
+                `expectedHandleOnClose: type: actual: ${payload.type}`,
               );
             };
 
@@ -239,7 +239,7 @@ describe("ObjectStoreProvider", function () {
               .then((prov) => prov.close())
               .then(
                 () => done(),
-                (err) => done(err)
+                (err) => done(err),
               );
           });
         }
@@ -272,17 +272,17 @@ describe("ObjectStoreProvider", function () {
               assert.equal(
                 payload.name,
                 "test",
-                `unexpectedHandleOnClose: actual: ${payload.name} `
+                `unexpectedHandleOnClose: actual: ${payload.name} `,
               );
               assert.equal(
                 payload.objectStores,
                 "test",
-                `unexpectedHandleOnClose: actual: ${payload.objectStores} `
+                `unexpectedHandleOnClose: actual: ${payload.objectStores} `,
               );
               assert.equal(
                 payload.type,
                 "unexpectedClosure",
-                `unexpectedHandleOnClose: type: actual: ${payload.type}`
+                `unexpectedHandleOnClose: type: actual: ${payload.type}`,
               );
             };
 
@@ -297,7 +297,7 @@ describe("ObjectStoreProvider", function () {
               .then((prov) => prov.close())
               .then(
                 () => done(),
-                (err) => done(err)
+                (err) => done(err),
               );
           });
         }
@@ -310,7 +310,7 @@ describe("ObjectStoreProvider", function () {
           prov: DbProvider,
           indexName: string | undefined,
           compound: boolean,
-          setter: (obj: any, indexval1: string, indexval2: string) => void
+          setter: (obj: any, indexval1: string, indexval2: string) => void,
         ) => {
           var putters = [1, 2, 3, 4, 5].map((v) => {
             var obj: TestObj = { val: "val" + v };
@@ -334,7 +334,7 @@ describe("ObjectStoreProvider", function () {
               .getMultiple(
                 "test",
                 compound ? formIndex(1, 1) : "indexa1",
-                indexName
+                indexName,
               )
               .then((retVal) => {
                 const ret = retVal as TestObj[];
@@ -342,7 +342,7 @@ describe("ObjectStoreProvider", function () {
                 [1].forEach((v) => {
                   assert(
                     find(ret, (r) => r.val === "val" + v),
-                    "cant find " + v
+                    "cant find " + v,
                   );
                 });
               });
@@ -353,7 +353,7 @@ describe("ObjectStoreProvider", function () {
               [1, 2, 3, 4, 5].forEach((v) => {
                 assert(
                   find(ret, (r) => r.val === "val" + v),
-                  "cant find " + v
+                  "cant find " + v,
                 );
               });
             });
@@ -370,7 +370,7 @@ describe("ObjectStoreProvider", function () {
                 [1, 2, 3].forEach((v) => {
                   assert(
                     find(ret, (r) => r.val === "val" + v),
-                    "cant find " + v
+                    "cant find " + v,
                   );
                 });
               });
@@ -383,7 +383,7 @@ describe("ObjectStoreProvider", function () {
                 [2, 3, 4].forEach((v) => {
                   assert(
                     find(ret, (r) => r.val === "val" + v),
-                    "cant find " + v
+                    "cant find " + v,
                   );
                 });
               });
@@ -426,7 +426,7 @@ describe("ObjectStoreProvider", function () {
                 false,
                 false,
                 false,
-                1
+                1,
               )
               .then((retVal) => {
                 const ret = retVal as TestObj[];
@@ -445,7 +445,7 @@ describe("ObjectStoreProvider", function () {
                 false,
                 false,
                 false,
-                1
+                1,
               )
               .then((retVal) => {
                 const ret = retVal as TestObj[];
@@ -464,7 +464,7 @@ describe("ObjectStoreProvider", function () {
                 false,
                 false,
                 QuerySortOrder.Forward,
-                1
+                1,
               )
               .then((retVal) => {
                 const ret = retVal as TestObj[];
@@ -483,7 +483,7 @@ describe("ObjectStoreProvider", function () {
                 false,
                 false,
                 QuerySortOrder.Reverse,
-                1
+                1,
               )
               .then((retVal) => {
                 const ret = retVal as TestObj[];
@@ -503,7 +503,7 @@ describe("ObjectStoreProvider", function () {
                 false,
                 false,
                 1,
-                1
+                1,
               )
               .then((retVal) => {
                 const ret = retVal as TestObj[];
@@ -523,7 +523,7 @@ describe("ObjectStoreProvider", function () {
                 false,
                 false,
                 2,
-                1
+                1,
               )
               .then((retVal) => {
                 const ret = retVal as TestObj[];
@@ -543,7 +543,7 @@ describe("ObjectStoreProvider", function () {
                 false,
                 QuerySortOrder.Forward,
                 2,
-                1
+                1,
               )
               .then((retVal) => {
                 const ret = retVal as TestObj[];
@@ -563,7 +563,7 @@ describe("ObjectStoreProvider", function () {
                 false,
                 true,
                 2,
-                1
+                1,
               )
               .then((retVal) => {
                 const ret = retVal as TestObj[];
@@ -584,7 +584,7 @@ describe("ObjectStoreProvider", function () {
                 false,
                 QuerySortOrder.Reverse,
                 2,
-                1
+                1,
               )
               .then((retVal) => {
                 const ret = retVal as TestObj[];
@@ -602,7 +602,7 @@ describe("ObjectStoreProvider", function () {
                 formIndex(2),
                 formIndex(4),
                 true,
-                false
+                false,
               )
               .then((retVal) => {
                 const ret = retVal as TestObj[];
@@ -619,7 +619,7 @@ describe("ObjectStoreProvider", function () {
                 formIndex(2),
                 formIndex(4),
                 true,
-                false
+                false,
               )
               .then((ret) => {
                 assert.equal(ret, 2, "countRange-+");
@@ -632,7 +632,7 @@ describe("ObjectStoreProvider", function () {
                 formIndex(2),
                 formIndex(4),
                 false,
-                true
+                true,
               )
               .then((retVal) => {
                 const ret = retVal as TestObj[];
@@ -649,7 +649,7 @@ describe("ObjectStoreProvider", function () {
                 formIndex(2),
                 formIndex(4),
                 false,
-                true
+                true,
               )
               .then((ret) => {
                 assert.equal(ret, 2, "countRange+-");
@@ -662,7 +662,7 @@ describe("ObjectStoreProvider", function () {
                 formIndex(2),
                 formIndex(4),
                 true,
-                true
+                true,
               )
               .then((retVal) => {
                 const ret = retVal as TestObj[];
@@ -679,7 +679,7 @@ describe("ObjectStoreProvider", function () {
                 formIndex(2),
                 formIndex(4),
                 true,
-                true
+                true,
               )
               .then((ret) => {
                 assert.equal(ret, 1, "countRange--");
@@ -727,7 +727,7 @@ describe("ObjectStoreProvider", function () {
                     "test",
                     indexName,
                     formIndex(2, 2),
-                    formIndex(4, 3)
+                    formIndex(4, 3),
                   )
                   .then((ret) => {
                     assert.equal(ret, 2, "countRange2++");
@@ -740,7 +740,7 @@ describe("ObjectStoreProvider", function () {
                     formIndex(2, 2),
                     formIndex(4, 3),
                     false,
-                    true
+                    true,
                   )
                   .then((retVal) => {
                     const ret = retVal as TestObj[];
@@ -757,7 +757,7 @@ describe("ObjectStoreProvider", function () {
                     formIndex(2, 2),
                     formIndex(4, 3),
                     false,
-                    true
+                    true,
                   )
                   .then((ret) => {
                     assert.equal(ret, 2, "countRange2+-");
@@ -770,7 +770,7 @@ describe("ObjectStoreProvider", function () {
                     formIndex(2, 2),
                     formIndex(4, 3),
                     true,
-                    false
+                    false,
                   )
                   .then((retVal) => {
                     const ret = retVal as TestObj[];
@@ -787,7 +787,7 @@ describe("ObjectStoreProvider", function () {
                     formIndex(2, 2),
                     formIndex(4, 3),
                     true,
-                    false
+                    false,
                   )
                   .then((ret) => {
                     assert.equal(ret, 1, "countRange2-+");
@@ -811,7 +811,7 @@ describe("ObjectStoreProvider", function () {
           prov: DbProvider,
           indexName: string | undefined,
           compound: boolean,
-          setter: (obj: any, indexval1: string, indexval2: string) => void
+          setter: (obj: any, indexval1: string, indexval2: string) => void,
         ) => {
           var putters = [1, 1, 1, 2, 2, 3, 3, 3, 4, 4, 5, 5].map((v, idx) => {
             var obj: TestObj = { val: "val" + v };
@@ -835,7 +835,7 @@ describe("ObjectStoreProvider", function () {
               .getMultiple(
                 "test",
                 compound ? formIndex(1, 1) : "indexa1",
-                indexName
+                indexName,
               )
               .then((retVal) => {
                 const ret = retVal as TestObj[];
@@ -843,7 +843,7 @@ describe("ObjectStoreProvider", function () {
                 [1].forEach((v) => {
                   assert(
                     find(ret, (r) => r.val === "val" + v),
-                    "cant find " + v
+                    "cant find " + v,
                   );
                 });
               });
@@ -854,7 +854,7 @@ describe("ObjectStoreProvider", function () {
               [1, 2, 3, 4, 5].forEach((v) => {
                 assert(
                   find(ret, (r) => r.val === "val" + v),
-                  "cant find " + v
+                  "cant find " + v,
                 );
               });
             });
@@ -871,7 +871,7 @@ describe("ObjectStoreProvider", function () {
                 [1].forEach((v) => {
                   assert(
                     filter(ret, (r) => r.val === "val" + v).length === 3,
-                    "cant find enough " + v
+                    "cant find enough " + v,
                   );
                 });
               });
@@ -884,7 +884,7 @@ describe("ObjectStoreProvider", function () {
                 [2, 3, 4].forEach((v) => {
                   assert(
                     find(ret, (r) => r.id === "id" + v),
-                    "cant find id " + v
+                    "cant find id " + v,
                   );
                 });
               });
@@ -929,7 +929,7 @@ describe("ObjectStoreProvider", function () {
                 false,
                 false,
                 false,
-                1
+                1,
               )
               .then((retVal) => {
                 const ret = retVal as TestObj[];
@@ -948,7 +948,7 @@ describe("ObjectStoreProvider", function () {
                 false,
                 false,
                 false,
-                1
+                1,
               )
               .then((retVal) => {
                 const ret = retVal as TestObj[];
@@ -967,7 +967,7 @@ describe("ObjectStoreProvider", function () {
                 false,
                 false,
                 QuerySortOrder.Forward,
-                1
+                1,
               )
               .then((retVal) => {
                 const ret = retVal as TestObj[];
@@ -986,7 +986,7 @@ describe("ObjectStoreProvider", function () {
                 false,
                 false,
                 QuerySortOrder.Reverse,
-                1
+                1,
               )
               .then((retVal) => {
                 const ret = retVal as TestObj[];
@@ -1006,7 +1006,7 @@ describe("ObjectStoreProvider", function () {
                 false,
                 false,
                 1,
-                1
+                1,
               )
               .then((retVal) => {
                 const ret = retVal as TestObj[];
@@ -1026,7 +1026,7 @@ describe("ObjectStoreProvider", function () {
                 false,
                 false,
                 2,
-                1
+                1,
               )
               .then((retVal) => {
                 const ret = retVal as TestObj[];
@@ -1046,7 +1046,7 @@ describe("ObjectStoreProvider", function () {
                 false,
                 QuerySortOrder.Forward,
                 2,
-                1
+                1,
               )
               .then((retVal) => {
                 const ret = retVal as TestObj[];
@@ -1066,7 +1066,7 @@ describe("ObjectStoreProvider", function () {
                 false,
                 true,
                 2,
-                1
+                1,
               )
               .then((retVal) => {
                 const ret = retVal as TestObj[];
@@ -1087,7 +1087,7 @@ describe("ObjectStoreProvider", function () {
                 false,
                 QuerySortOrder.Reverse,
                 2,
-                1
+                1,
               )
               .then((retVal) => {
                 const ret = retVal as TestObj[];
@@ -1105,7 +1105,7 @@ describe("ObjectStoreProvider", function () {
                 formIndex(2),
                 formIndex(4),
                 true,
-                false
+                false,
               )
               .then((retVal) => {
                 const ret = retVal as TestObj[];
@@ -1122,7 +1122,7 @@ describe("ObjectStoreProvider", function () {
                 formIndex(2),
                 formIndex(4),
                 true,
-                false
+                false,
               )
               .then((ret) => {
                 assert.equal(ret, 5, "countRange-+");
@@ -1135,7 +1135,7 @@ describe("ObjectStoreProvider", function () {
                 formIndex(2),
                 formIndex(4),
                 false,
-                true
+                true,
               )
               .then((retVal) => {
                 const ret = retVal as TestObj[];
@@ -1152,7 +1152,7 @@ describe("ObjectStoreProvider", function () {
                 formIndex(2),
                 formIndex(4),
                 false,
-                true
+                true,
               )
               .then((ret) => {
                 assert.equal(ret, 5, "countRange+-");
@@ -1165,7 +1165,7 @@ describe("ObjectStoreProvider", function () {
                 formIndex(2),
                 formIndex(4),
                 true,
-                true
+                true,
               )
               .then((retVal) => {
                 const ret = retVal as TestObj[];
@@ -1182,7 +1182,7 @@ describe("ObjectStoreProvider", function () {
                 formIndex(2),
                 formIndex(4),
                 true,
-                true
+                true,
               )
               .then((ret) => {
                 assert.equal(ret, 3, "countRange--");
@@ -1230,7 +1230,7 @@ describe("ObjectStoreProvider", function () {
                     "test",
                     indexName,
                     formIndex(2, 2),
-                    formIndex(4, 3)
+                    formIndex(4, 3),
                   )
                   .then((ret) => {
                     assert.equal(ret, 2, "countRange2++");
@@ -1243,7 +1243,7 @@ describe("ObjectStoreProvider", function () {
                     formIndex(2, 2),
                     formIndex(4, 3),
                     false,
-                    true
+                    true,
                   )
                   .then((retVal) => {
                     const ret = retVal as TestObj[];
@@ -1260,7 +1260,7 @@ describe("ObjectStoreProvider", function () {
                     formIndex(2, 2),
                     formIndex(4, 3),
                     false,
-                    true
+                    true,
                   )
                   .then((ret) => {
                     assert.equal(ret, 2, "countRange2+-");
@@ -1273,7 +1273,7 @@ describe("ObjectStoreProvider", function () {
                     formIndex(2, 2),
                     formIndex(4, 3),
                     true,
-                    false
+                    false,
                   )
                   .then((retVal) => {
                     const ret = retVal as TestObj[];
@@ -1290,7 +1290,7 @@ describe("ObjectStoreProvider", function () {
                     formIndex(2, 2),
                     formIndex(4, 3),
                     true,
-                    false
+                    false,
                   )
                   .then((ret) => {
                     assert.equal(ret, 1, "countRange2-+");
@@ -1323,7 +1323,7 @@ describe("ObjectStoreProvider", function () {
                 },
               ],
             },
-            true
+            true,
           )
             .then((prov) => {
               return prov
@@ -1345,7 +1345,7 @@ describe("ObjectStoreProvider", function () {
             })
             .then(
               () => done(),
-              (err) => done(err)
+              (err) => done(err),
             );
         });
 
@@ -1362,7 +1362,7 @@ describe("ObjectStoreProvider", function () {
                 },
               ],
             },
-            true
+            true,
           )
             .then((prov) =>
               prov
@@ -1373,7 +1373,7 @@ describe("ObjectStoreProvider", function () {
                 .then((retVal) => assert.equal((retVal as TestObj).val, "c"))
                 .then(() => prov.close())
                 .catch((e) => prov.close().then(() => Promise.reject(e)))
-                .then(() => done())
+                .then(() => done()),
             )
             .catch((e) => done(e));
         });
@@ -1399,7 +1399,7 @@ describe("ObjectStoreProvider", function () {
                 },
               ],
             },
-            true
+            true,
           )
             .then((prov) =>
               prov
@@ -1421,7 +1421,7 @@ describe("ObjectStoreProvider", function () {
                 .then((retVal) => assert.equal((retVal as TestObj[]).length, 2))
                 .then(() => prov.close())
                 .catch((e) => prov.close().then(() => Promise.reject(e)))
-                .then(() => done())
+                .then(() => done()),
             )
             .catch((e) => done(e));
         });
@@ -1438,7 +1438,7 @@ describe("ObjectStoreProvider", function () {
                 },
               ],
             },
-            true
+            true,
           )
             .then((prov) => {
               return prov
@@ -1458,7 +1458,7 @@ describe("ObjectStoreProvider", function () {
             })
             .then(
               () => done(),
-              (err) => done(err)
+              (err) => done(err),
             );
         });
 
@@ -1474,7 +1474,7 @@ describe("ObjectStoreProvider", function () {
                 },
               ],
             },
-            true
+            true,
           )
             .then((prov) => {
               return prov
@@ -1482,7 +1482,7 @@ describe("ObjectStoreProvider", function () {
                   "test",
                   [1, 3].map((i) => {
                     return { id: "a" + i };
-                  })
+                  }),
                 )
                 .then(() => {
                   return prov
@@ -1497,7 +1497,7 @@ describe("ObjectStoreProvider", function () {
             })
             .then(
               () => done(),
-              (err) => done(err)
+              (err) => done(err),
             );
         });
 
@@ -1513,7 +1513,7 @@ describe("ObjectStoreProvider", function () {
                 },
               ],
             },
-            true
+            true,
           )
             .then((prov) => {
               return prov
@@ -1521,7 +1521,7 @@ describe("ObjectStoreProvider", function () {
                   "test",
                   [1, 2, 3, 4, 5].map((i) => {
                     return { id: "a" + i };
-                  })
+                  }),
                 )
                 .then(() => {
                   return prov.getAll("test", undefined).then((rets) => {
@@ -1552,7 +1552,7 @@ describe("ObjectStoreProvider", function () {
             })
             .then(
               () => done(),
-              (err) => done(err)
+              (err) => done(err),
             );
         });
 
@@ -1568,7 +1568,7 @@ describe("ObjectStoreProvider", function () {
                 },
               ],
             },
-            true
+            true,
           )
             .then((prov) => {
               return prov
@@ -1576,7 +1576,7 @@ describe("ObjectStoreProvider", function () {
                   "test",
                   [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((i) => {
                     return { id: "a" + i };
-                  })
+                  }),
                 )
                 .then(() => {
                   return prov.getAll("test", undefined).then((rets) => {
@@ -1601,7 +1601,7 @@ describe("ObjectStoreProvider", function () {
             })
             .then(
               () => done(),
-              (err) => done(err)
+              (err) => done(err),
             );
         });
 
@@ -1617,7 +1617,7 @@ describe("ObjectStoreProvider", function () {
                 },
               ],
             },
-            true
+            true,
           )
             .then((prov) => {
               return prov
@@ -1625,7 +1625,7 @@ describe("ObjectStoreProvider", function () {
                   "test",
                   [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((i) => {
                     return { id: "a" + i };
-                  })
+                  }),
                 )
                 .then(() => {
                   return prov.getAll("test", undefined).then((rets) => {
@@ -1655,7 +1655,7 @@ describe("ObjectStoreProvider", function () {
             })
             .then(
               () => done(),
-              (err) => done(err)
+              (err) => done(err),
             );
         });
 
@@ -1671,7 +1671,7 @@ describe("ObjectStoreProvider", function () {
                 },
               ],
             },
-            true
+            true,
           )
             .then((prov) => {
               return prov
@@ -1679,7 +1679,7 @@ describe("ObjectStoreProvider", function () {
                   "test",
                   [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((i) => {
                     return { id: "a" + i };
-                  })
+                  }),
                 )
                 .then(() => {
                   return prov.getAll("test", undefined).then((rets) => {
@@ -1709,7 +1709,7 @@ describe("ObjectStoreProvider", function () {
             })
             .then(
               () => done(),
-              (err) => done(err)
+              (err) => done(err),
             );
         });
 
@@ -1725,7 +1725,7 @@ describe("ObjectStoreProvider", function () {
                 },
               ],
             },
-            true
+            true,
           )
             .then((prov) => {
               return prov
@@ -1733,7 +1733,7 @@ describe("ObjectStoreProvider", function () {
                   "test",
                   [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((i) => {
                     return { id: "a" + i };
-                  })
+                  }),
                 )
                 .then(() => {
                   return prov.getAll("test", undefined).then((rets) => {
@@ -1764,7 +1764,7 @@ describe("ObjectStoreProvider", function () {
             })
             .then(
               () => done(),
-              (err) => done(err)
+              (err) => done(err),
             );
         });
 
@@ -1780,7 +1780,7 @@ describe("ObjectStoreProvider", function () {
                 },
               ],
             },
-            true
+            true,
           )
             .then((prov) => {
               return prov
@@ -1788,7 +1788,7 @@ describe("ObjectStoreProvider", function () {
                   "test",
                   [1, 2, 3, 4, 5].map((i) => {
                     return { id: "a" + i };
-                  })
+                  }),
                 )
                 .then(() => {
                   return prov.getAll("test", undefined).then((rets) => {
@@ -1813,7 +1813,7 @@ describe("ObjectStoreProvider", function () {
             })
             .then(
               () => done(),
-              (err) => done(err)
+              (err) => done(err),
             );
         });
 
@@ -1829,7 +1829,7 @@ describe("ObjectStoreProvider", function () {
                 },
               ],
             },
-            true
+            true,
           )
             .then((prov) => {
               return prov
@@ -1837,7 +1837,7 @@ describe("ObjectStoreProvider", function () {
                   "test",
                   [1, 2, 3, 4, 5].map((i) => {
                     return { id: "a" + i };
-                  })
+                  }),
                 )
                 .then(() => {
                   return prov.getAll("test", undefined).then((rets) => {
@@ -1857,7 +1857,7 @@ describe("ObjectStoreProvider", function () {
             })
             .then(
               () => done(),
-              (err) => done(err)
+              (err) => done(err),
             );
         });
 
@@ -1873,7 +1873,7 @@ describe("ObjectStoreProvider", function () {
                 },
               ],
             },
-            true
+            true,
           )
             .then((prov) => {
               return prov
@@ -1887,7 +1887,7 @@ describe("ObjectStoreProvider", function () {
                   () => {
                     // Woot, failed like it's supposed to
                     return prov.close();
-                  }
+                  },
                 )
                 .then(() => {
                   done();
@@ -1910,7 +1910,7 @@ describe("ObjectStoreProvider", function () {
                 },
               ],
             },
-            true
+            true,
           )
             .then((prov) => {
               return tester(prov, undefined, false, (obj, v) => {
@@ -1921,7 +1921,7 @@ describe("ObjectStoreProvider", function () {
             })
             .then(
               () => done(),
-              (err) => done(err)
+              (err) => done(err),
             );
         });
 
@@ -1948,7 +1948,7 @@ describe("ObjectStoreProvider", function () {
                     },
                   ],
                 },
-                true
+                true,
               )
                 .then((prov) => {
                   return tester(prov, "index", false, (obj, v) => {
@@ -1959,9 +1959,9 @@ describe("ObjectStoreProvider", function () {
                 })
                 .then(
                   () => done(),
-                  (err) => done(err)
+                  (err) => done(err),
                 );
-            }
+            },
           );
         }
 
@@ -1977,7 +1977,7 @@ describe("ObjectStoreProvider", function () {
                 },
               ],
             },
-            true
+            true,
           )
             .then((prov) => {
               return tester(prov, undefined, false, (obj, v) => {
@@ -1988,7 +1988,7 @@ describe("ObjectStoreProvider", function () {
             })
             .then(
               () => done(),
-              (err) => done(err)
+              (err) => done(err),
             );
         });
 
@@ -2010,7 +2010,7 @@ describe("ObjectStoreProvider", function () {
                 },
               ],
             },
-            true
+            true,
           )
             .then((prov) => {
               return tester(prov, "index", false, (obj, v) => {
@@ -2021,7 +2021,7 @@ describe("ObjectStoreProvider", function () {
             })
             .then(
               () => done(),
-              (err) => done(err)
+              (err) => done(err),
             );
         });
 
@@ -2037,7 +2037,7 @@ describe("ObjectStoreProvider", function () {
                 },
               ],
             },
-            true
+            true,
           )
             .then((prov) => {
               return tester(prov, undefined, true, (obj, v1, v2) => {
@@ -2049,7 +2049,7 @@ describe("ObjectStoreProvider", function () {
             })
             .then(
               () => done(),
-              (err) => done(err)
+              (err) => done(err),
             );
         });
 
@@ -2071,7 +2071,7 @@ describe("ObjectStoreProvider", function () {
                 },
               ],
             },
-            true
+            true,
           )
             .then((prov) => {
               return tester(prov, "index", true, (obj, v1, v2) => {
@@ -2083,7 +2083,7 @@ describe("ObjectStoreProvider", function () {
             })
             .then(
               () => done(),
-              (err) => done(err)
+              (err) => done(err),
             );
         });
 
@@ -2111,7 +2111,7 @@ describe("ObjectStoreProvider", function () {
                     },
                   ],
                 },
-                true
+                true,
               )
                 .then((prov) => {
                   return (
@@ -2123,7 +2123,7 @@ describe("ObjectStoreProvider", function () {
                       })
                       // Insert data without multi-entry key defined
                       .then(() =>
-                        prov.put("test", { id: "c", val: "d", k: [] })
+                        prov.put("test", { id: "c", val: "d", k: [] }),
                       )
                       .then(() => prov.put("test", { id: "e", val: "f" }))
                       .then(() => {
@@ -2180,9 +2180,9 @@ describe("ObjectStoreProvider", function () {
                 })
                 .then(
                   () => done(),
-                  (err) => done(err)
+                  (err) => done(err),
                 );
-            }
+            },
           );
         }
 
@@ -2205,7 +2205,7 @@ describe("ObjectStoreProvider", function () {
                 },
               ],
             },
-            true
+            true,
           )
             .then((prov) => {
               return prov
@@ -2263,7 +2263,7 @@ describe("ObjectStoreProvider", function () {
             })
             .then(
               () => done(),
-              (err) => done(err)
+              (err) => done(err),
             );
         });
 
@@ -2286,7 +2286,7 @@ describe("ObjectStoreProvider", function () {
                 },
               ],
             },
-            true
+            true,
           )
             .then((prov) => {
               return prov
@@ -2319,7 +2319,7 @@ describe("ObjectStoreProvider", function () {
             })
             .then(
               () => done(),
-              (err) => done(err)
+              (err) => done(err),
             );
         });
 
@@ -2342,7 +2342,7 @@ describe("ObjectStoreProvider", function () {
                 },
               ],
             },
-            true
+            true,
           )
             .then((prov) => {
               return (
@@ -2355,7 +2355,7 @@ describe("ObjectStoreProvider", function () {
                   })
                   // Insert data without multi-entry key defined
                   .then(() =>
-                    prov.put("test", { id: "c", id2: "2", val: "d", k: [] })
+                    prov.put("test", { id: "c", id2: "2", val: "d", k: [] }),
                   )
                   .then(() => prov.put("test", { id: "e", id2: "3", val: "f" }))
                   .then(() => {
@@ -2410,7 +2410,7 @@ describe("ObjectStoreProvider", function () {
             })
             .then(
               () => done(),
-              (err) => done(err)
+              (err) => done(err),
             );
         });
 
@@ -2433,7 +2433,7 @@ describe("ObjectStoreProvider", function () {
                 },
               ],
             },
-            true
+            true,
           )
             .then((prov) => {
               return prov
@@ -2495,7 +2495,7 @@ describe("ObjectStoreProvider", function () {
             })
             .then(
               () => done(),
-              (err) => done(err)
+              (err) => done(err),
             );
         });
 
@@ -2519,7 +2519,7 @@ describe("ObjectStoreProvider", function () {
                 },
               ],
             },
-            true
+            true,
           )
             .then((prov) => {
               return nonUniqueTester(prov, "index", false, (obj, v) => {
@@ -2530,7 +2530,7 @@ describe("ObjectStoreProvider", function () {
             })
             .then(
               () => done(),
-              (err) => done(err)
+              (err) => done(err),
             );
         });
 
@@ -2547,7 +2547,7 @@ describe("ObjectStoreProvider", function () {
                   },
                 ],
               },
-              true
+              true,
             )
               .then((prov) => {
                 return prov
@@ -2561,7 +2561,7 @@ describe("ObjectStoreProvider", function () {
                       },
                       () => {
                         assert.ok(false, "Bad");
-                      }
+                      },
                     );
                     return sleep(200).then(() => {
                       assert.ok(check1);
@@ -2577,14 +2577,14 @@ describe("ObjectStoreProvider", function () {
                     () => {
                       // woot
                       return undefined;
-                    }
+                    },
                   )
                   .then(() => prov.close())
                   .catch((e) => prov.close().then(() => Promise.reject(e)));
               })
               .then(
                 () => done(),
-                (err) => done(err)
+                (err) => done(err),
               );
           });
 
@@ -2602,7 +2602,7 @@ describe("ObjectStoreProvider", function () {
               },
               true,
               undefined,
-              true
+              true,
             )
               .then((prov) => {
                 let checked = false;
@@ -2622,7 +2622,7 @@ describe("ObjectStoreProvider", function () {
                             assert.ok(!res);
                             checked = true;
                           });
-                        }
+                        },
                       );
                     });
                   })
@@ -2649,7 +2649,7 @@ describe("ObjectStoreProvider", function () {
                   },
                 ],
               },
-              true
+              true,
             )
               .then((prov) => {
                 return prov
@@ -2696,7 +2696,7 @@ describe("ObjectStoreProvider", function () {
               })
               .then(
                 () => done(),
-                (err) => done(err)
+                (err) => done(err),
               );
           });
         });
@@ -2716,7 +2716,7 @@ describe("ObjectStoreProvider", function () {
                   },
                 ],
               },
-              true
+              true,
             )
               .then((prov) => {
                 return prov.close();
@@ -2733,7 +2733,7 @@ describe("ObjectStoreProvider", function () {
                       },
                     ],
                   },
-                  false
+                  false,
                 ).then((prov) => {
                   return prov.get("test", "abc").then(
                     () => {
@@ -2744,13 +2744,13 @@ describe("ObjectStoreProvider", function () {
                     () => {
                       // Expected to fail, so chain from failure to success
                       return prov.close();
-                    }
+                    },
                   );
                 });
               })
               .then(
                 () => done(),
-                (err) => done(err)
+                (err) => done(err),
               );
           });
 
@@ -2766,7 +2766,7 @@ describe("ObjectStoreProvider", function () {
                   },
                 ],
               },
-              true
+              true,
             )
               .then((prov) => {
                 return prov
@@ -2786,7 +2786,7 @@ describe("ObjectStoreProvider", function () {
                       },
                     ],
                   },
-                  false
+                  false,
                 ).then((prov) => {
                   return prov
                     .get("test", "abc")
@@ -2799,7 +2799,7 @@ describe("ObjectStoreProvider", function () {
               })
               .then(
                 () => done(),
-                (err) => done(err)
+                (err) => done(err),
               );
           });
 
@@ -2815,7 +2815,7 @@ describe("ObjectStoreProvider", function () {
                   },
                 ],
               },
-              true
+              true,
             )
               .then((prov) => {
                 return prov
@@ -2839,7 +2839,7 @@ describe("ObjectStoreProvider", function () {
                       },
                     ],
                   },
-                  false
+                  false,
                 ).then((prov) => {
                   return prov
                     .put("test2", { id: "def", ttt: "ghi" })
@@ -2868,7 +2868,7 @@ describe("ObjectStoreProvider", function () {
               })
               .then(
                 () => done(),
-                (err) => done(err)
+                (err) => done(err),
               );
           });
 
@@ -2884,7 +2884,7 @@ describe("ObjectStoreProvider", function () {
                   },
                 ],
               },
-              true
+              true,
             )
               .then((prov) => {
                 return prov
@@ -2904,7 +2904,7 @@ describe("ObjectStoreProvider", function () {
                       },
                     ],
                   },
-                  false
+                  false,
                 ).then((prov) => {
                   return prov.get("test", "abc").then(
                     () => {
@@ -2915,13 +2915,13 @@ describe("ObjectStoreProvider", function () {
                     () => {
                       // Expected to fail, so chain from failure to success
                       return prov.close();
-                    }
+                    },
                   );
                 });
               })
               .then(
                 () => done(),
-                (err) => done(err)
+                (err) => done(err),
               );
           });
 
@@ -2943,7 +2943,7 @@ describe("ObjectStoreProvider", function () {
                   },
                 ],
               },
-              true
+              true,
             )
               .then((prov) => {
                 return prov
@@ -2963,7 +2963,7 @@ describe("ObjectStoreProvider", function () {
                       },
                     ],
                   },
-                  false
+                  false,
                 ).then((prov) => {
                   return prov.get("test", "abc").then(
                     () => {
@@ -2974,13 +2974,13 @@ describe("ObjectStoreProvider", function () {
                     () => {
                       // Expected to fail, so chain from failure to success
                       return prov.close();
-                    }
+                    },
                   );
                 });
               })
               .then(
                 () => done(),
-                (err) => done(err)
+                (err) => done(err),
               );
           });
 
@@ -2996,7 +2996,7 @@ describe("ObjectStoreProvider", function () {
                   },
                 ],
               },
-              true
+              true,
             )
               .then((prov) => {
                 return prov
@@ -3022,7 +3022,7 @@ describe("ObjectStoreProvider", function () {
                       },
                     ],
                   },
-                  false
+                  false,
                 ).then((prov) => {
                   const p1 = prov
                     .getOnly("test", "ind1", "a")
@@ -3050,7 +3050,7 @@ describe("ObjectStoreProvider", function () {
               })
               .then(
                 () => done(),
-                (err) => done(err)
+                (err) => done(err),
               );
           });
 
@@ -3075,7 +3075,7 @@ describe("ObjectStoreProvider", function () {
                   },
                 ],
               },
-              true
+              true,
             )
               .then((prov) => {
                 return prov
@@ -3102,7 +3102,7 @@ describe("ObjectStoreProvider", function () {
                       },
                     ],
                   },
-                  false
+                  false,
                 ).then((prov) => {
                   return prov
                     .getAll("test", undefined)
@@ -3110,7 +3110,7 @@ describe("ObjectStoreProvider", function () {
                       assert.equal(
                         records.length,
                         keys(data).length,
-                        "Incorrect record count"
+                        "Incorrect record count",
                       );
                       each(records, (dbRecordToValidate) => {
                         const originalRecord = data[dbRecordToValidate.id];
@@ -3128,14 +3128,14 @@ describe("ObjectStoreProvider", function () {
           it("Add index - Large records - batched upgrade", (done) => {
             testBatchUpgrade(10000).then(
               () => done(),
-              (err) => done(err)
+              (err) => done(err),
             );
           });
 
           it("Add index - small records - No batch upgrade", (done) => {
             testBatchUpgrade(1).then(
               () => done(),
-              (err) => done(err)
+              (err) => done(err),
             );
           });
 
@@ -3154,7 +3154,7 @@ describe("ObjectStoreProvider", function () {
                     },
                   ],
                 },
-                true
+                true,
               )
                 .then((prov) => {
                   return prov
@@ -3180,7 +3180,7 @@ describe("ObjectStoreProvider", function () {
                         },
                       ],
                     },
-                    false
+                    false,
                   ).then(
                     (prov) => {
                       return prov
@@ -3189,12 +3189,12 @@ describe("ObjectStoreProvider", function () {
                     },
                     () => {
                       return Promise.resolve();
-                    }
+                    },
                   );
                 })
                 .then(
                   () => done(),
-                  (err) => done(err)
+                  (err) => done(err),
                 );
             });
           }
@@ -3211,7 +3211,7 @@ describe("ObjectStoreProvider", function () {
                   },
                 ],
               },
-              true
+              true,
             )
               .then((prov) => {
                 return prov
@@ -3238,7 +3238,7 @@ describe("ObjectStoreProvider", function () {
                       },
                     ],
                   },
-                  false
+                  false,
                 ).then((prov) => {
                   const p1 = prov
                     .getOnly("test", "ind1", "a")
@@ -3270,7 +3270,7 @@ describe("ObjectStoreProvider", function () {
               })
               .then(
                 () => done(),
-                (err) => done(err)
+                (err) => done(err),
               );
           });
 
@@ -3293,7 +3293,7 @@ describe("ObjectStoreProvider", function () {
                   },
                 ],
               },
-              true
+              true,
             )
               .then((prov) => {
                 return prov
@@ -3320,7 +3320,7 @@ describe("ObjectStoreProvider", function () {
                       },
                     ],
                   },
-                  false
+                  false,
                 ).then((prov) => {
                   const p1 = prov
                     .getOnly("test", "ind1", "a")
@@ -3357,7 +3357,7 @@ describe("ObjectStoreProvider", function () {
               })
               .then(
                 () => done(),
-                (err) => done(err)
+                (err) => done(err),
               );
           });
 
@@ -3379,7 +3379,7 @@ describe("ObjectStoreProvider", function () {
                   },
                 ],
               },
-              true
+              true,
             )
               .then((prov) => {
                 return prov
@@ -3399,7 +3399,7 @@ describe("ObjectStoreProvider", function () {
                       },
                     ],
                   },
-                  false
+                  false,
                 ).then((prov) => {
                   return prov.getOnly("test", "ind1", "a").then(
                     () => {
@@ -3410,13 +3410,13 @@ describe("ObjectStoreProvider", function () {
                     () => {
                       // Expected to fail, so chain from failure to success
                       return prov.close();
-                    }
+                    },
                   );
                 });
               })
               .then(
                 () => done(),
-                (err) => done(err)
+                (err) => done(err),
               );
           });
 
@@ -3438,7 +3438,7 @@ describe("ObjectStoreProvider", function () {
                   },
                 ],
               },
-              true
+              true,
             )
               .then((prov) => {
                 return prov
@@ -3464,7 +3464,7 @@ describe("ObjectStoreProvider", function () {
                       },
                     ],
                   },
-                  false
+                  false,
                 ).then((prov) => {
                   const p1 = prov.getOnly("test", "ind1", "a").then((items) => {
                     assert.equal(items.length, 0);
@@ -3487,7 +3487,7 @@ describe("ObjectStoreProvider", function () {
               })
               .then(
                 () => done(),
-                (err) => done(err)
+                (err) => done(err),
               );
           });
 
@@ -3509,7 +3509,7 @@ describe("ObjectStoreProvider", function () {
                   },
                 ],
               },
-              true
+              true,
             )
               .then((prov) => {
                 return prov.put("test", { id: "abc", tt: "a" }).then(() => {
@@ -3535,7 +3535,7 @@ describe("ObjectStoreProvider", function () {
                       },
                     ],
                   },
-                  false
+                  false,
                 ).then((prov) => {
                   const p1 = prov
                     .getOnly("test", "ind1", "a")
@@ -3563,7 +3563,7 @@ describe("ObjectStoreProvider", function () {
               })
               .then(
                 () => done(),
-                (err) => done(err)
+                (err) => done(err),
               );
           });
 
@@ -3586,7 +3586,7 @@ describe("ObjectStoreProvider", function () {
                   },
                 ],
               },
-              true
+              true,
             )
               .then((prov) => {
                 return prov
@@ -3613,7 +3613,7 @@ describe("ObjectStoreProvider", function () {
                       },
                     ],
                   },
-                  false
+                  false,
                 ).then((prov) => {
                   const p1 = prov
                     .getOnly("test", "ind1", "a")
@@ -3641,7 +3641,7 @@ describe("ObjectStoreProvider", function () {
               })
               .then(
                 () => done(),
-                (err) => done(err)
+                (err) => done(err),
               );
           });
 
@@ -3664,7 +3664,7 @@ describe("ObjectStoreProvider", function () {
                   },
                 ],
               },
-              true
+              true,
             )
               .then((prov) => {
                 return prov
@@ -3692,7 +3692,7 @@ describe("ObjectStoreProvider", function () {
                       },
                     ],
                   },
-                  false
+                  false,
                 ).then((prov) => {
                   const p1 = prov
                     .getOnly("test", "ind1", "a")
@@ -3724,7 +3724,7 @@ describe("ObjectStoreProvider", function () {
               })
               .then(
                 () => done(),
-                (err) => done(err)
+                (err) => done(err),
               );
           });
 
@@ -3748,7 +3748,7 @@ describe("ObjectStoreProvider", function () {
                   },
                 ],
               },
-              true
+              true,
             )
               .then((prov) => {
                 return prov
@@ -3776,7 +3776,7 @@ describe("ObjectStoreProvider", function () {
                       },
                     ],
                   },
-                  false
+                  false,
                 ).then((prov) => {
                   const p1 = prov
                     .getOnly("test", "ind1", "a")
@@ -3808,7 +3808,7 @@ describe("ObjectStoreProvider", function () {
               })
               .then(
                 () => done(),
-                (err) => done(err)
+                (err) => done(err),
               );
           });
 
@@ -3824,7 +3824,7 @@ describe("ObjectStoreProvider", function () {
                   },
                 ],
               },
-              true
+              true,
             )
               .then((prov) => {
                 return prov
@@ -3855,7 +3855,7 @@ describe("ObjectStoreProvider", function () {
                       },
                     ],
                   },
-                  false
+                  false,
                 ).then((prov) => {
                   return prov
                     .put("test2", { id: "def", content: "ghi" })
@@ -3879,14 +3879,14 @@ describe("ObjectStoreProvider", function () {
                       return Promise.all([p1, p2, p3, p4])
                         .then(() => prov.close())
                         .catch((e) =>
-                          prov.close().then(() => Promise.reject(e))
+                          prov.close().then(() => Promise.reject(e)),
                         );
                     });
                 });
               })
               .then(
                 () => done(),
-                (err) => done(err)
+                (err) => done(err),
               );
           });
 
@@ -3902,7 +3902,7 @@ describe("ObjectStoreProvider", function () {
                   },
                 ],
               },
-              true
+              true,
             )
               .then((prov) => {
                 return prov
@@ -3929,7 +3929,7 @@ describe("ObjectStoreProvider", function () {
                       },
                     ],
                   },
-                  false
+                  false,
                 ).then((prov) => {
                   const p1 = prov.get("test", "abc").then((item: any) => {
                     assert.ok(item);
@@ -3948,7 +3948,7 @@ describe("ObjectStoreProvider", function () {
               })
               .then(
                 () => done(),
-                (err) => done(err)
+                (err) => done(err),
               );
           });
 
@@ -3971,7 +3971,7 @@ describe("ObjectStoreProvider", function () {
                   },
                 ],
               },
-              true
+              true,
             )
               .then((prov) => {
                 return prov
@@ -3991,7 +3991,7 @@ describe("ObjectStoreProvider", function () {
                       },
                     ],
                   },
-                  false
+                  false,
                 ).then((prov) => {
                   const p1 = prov.get("test", "abc").then((item: any) => {
                     assert.ok(item);
@@ -4010,7 +4010,7 @@ describe("ObjectStoreProvider", function () {
                       },
                       () => {
                         return Promise.resolve();
-                      }
+                      },
                     );
                   return Promise.all([p1, p2])
                     .then(() => prov.close())
@@ -4019,7 +4019,7 @@ describe("ObjectStoreProvider", function () {
               })
               .then(
                 () => done(),
-                (err) => done(err)
+                (err) => done(err),
               );
           });
 
@@ -4037,7 +4037,7 @@ describe("ObjectStoreProvider", function () {
                     },
                   ],
                 },
-                true
+                true,
               )
                 .then((prov) => {
                   return prov
@@ -4064,7 +4064,7 @@ describe("ObjectStoreProvider", function () {
                         },
                       ],
                     },
-                    false
+                    false,
                   ).then((prov) =>
                     prov.put("test", { id: "bcd", tt: "b" }).then(() => {
                       const p1 = prov
@@ -4091,14 +4091,14 @@ describe("ObjectStoreProvider", function () {
                       return Promise.all([p1, p2, p3])
                         .then(() => prov.close())
                         .catch((e) =>
-                          prov.close().then(() => Promise.reject(e))
+                          prov.close().then(() => Promise.reject(e)),
                         );
-                    })
+                    }),
                   );
                 })
                 .then(
                   () => done(),
-                  (err) => done(err)
+                  (err) => done(err),
                 );
             });
 
@@ -4114,7 +4114,7 @@ describe("ObjectStoreProvider", function () {
                     },
                   ],
                 },
-                true
+                true,
               )
                 .then((prov) => {
                   return prov
@@ -4145,7 +4145,7 @@ describe("ObjectStoreProvider", function () {
                         },
                       ],
                     },
-                    false
+                    false,
                   ).then((prov) => {
                     const p1 = prov
                       .getOnly("test", "ind1", "a")
@@ -4180,7 +4180,7 @@ describe("ObjectStoreProvider", function () {
                 })
                 .then(
                   () => done(),
-                  (err) => done(err)
+                  (err) => done(err),
                 );
             });
 
@@ -4203,7 +4203,7 @@ describe("ObjectStoreProvider", function () {
                     },
                   ],
                 },
-                true
+                true,
               )
                 .then((prov) => {
                   return prov
@@ -4229,7 +4229,7 @@ describe("ObjectStoreProvider", function () {
                         },
                       ],
                     },
-                    false
+                    false,
                   ).then((prov) => {
                     const p1 = prov
                       .getOnly("test", "ind1", "a")
@@ -4255,7 +4255,7 @@ describe("ObjectStoreProvider", function () {
                 })
                 .then(
                   () => done(),
-                  (err) => done(err)
+                  (err) => done(err),
                 );
             });
 
@@ -4271,7 +4271,7 @@ describe("ObjectStoreProvider", function () {
                     },
                   ],
                 },
-                true
+                true,
               )
                 .then((prov) => {
                   return prov
@@ -4298,7 +4298,7 @@ describe("ObjectStoreProvider", function () {
                         },
                       ],
                     },
-                    false
+                    false,
                   ).then((prov) => {
                     return prov
                       .put("test", { id: "bcd", tt: "b", zz: "bb" })
@@ -4330,7 +4330,7 @@ describe("ObjectStoreProvider", function () {
                         },
                       ],
                     },
-                    false
+                    false,
                   ).then((prov) => {
                     const p1 = prov
                       .getOnly("test", "ind1", "a")
@@ -4367,7 +4367,7 @@ describe("ObjectStoreProvider", function () {
                 })
                 .then(
                   () => done(),
-                  (err) => done(err)
+                  (err) => done(err),
                 );
             });
 
@@ -4389,7 +4389,7 @@ describe("ObjectStoreProvider", function () {
                     },
                   ],
                 },
-                true
+                true,
               )
                 .then((prov) => {
                   return prov
@@ -4409,7 +4409,7 @@ describe("ObjectStoreProvider", function () {
                         },
                       ],
                     },
-                    false
+                    false,
                   ).then((prov) => {
                     // check the index was actually removed
                     const p1 = prov.get("test", "abc").then((item: any) => {
@@ -4429,7 +4429,7 @@ describe("ObjectStoreProvider", function () {
                         },
                         () => {
                           return Promise.resolve();
-                        }
+                        },
                       );
                     return Promise.all([p1, p2])
                       .then(() => prov.close())
@@ -4438,7 +4438,7 @@ describe("ObjectStoreProvider", function () {
                 })
                 .then(
                   () => done(),
-                  (err) => done(err)
+                  (err) => done(err),
                 );
             });
 
@@ -4461,7 +4461,7 @@ describe("ObjectStoreProvider", function () {
                     },
                   ],
                 },
-                true
+                true,
               )
                 .then((prov) => {
                   return prov
@@ -4488,7 +4488,7 @@ describe("ObjectStoreProvider", function () {
                         },
                       ],
                     },
-                    false
+                    false,
                   ).then((prov) => {
                     const p1 = prov
                       .getOnly("test", undefined, "abc")
@@ -4505,7 +4505,7 @@ describe("ObjectStoreProvider", function () {
                       () => {
                         // Expected to fail, so chain from failure to success
                         return undefined;
-                      }
+                      },
                     );
 
                     return Promise.all([p1, p2])
@@ -4515,7 +4515,7 @@ describe("ObjectStoreProvider", function () {
                 })
                 .then(
                   () => done(),
-                  (err) => done(err)
+                  (err) => done(err),
                 );
             });
           }
@@ -4542,7 +4542,7 @@ describe("ObjectStoreProvider", function () {
               },
             ],
           },
-          true
+          true,
         )
           .then((prov) => {
             return prov
@@ -4675,7 +4675,7 @@ describe("ObjectStoreProvider", function () {
                     assert.equal(res.length, 2);
                     assert.ok(
                       some(res, (r) => r.id === "a1") &&
-                        some(res, (r) => r.id === "a2")
+                        some(res, (r) => r.id === "a2"),
                     );
                   });
                 const p18 = prov
@@ -4684,7 +4684,7 @@ describe("ObjectStoreProvider", function () {
                     assert.equal(res.length, 2);
                     assert.ok(
                       some(res, (r) => r.id === "a1") &&
-                        some(res, (r) => r.id === "a2")
+                        some(res, (r) => r.id === "a2"),
                     );
                   });
                 const p19 = prov
@@ -4692,7 +4692,7 @@ describe("ObjectStoreProvider", function () {
                     "test",
                     "i",
                     "fox nopers",
-                    FullTextTermResolution.Or
+                    FullTextTermResolution.Or,
                   )
                   .then((res: any[]) => {
                     assert.equal(res.length, 1);
@@ -4703,7 +4703,7 @@ describe("ObjectStoreProvider", function () {
                     "test",
                     "i",
                     "foxers nopers",
-                    FullTextTermResolution.Or
+                    FullTextTermResolution.Or,
                   )
                   .then((res) => {
                     assert.equal(res.length, 0);
@@ -4713,7 +4713,7 @@ describe("ObjectStoreProvider", function () {
                     "test",
                     "i",
                     "fox)",
-                    FullTextTermResolution.Or
+                    FullTextTermResolution.Or,
                   )
                   .then((res) => {
                     assert.equal(res.length, 1);
@@ -4723,7 +4723,7 @@ describe("ObjectStoreProvider", function () {
                     "test",
                     "i",
                     "fox*",
-                    FullTextTermResolution.Or
+                    FullTextTermResolution.Or,
                   )
                   .then((res) => {
                     assert.equal(res.length, 1);
@@ -4733,7 +4733,7 @@ describe("ObjectStoreProvider", function () {
                     "test",
                     "i",
                     "fox* fox( <fox>",
-                    FullTextTermResolution.Or
+                    FullTextTermResolution.Or,
                   )
                   .then((res) => {
                     assert.equal(res.length, 1);
@@ -4743,7 +4743,7 @@ describe("ObjectStoreProvider", function () {
                     "test",
                     "i",
                     "f)ox",
-                    FullTextTermResolution.Or
+                    FullTextTermResolution.Or,
                   )
                   .then((res) => {
                     assert.equal(res.length, 0);
@@ -4753,7 +4753,7 @@ describe("ObjectStoreProvider", function () {
                     "test",
                     "i",
                     "fo*x",
-                    FullTextTermResolution.Or
+                    FullTextTermResolution.Or,
                   )
                   .then((res) => {
                     assert.equal(res.length, 0);
@@ -4763,7 +4763,7 @@ describe("ObjectStoreProvider", function () {
                     "test",
                     "i",
                     "tes>ter",
-                    FullTextTermResolution.Or
+                    FullTextTermResolution.Or,
                   )
                   .then((res) => {
                     assert.equal(res.length, 1);
@@ -4779,7 +4779,7 @@ describe("ObjectStoreProvider", function () {
                     "test",
                     "i",
                     "бывает",
-                    FullTextTermResolution.Or
+                    FullTextTermResolution.Or,
                   )
                   .then((res) => {
                     assert.equal(res.length, 1);
@@ -4796,7 +4796,7 @@ describe("ObjectStoreProvider", function () {
                     "test",
                     "i",
                     "߂i18nDigits߂",
-                    FullTextTermResolution.Or
+                    FullTextTermResolution.Or,
                   )
                   .then((res) => {
                     assert.equal(res.length, 1);
@@ -4808,7 +4808,7 @@ describe("ObjectStoreProvider", function () {
                     "test",
                     "i",
                     "!@#$%$",
-                    FullTextTermResolution.Or
+                    FullTextTermResolution.Or,
                   )
                   .then((res) => {
                     assert.equal(res.length, 0);
@@ -4819,7 +4819,7 @@ describe("ObjectStoreProvider", function () {
                     assert.equal(res.length, 2);
                     assert.ok(
                       some(res, (r) => r.id === "a8") &&
-                        some(res, (r) => r.id === "a9")
+                        some(res, (r) => r.id === "a9"),
                     );
                   });
                 const p33 = prov
@@ -4828,13 +4828,13 @@ describe("ObjectStoreProvider", function () {
                     "i",
                     "mark",
                     FullTextTermResolution.Or,
-                    10
+                    10,
                   )
                   .then((res: any[]) => {
                     assert.equal(res.length, 2);
                     assert.ok(
                       some(res, (r) => r.id === "a8") &&
-                        some(res, (r) => r.id === "a9")
+                        some(res, (r) => r.id === "a9"),
                     );
                   });
 
@@ -4879,7 +4879,7 @@ describe("ObjectStoreProvider", function () {
           })
           .then(
             () => done(),
-            (err) => done(err)
+            (err) => done(err),
           );
       });
 
@@ -4903,7 +4903,7 @@ describe("ObjectStoreProvider", function () {
               },
             ],
           },
-          true
+          true,
         ).then((prov) => {
           const itemsToPut = [];
           for (var i = 0; i < 100; i++) {
@@ -4941,7 +4941,7 @@ describe("ObjectStoreProvider", function () {
               },
             ],
           },
-          true
+          true,
         ).then((prov) => {
           const itemsToPut = [];
           for (var i = 0; i < 100; i++) {
@@ -4980,7 +4980,7 @@ describe("ObjectStoreProvider", function () {
                 },
               ],
             },
-            true
+            true,
           ).then((prov) => {
             const itemsToPut = [];
             for (var i = 0; i < 10; i++) {
@@ -5011,7 +5011,7 @@ describe("ObjectStoreProvider", function () {
             },
             true,
             undefined,
-            true
+            true,
           ).then((prov) => {
             const itemsToPut = [];
             for (var i = 0; i < 10; i++) {
@@ -5025,7 +5025,7 @@ describe("ObjectStoreProvider", function () {
                 assert.equal(
                   Array.from(store["_committedStoreData"]?.values() || [])
                     .length,
-                  10
+                  10,
                 );
                 prov.close();
               });

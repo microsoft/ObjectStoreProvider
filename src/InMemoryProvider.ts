@@ -73,7 +73,7 @@ export class InMemoryProvider extends DbProvider {
   constructor(
     mapType?: OrderedMapType,
     supportsRollback = false,
-    logger?: IObjectStoreProviderLogger
+    logger?: IObjectStoreProviderLogger,
   ) {
     super();
     this._mapType = mapType;
@@ -86,7 +86,7 @@ export class InMemoryProvider extends DbProvider {
     dbName: string,
     schema: DbSchema,
     wipeIfExists: boolean,
-    verbose: boolean
+    verbose: boolean,
   ): Promise<void> {
     super.open(dbName, schema, wipeIfExists, verbose);
 
@@ -110,7 +110,7 @@ export class InMemoryProvider extends DbProvider {
 
   openTransaction(
     storeNames: string[],
-    writeNeeded: boolean
+    writeNeeded: boolean,
   ): Promise<DbTransaction> {
     return this._lockHelper!!!.openTransaction(storeNames, writeNeeded).then(
       (token: any) =>
@@ -120,8 +120,8 @@ export class InMemoryProvider extends DbProvider {
           token,
           writeNeeded,
           this._supportsRollback!,
-          this.logger
-        )
+          this.logger,
+        ),
     );
   }
 
@@ -146,7 +146,7 @@ class InMemoryTransaction implements DbTransaction {
     private _transToken: TransactionToken,
     private _writeNeeded: boolean,
     private _supportsRollback: boolean,
-    private logger: IObjectStoreProviderLogger
+    private logger: IObjectStoreProviderLogger,
   ) {
     // Close the transaction on the next tick.  By definition, anything is completed synchronously here, so after an event tick
     // goes by, there can't have been anything pending.
@@ -176,10 +176,10 @@ class InMemoryTransaction implements DbTransaction {
   abort(): void {
     if (!this._supportsRollback) {
       this.logger.error(
-        "Unable to abort transaction since provider doesn't support rollback"
+        "Unable to abort transaction since provider doesn't support rollback",
       );
       throw new Error(
-        "Unable to abort transaction since provider doesn't support rollback"
+        "Unable to abort transaction since provider doesn't support rollback",
       );
     }
     this._stores.forEach((store) => {
@@ -193,7 +193,7 @@ class InMemoryTransaction implements DbTransaction {
 
     this._lockHelper.transactionFailed(
       this._transToken,
-      "InMemoryTransaction Aborted"
+      "InMemoryTransaction Aborted",
     );
   }
 
@@ -204,7 +204,7 @@ class InMemoryTransaction implements DbTransaction {
   getStore(storeName: string): DbStore {
     if (!includes(arrayify(this._transToken.storeNames), storeName)) {
       throw new Error(
-        "Store not found in transaction-scoped store list: " + storeName
+        "Store not found in transaction-scoped store list: " + storeName,
       );
     }
     if (this._stores.has(storeName)) {
@@ -217,7 +217,7 @@ class InMemoryTransaction implements DbTransaction {
     const ims = new InMemoryStore(
       this,
       store,
-      this._writeNeeded && this._supportsRollback
+      this._writeNeeded && this._supportsRollback,
     );
     this._stores.set(storeName, ims);
     return ims;
@@ -237,7 +237,7 @@ class InMemoryStore implements DbStore {
   constructor(
     private _trans: InMemoryTransaction,
     storeInfo: StoreData,
-    private _supportsRollback: boolean
+    private _supportsRollback: boolean,
   ) {
     this._storeSchema = storeInfo.schema;
     if (this._supportsRollback) {
@@ -258,7 +258,7 @@ class InMemoryStore implements DbStore {
   internal_rollbackPendingData(): void {
     if (!this._supportsRollback) {
       throw new Error(
-        "Unable to rollback since InMemoryStore was created with supportsRollback = false"
+        "Unable to rollback since InMemoryStore was created with supportsRollback = false",
       );
     }
     this._mergedData.clear();
@@ -273,8 +273,8 @@ class InMemoryStore implements DbStore {
           this._mergedData,
           index,
           this._storeSchema.primaryKeyPath,
-          this._mapType
-        )
+          this._mapType,
+        ),
       );
     });
   }
@@ -294,7 +294,7 @@ class InMemoryStore implements DbStore {
     const joinedKeys = attempt(() => {
       return formListOfSerializedKeys(
         keyOrKeys,
-        this._storeSchema.primaryKeyPath
+        this._storeSchema.primaryKeyPath,
       );
     });
     if (isError(joinedKeys)) {
@@ -302,7 +302,7 @@ class InMemoryStore implements DbStore {
     }
 
     return Promise.resolve(
-      compact(map(joinedKeys, (key) => this._mergedData.get(key)))
+      compact(map(joinedKeys, (key) => this._mergedData.get(key))),
     );
   }
 
@@ -314,7 +314,7 @@ class InMemoryStore implements DbStore {
       each(arrayify(itemOrItems), (item) => {
         let pk = getSerializedKeyForKeypath(
           item,
-          this._storeSchema.primaryKeyPath
+          this._storeSchema.primaryKeyPath,
         )!!!;
         const existingItem = this._mergedData.get(pk);
         if (existingItem) {
@@ -322,7 +322,7 @@ class InMemoryStore implements DbStore {
           this._removeFromIndices(
             pk,
             existingItem,
-            /** RemovePrimaryKey */ false
+            /** RemovePrimaryKey */ false,
           );
         }
         this._mergedData.set(pk, item);
@@ -348,7 +348,7 @@ class InMemoryStore implements DbStore {
     const joinedKeys = attempt(() => {
       return formListOfSerializedKeys(
         keyOrKeys,
-        this._storeSchema.primaryKeyPath
+        this._storeSchema.primaryKeyPath,
       );
     });
     if (isError(joinedKeys)) {
@@ -363,7 +363,7 @@ class InMemoryStore implements DbStore {
     keyLowRange: KeyType,
     keyHighRange: KeyType,
     lowRangeExclusive?: boolean,
-    highRangeExclusive?: boolean
+    highRangeExclusive?: boolean,
   ): Promise<void> {
     if (!this._trans.internal_isOpen()) {
       return Promise.reject<void>("InMemoryTransaction already closed");
@@ -379,7 +379,7 @@ class InMemoryStore implements DbStore {
         keyLowRange,
         keyHighRange,
         lowRangeExclusive,
-        highRangeExclusive
+        highRangeExclusive,
       )
       .then((keys) => {
         return this._removeInternal(keys);
@@ -394,8 +394,8 @@ class InMemoryStore implements DbStore {
           this._mergedData,
           undefined as any,
           this._storeSchema.primaryKeyPath,
-          this._mapType
-        )
+          this._mapType,
+        ),
       );
     }
     const index = this._indices.get("pk")!!!;
@@ -406,7 +406,7 @@ class InMemoryStore implements DbStore {
   openIndex(indexName: string): DbIndex {
     let indexSchema = find(
       this._storeSchema.indexes,
-      (idx) => idx.name === indexName
+      (idx) => idx.name === indexName,
     );
     if (!indexSchema) {
       throw new Error("Index not found: " + indexName);
@@ -419,8 +419,8 @@ class InMemoryStore implements DbStore {
           this._mergedData,
           indexSchema,
           this._storeSchema.primaryKeyPath,
-          this._mapType
-        )
+          this._mapType,
+        ),
       );
     }
     const index = this._indices.get(indexSchema.name)!!!;
@@ -441,8 +441,8 @@ class InMemoryStore implements DbStore {
           this._mergedData,
           index,
           this._storeSchema.primaryKeyPath,
-          this._mapType
-        )
+          this._mapType,
+        ),
       );
     });
     return Promise.resolve<void>(void 0);
@@ -467,7 +467,7 @@ class InMemoryStore implements DbStore {
   private _removeFromIndices(
     key: string,
     item: ItemType,
-    removePrimaryKey: boolean
+    removePrimaryKey: boolean,
   ) {
     // Don't need to remove from primary key on Puts because set is enough
     // 1. If it's an existing key then it will get overwritten
@@ -487,7 +487,7 @@ class InMemoryStore implements DbStore {
         each(indexKeys, (indexKey: string) => ind.remove(indexKey));
       } else {
         each(indexKeys, (idxKey: string) =>
-          ind.remove({ idxKey, primaryKey: key })
+          ind.remove({ idxKey, primaryKey: key }),
         );
       }
     });
@@ -502,7 +502,7 @@ class InMemoryIndex extends DbIndexFTSFromRangeQueries {
     _mergedData: Map<string, ItemType>,
     indexSchema: IndexSchema,
     primaryKeyPath: KeyPathType,
-    mapType?: OrderedMapType
+    mapType?: OrderedMapType,
   ) {
     super(indexSchema, primaryKeyPath);
     this._indexTree = createOrderedMap(mapType);
@@ -518,14 +518,14 @@ class InMemoryIndex extends DbIndexFTSFromRangeQueries {
     if (this._indexSchema && this._indexSchema!!!.fullText) {
       keys = map(
         getFullTextIndexWordsForItem(<string>this._keyPath, item),
-        (val) => serializeKeyToString(val, <string>this._keyPath)
+        (val) => serializeKeyToString(val, <string>this._keyPath),
       );
     } else if (this._indexSchema && this._indexSchema!!!.multiEntry) {
       // Have to extract the multiple entries into this alternate table...
       const valsRaw = getValueForSingleKeypath(item, <string>this._keyPath);
       if (valsRaw) {
         keys = map(arrayify(valsRaw), (val) =>
-          serializeKeyToString(val, <string>this._keyPath)
+          serializeKeyToString(val, <string>this._keyPath),
         );
       }
     } else {
@@ -537,7 +537,7 @@ class InMemoryIndex extends DbIndexFTSFromRangeQueries {
   // Warning: This function can throw, make sure to trap.
   public put(
     itemOrItems: ItemType | ItemType[],
-    skipTransactionOnCreation?: boolean
+    skipTransactionOnCreation?: boolean,
   ): void {
     if (!skipTransactionOnCreation && !this._trans!.internal_isOpen()) {
       throw new Error("InMemoryTransaction already closed");
@@ -593,7 +593,7 @@ class InMemoryIndex extends DbIndexFTSFromRangeQueries {
    */
   public remove(
     key: string | { primaryKey: string; idxKey: string },
-    skipTransactionOnCreation?: boolean
+    skipTransactionOnCreation?: boolean,
   ) {
     if (!skipTransactionOnCreation && !this._trans!.internal_isOpen()) {
       throw new Error("InMemoryTransaction already closed");
@@ -610,7 +610,7 @@ class InMemoryIndex extends DbIndexFTSFromRangeQueries {
       const idxItemsWithoutItem = idxItems.filter((idxItem) => {
         const idxItemPrimaryKeyVal = getSerializedKeyForKeypath(
           idxItem,
-          this._primaryKeyPath
+          this._primaryKeyPath,
         )!!!;
         return idxItemPrimaryKeyVal !== key.primaryKey;
       });
@@ -629,7 +629,7 @@ class InMemoryIndex extends DbIndexFTSFromRangeQueries {
   getAll(
     reverseOrSortOrder?: boolean | QuerySortOrder,
     limit?: number,
-    offset?: number
+    offset?: number,
   ): Promise<ItemType[]> {
     const definedLimit = limit
       ? limit
@@ -672,7 +672,7 @@ class InMemoryIndex extends DbIndexFTSFromRangeQueries {
           item.key,
           definedLimit - i,
           (item.value?.length || 0) - count,
-          reverse
+          reverse,
         );
 
         values.forEach((v, j) => {
@@ -703,7 +703,7 @@ class InMemoryIndex extends DbIndexFTSFromRangeQueries {
     key: KeyType,
     reverseOrSortOrder?: boolean | QuerySortOrder,
     limit?: number,
-    offset?: number
+    offset?: number,
   ): Promise<ItemType[]> {
     return this.getRange(
       key,
@@ -712,7 +712,7 @@ class InMemoryIndex extends DbIndexFTSFromRangeQueries {
       false,
       reverseOrSortOrder,
       limit,
-      offset
+      offset,
     );
   }
 
@@ -723,7 +723,7 @@ class InMemoryIndex extends DbIndexFTSFromRangeQueries {
     highRangeExclusive?: boolean,
     reverseOrSortOrder?: boolean | QuerySortOrder,
     limit?: number,
-    offset?: number
+    offset?: number,
   ): Promise<ItemType[]> {
     const values = attempt(() => {
       const reverse =
@@ -776,8 +776,8 @@ class InMemoryIndex extends DbIndexFTSFromRangeQueries {
                 key,
                 limit - values.length,
                 Math.abs(offset),
-                reverse
-              )
+                reverse,
+              ),
             );
 
             if (offset < 0) {
@@ -799,14 +799,14 @@ class InMemoryIndex extends DbIndexFTSFromRangeQueries {
     keyLowRange: KeyType,
     keyHighRange: KeyType,
     lowRangeExclusive?: boolean,
-    highRangeExclusive?: boolean
+    highRangeExclusive?: boolean,
   ): Promise<any[]> {
     const keys = attempt(() => {
       return this._getKeysForRange(
         keyLowRange,
         keyHighRange,
         lowRangeExclusive,
-        highRangeExclusive
+        highRangeExclusive,
       );
     });
     if (isError(keys)) {
@@ -827,7 +827,7 @@ class InMemoryIndex extends DbIndexFTSFromRangeQueries {
     key: string,
     limit: number,
     offset: number,
-    reverse: boolean
+    reverse: boolean,
   ): ItemType[] {
     if (limit <= 0) {
       return [];
@@ -862,7 +862,7 @@ class InMemoryIndex extends DbIndexFTSFromRangeQueries {
     keyLowRange: KeyType,
     keyHighRange: KeyType,
     lowRangeExclusive?: boolean,
-    highRangeExclusive?: boolean
+    highRangeExclusive?: boolean,
   ): string[] {
     const keyLow = serializeKeyToString(keyLowRange, this._keyPath);
     const keyHigh = serializeKeyToString(keyHighRange, this._keyPath);
@@ -889,7 +889,7 @@ class InMemoryIndex extends DbIndexFTSFromRangeQueries {
     keyLowRange: KeyType,
     keyHighRange: KeyType,
     lowRangeExclusive?: boolean,
-    highRangeExclusive?: boolean
+    highRangeExclusive?: boolean,
   ): number {
     const keyLow = serializeKeyToString(keyLowRange, this._keyPath);
     const keyHigh = serializeKeyToString(keyHighRange, this._keyPath);
@@ -943,7 +943,7 @@ class InMemoryIndex extends DbIndexFTSFromRangeQueries {
     keyLowRange: KeyType,
     keyHighRange: KeyType,
     lowRangeExclusive?: boolean,
-    highRangeExclusive?: boolean
+    highRangeExclusive?: boolean,
   ): Promise<number> {
     if (this.isUniqueIndex()) {
       const keys = attempt(() => {
@@ -951,7 +951,7 @@ class InMemoryIndex extends DbIndexFTSFromRangeQueries {
           keyLowRange,
           keyHighRange,
           lowRangeExclusive,
-          highRangeExclusive
+          highRangeExclusive,
         );
       });
 
@@ -966,7 +966,7 @@ class InMemoryIndex extends DbIndexFTSFromRangeQueries {
           keyLowRange,
           keyHighRange,
           lowRangeExclusive,
-          highRangeExclusive
+          highRangeExclusive,
         );
       });
 
