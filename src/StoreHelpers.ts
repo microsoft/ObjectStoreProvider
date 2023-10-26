@@ -29,12 +29,12 @@ export type DBStore<Name extends string, ObjectType, KeyFormat> = string & {
 };
 export type DBIndex<
   Store extends DBStore<string, any, any>,
-  IndexKeyFormat
+  IndexKeyFormat,
 > = string & { store?: Store; indexKeyFormat?: IndexKeyFormat };
 
 export class SimpleTransactionIndexHelper<
   ObjectType extends ItemType,
-  IndexKeyFormat extends KeyType
+  IndexKeyFormat extends KeyType,
 > {
   constructor(protected _index: DbIndex) {
     // Nothing to see here
@@ -43,12 +43,12 @@ export class SimpleTransactionIndexHelper<
   getAll(
     reverseOrSortOrder?: boolean | QuerySortOrder,
     limit?: number,
-    offset?: number
+    offset?: number,
   ): Promise<ObjectType[]> {
     let promise = this._index.getAll(
       reverseOrSortOrder,
       limit,
-      offset
+      offset,
     ) as Promise<ObjectType[]>;
     return ErrorCatcher ? promise.catch(ErrorCatcher) : promise;
   }
@@ -57,13 +57,13 @@ export class SimpleTransactionIndexHelper<
     key: IndexKeyFormat,
     reverseOrSortOrder?: boolean | QuerySortOrder,
     limit?: number,
-    offset?: number
+    offset?: number,
   ): Promise<ObjectType[]> {
     let promise = this._index.getOnly(
       key,
       reverseOrSortOrder,
       limit,
-      offset
+      offset,
     ) as Promise<ObjectType[]>;
     return ErrorCatcher ? promise.catch(ErrorCatcher) : promise;
   }
@@ -75,7 +75,7 @@ export class SimpleTransactionIndexHelper<
     highRangeExclusive?: boolean,
     reverseOrSortOrder?: boolean | QuerySortOrder,
     limit?: number,
-    offset?: number
+    offset?: number,
   ): Promise<ObjectType[]> {
     let promise = this._index.getRange(
       keyLowRange,
@@ -84,7 +84,7 @@ export class SimpleTransactionIndexHelper<
       highRangeExclusive,
       reverseOrSortOrder,
       limit,
-      offset
+      offset,
     ) as Promise<ObjectType[]>;
     return ErrorCatcher ? promise.catch(ErrorCatcher) : promise;
   }
@@ -103,13 +103,13 @@ export class SimpleTransactionIndexHelper<
     keyLowRange: IndexKeyFormat,
     keyHighRange: IndexKeyFormat,
     lowRangeExclusive?: boolean,
-    highRangeExclusive?: boolean
+    highRangeExclusive?: boolean,
   ): Promise<number> {
     let promise = this._index.countRange(
       keyLowRange,
       keyHighRange,
       lowRangeExclusive,
-      highRangeExclusive
+      highRangeExclusive,
     );
     return ErrorCatcher ? promise.catch(ErrorCatcher) : promise;
   }
@@ -117,13 +117,13 @@ export class SimpleTransactionIndexHelper<
   fullTextSearch(
     searchPhrase: string,
     resolution?: FullTextTermResolution,
-    limit?: number
+    limit?: number,
   ): Promise<ObjectType[]> {
     // Sanitize input by removing parens, the plugin on RN explodes
     let promise = this._index.fullTextSearch(
       searchPhrase.replace(FullTextSanitizeRegex, ""),
       resolution,
-      limit
+      limit,
     ) as Promise<ObjectType[]>;
     return ErrorCatcher ? promise.catch(ErrorCatcher) : promise;
   }
@@ -132,7 +132,7 @@ export class SimpleTransactionIndexHelper<
 export class SimpleTransactionStoreHelper<
   StoreName extends string,
   ObjectType extends ItemType,
-  KeyFormat extends KeyType
+  KeyFormat extends KeyType,
 > {
   constructor(
     protected _store: DbStore,
@@ -140,7 +140,7 @@ export class SimpleTransactionStoreHelper<
       StoreName,
       ObjectType,
       KeyFormat
-    >
+    >,
   ) {
     // Nothing to see here
   }
@@ -161,7 +161,7 @@ export class SimpleTransactionStoreHelper<
     key: KeyFormat,
     reverseOrSortOrder?: boolean | QuerySortOrder,
     limit?: number,
-    offset?: number
+    offset?: number,
   ): Promise<ObjectType[]> {
     let promise = this._store
       .openPrimaryKey()
@@ -176,7 +176,7 @@ export class SimpleTransactionStoreHelper<
     highRangeExclusive?: boolean,
     reverseOrSortOrder?: boolean | QuerySortOrder,
     limit?: number,
-    offset?: number
+    offset?: number,
   ): Promise<ObjectType[]> {
     let promise = this._store
       .openPrimaryKey()
@@ -187,7 +187,7 @@ export class SimpleTransactionStoreHelper<
         highRangeExclusive,
         reverseOrSortOrder,
         limit,
-        offset
+        offset,
       ) as Promise<ObjectType[]>;
     return ErrorCatcher ? promise.catch(ErrorCatcher) : promise;
   }
@@ -201,16 +201,16 @@ export class SimpleTransactionStoreHelper<
     indexName: DBIndex<
       DBStore<StoreName, ObjectType, KeyFormat>,
       IndexKeyFormat
-    >
+    >,
   ): SimpleTransactionIndexHelper<ObjectType, IndexKeyFormat> {
     return new SimpleTransactionIndexHelper<ObjectType, IndexKeyFormat>(
-      this._store.openIndex(indexName)
+      this._store.openIndex(indexName),
     );
   }
 
   openPrimaryKey(): SimpleTransactionIndexHelper<ObjectType, KeyFormat> {
     return new SimpleTransactionIndexHelper<ObjectType, KeyFormat>(
-      this._store.openPrimaryKey()
+      this._store.openPrimaryKey(),
     );
   }
 

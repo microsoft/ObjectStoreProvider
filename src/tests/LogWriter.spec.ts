@@ -31,7 +31,7 @@ describe("LogWriter", () => {
     });
     assert(
       output ===
-        `Create store. dbName: settings, storeName: flags, indexName: test`
+        `Create store. dbName: settings, storeName: flags, indexName: test`,
     );
 
     // warn
@@ -48,7 +48,7 @@ describe("LogWriter", () => {
     });
     assert(
       output ===
-        `Create store. dbName: settings, storeName: flags, indexName: test`
+        `Create store. dbName: settings, storeName: flags, indexName: test`,
     );
 
     // error
@@ -65,7 +65,7 @@ describe("LogWriter", () => {
     });
     assert(
       output ===
-        `Create store. dbName: settings, storeName: flags, indexName: test`
+        `Create store. dbName: settings, storeName: flags, indexName: test`,
     );
   });
 });

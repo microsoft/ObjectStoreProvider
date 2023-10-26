@@ -51,18 +51,18 @@ export function breakAndNormalizeSearchPhrase(phrase: string): string[] {
   // Deburr and tolower before using words since words breaks on CaseChanges.
   const wordInPhrase = words(
     deburr(phrase).toLowerCase(),
-    _whitespaceRegexMatch
+    _whitespaceRegexMatch,
   );
   // map(mapKeys is faster than uniq since it's just a pile of strings.
   const uniqueWordas = map(mapKeys(wordInPhrase), (_value, key) =>
-    sqlCompat(key)
+    sqlCompat(key),
   );
   return filter(uniqueWordas, (word) => !!lodashTrim(word));
 }
 
 export function getFullTextIndexWordsForItem(
   keyPath: string,
-  item: any
+  item: any,
 ): string[] {
   const rawString = getValueForSingleKeypath(item, keyPath);
 
@@ -74,7 +74,7 @@ export abstract class DbIndexFTSFromRangeQueries implements DbIndex {
 
   constructor(
     protected _indexSchema: IndexSchema | undefined,
-    protected _primaryKeyPath: string | string[]
+    protected _primaryKeyPath: string | string[],
   ) {
     this._keyPath = this._indexSchema
       ? this._indexSchema.keyPath
@@ -84,11 +84,11 @@ export abstract class DbIndexFTSFromRangeQueries implements DbIndex {
   fullTextSearch(
     searchPhrase: string,
     resolution: FullTextTermResolution = FullTextTermResolution.And,
-    limit?: number
+    limit?: number,
   ): Promise<ItemType[]> {
     if (!this._indexSchema || !this._indexSchema.fullText) {
       return Promise.reject(
-        "fullTextSearch performed against non-fullText index!"
+        "fullTextSearch performed against non-fullText index!",
       );
     }
 
@@ -107,8 +107,8 @@ export abstract class DbIndexFTSFromRangeQueries implements DbIndex {
       const uniquers = attempt(() => {
         return map(results, (resultSet) =>
           keyBy(resultSet, (item) =>
-            getSerializedKeyForKeypath(item, this._primaryKeyPath)
-          )
+            getSerializedKeyForKeypath(item, this._primaryKeyPath),
+          ),
         );
       });
       if (isError(uniquers)) {
@@ -126,7 +126,7 @@ export abstract class DbIndexFTSFromRangeQueries implements DbIndex {
       if (resolution === FullTextTermResolution.And) {
         const [first, ...others] = uniquers;
         const dic = pickBy(first, (_value, key) =>
-          every(others, (set) => key in set)
+          every(others, (set) => key in set),
         ) as Dictionary<ItemType>;
         const data = values(dic);
         if (limit) {
@@ -142,14 +142,14 @@ export abstract class DbIndexFTSFromRangeQueries implements DbIndex {
   abstract getAll(
     reverseOrSortOrder?: boolean | QuerySortOrder,
     limit?: number,
-    offset?: number
+    offset?: number,
   ): Promise<ItemType[]>;
   abstract getMultiple(keyOrKeys: KeyType | KeyType[]): Promise<ItemType[]>;
   abstract getOnly(
     key: KeyType,
     reverseOrSortOrder?: boolean | QuerySortOrder,
     limit?: number,
-    offset?: number
+    offset?: number,
   ): Promise<ItemType[]>;
   abstract getRange(
     keyLowRange: KeyType,
@@ -158,13 +158,13 @@ export abstract class DbIndexFTSFromRangeQueries implements DbIndex {
     highRangeExclusive?: boolean,
     reverseOrSortOrder?: boolean | QuerySortOrder,
     limit?: number,
-    offset?: number
+    offset?: number,
   ): Promise<ItemType[]>;
   abstract getKeysForRange(
     keyLowRange: KeyType,
     keyHighRange: KeyType,
     lowRangeExclusive?: boolean,
-    highRangeExclusive?: boolean
+    highRangeExclusive?: boolean,
   ): Promise<any[]>;
   abstract countAll(): Promise<number>;
   abstract countOnly(key: KeyType): Promise<number>;
@@ -172,6 +172,6 @@ export abstract class DbIndexFTSFromRangeQueries implements DbIndex {
     keyLowRange: KeyType,
     keyHighRange: KeyType,
     lowRangeExclusive?: boolean,
-    highRangeExclusive?: boolean
+    highRangeExclusive?: boolean,
   ): Promise<number>;
 }
