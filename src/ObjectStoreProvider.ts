@@ -94,14 +94,14 @@ export interface DbIndex {
   getAll(
     reverseOrSortOrder?: boolean | QuerySortOrder,
     limit?: number,
-    offset?: number
+    offset?: number,
   ): Promise<ItemType[]>;
   getMultiple(keyOrKeys: KeyType | KeyType[]): Promise<ItemType[]>;
   getOnly(
     key: KeyType,
     reverseOrSortOrder?: boolean | QuerySortOrder,
     limit?: number,
-    offset?: number
+    offset?: number,
   ): Promise<ItemType[]>;
   getRange(
     keyLowRange: KeyType,
@@ -110,13 +110,13 @@ export interface DbIndex {
     highRangeExclusive?: boolean,
     reverseOrSortOrder?: boolean | QuerySortOrder,
     limit?: number,
-    offset?: number
+    offset?: number,
   ): Promise<ItemType[]>;
   getKeysForRange(
     keyLowRange: KeyType,
     keyHighRange: KeyType,
     lowRangeExclusive?: boolean,
-    highRangeExclusive?: boolean
+    highRangeExclusive?: boolean,
   ): Promise<any[]>;
   countAll(): Promise<number>;
   countOnly(key: KeyType): Promise<number>;
@@ -124,12 +124,12 @@ export interface DbIndex {
     keyLowRange: KeyType,
     keyHighRange: KeyType,
     lowRangeExclusive?: boolean,
-    highRangeExclusive?: boolean
+    highRangeExclusive?: boolean,
   ): Promise<number>;
   fullTextSearch(
     searchPhrase: string,
     resolution?: FullTextTermResolution,
-    limit?: number
+    limit?: number,
   ): Promise<ItemType[]>;
 }
 
@@ -145,7 +145,7 @@ export interface DbStore {
     keyLowRange: KeyType,
     keyHighRange: KeyType,
     lowRangeExclusive?: boolean,
-    highRangeExclusive?: boolean
+    highRangeExclusive?: boolean,
   ): Promise<void>;
 
   openPrimaryKey(): DbIndex;
@@ -179,7 +179,7 @@ export abstract class DbProvider {
     dbName: string,
     schema: DbSchema,
     _wipeIfExists: boolean,
-    verbose: boolean
+    verbose: boolean,
   ): Promise<void> {
     // virtual call
     this._dbName = dbName;
@@ -196,7 +196,7 @@ export abstract class DbProvider {
   // Undefined for storeNames means ALL stores.
   abstract openTransaction(
     storeNames: string[] | undefined,
-    writeNeeded: boolean
+    writeNeeded: boolean,
   ): Promise<DbTransaction>;
 
   deleteDatabase(): Promise<void> {
@@ -224,7 +224,7 @@ export abstract class DbProvider {
 
   private _getStoreTransaction(
     storeName: string,
-    readWrite: boolean
+    readWrite: boolean,
   ): Promise<DbStore> {
     return this.openTransaction([storeName], readWrite).then((trans) => {
       const store = attempt(() => {
@@ -247,12 +247,12 @@ export abstract class DbProvider {
   getMultiple(
     storeName: string,
     keyOrKeys: KeyType | KeyType[],
-    indexName?: string
+    indexName?: string,
   ): Promise<ItemType[]> {
     return this._getStoreIndexTransaction(storeName, false, indexName).then(
       (index) => {
         return index.getMultiple(keyOrKeys);
-      }
+      },
     );
   }
 
@@ -274,7 +274,7 @@ export abstract class DbProvider {
     keyLowRange: KeyType,
     keyHighRange: KeyType,
     lowRangeExclusive?: boolean,
-    highRangeExclusive?: boolean
+    highRangeExclusive?: boolean,
   ): Promise<void> {
     return this._getStoreTransaction(storeName, true).then((store) => {
       return store.removeRange(
@@ -282,7 +282,7 @@ export abstract class DbProvider {
         keyLowRange,
         keyHighRange,
         lowRangeExclusive,
-        highRangeExclusive
+        highRangeExclusive,
       );
     });
   }
@@ -290,7 +290,7 @@ export abstract class DbProvider {
   private _getStoreIndexTransaction(
     storeName: string,
     readWrite: boolean,
-    indexName: string | undefined
+    indexName: string | undefined,
   ): Promise<DbIndex> {
     return this._getStoreTransaction(storeName, readWrite).then((store) => {
       const index = attempt(() => {
@@ -308,12 +308,12 @@ export abstract class DbProvider {
     indexName: string | undefined,
     reverseOrSortOrder?: boolean | QuerySortOrder,
     limit?: number,
-    offset?: number
+    offset?: number,
   ): Promise<ItemType[]> {
     return this._getStoreIndexTransaction(storeName, false, indexName).then(
       (index) => {
         return index.getAll(reverseOrSortOrder, limit, offset);
-      }
+      },
     );
   }
 
@@ -323,12 +323,12 @@ export abstract class DbProvider {
     key: KeyType,
     reverseOrSortOrder?: boolean | QuerySortOrder,
     limit?: number,
-    offset?: number
+    offset?: number,
   ): Promise<ItemType[]> {
     return this._getStoreIndexTransaction(storeName, false, indexName).then(
       (index) => {
         return index.getOnly(key, reverseOrSortOrder, limit, offset);
-      }
+      },
     );
   }
 
@@ -341,7 +341,7 @@ export abstract class DbProvider {
     highRangeExclusive?: boolean,
     reverseOrSortOrder?: boolean | QuerySortOrder,
     limit?: number,
-    offset?: number
+    offset?: number,
   ): Promise<ItemType[]> {
     return this._getStoreIndexTransaction(storeName, false, indexName).then(
       (index) => {
@@ -352,9 +352,9 @@ export abstract class DbProvider {
           highRangeExclusive,
           reverseOrSortOrder,
           limit,
-          offset
+          offset,
         );
-      }
+      },
     );
   }
 
@@ -362,19 +362,19 @@ export abstract class DbProvider {
     return this._getStoreIndexTransaction(storeName, false, indexName).then(
       (index) => {
         return index.countAll();
-      }
+      },
     );
   }
 
   countOnly(
     storeName: string,
     indexName: string | undefined,
-    key: KeyType
+    key: KeyType,
   ): Promise<number> {
     return this._getStoreIndexTransaction(storeName, false, indexName).then(
       (index) => {
         return index.countOnly(key);
-      }
+      },
     );
   }
 
@@ -384,7 +384,7 @@ export abstract class DbProvider {
     keyLowRange: KeyType,
     keyHighRange: KeyType,
     lowRangeExclusive?: boolean,
-    highRangeExclusive?: boolean
+    highRangeExclusive?: boolean,
   ): Promise<number> {
     return this._getStoreIndexTransaction(storeName, false, indexName).then(
       (index) => {
@@ -392,9 +392,9 @@ export abstract class DbProvider {
           keyLowRange,
           keyHighRange,
           lowRangeExclusive,
-          highRangeExclusive
+          highRangeExclusive,
         );
-      }
+      },
     );
   }
 
@@ -403,12 +403,12 @@ export abstract class DbProvider {
     indexName: string,
     searchPhrase: string,
     resolution: FullTextTermResolution = FullTextTermResolution.And,
-    limit?: number
+    limit?: number,
   ): Promise<ItemType[]> {
     return this._getStoreIndexTransaction(storeName, false, indexName).then(
       (index) => {
         return index.fullTextSearch(searchPhrase, resolution, limit);
-      }
+      },
     );
   }
 }
@@ -420,7 +420,7 @@ export function openListOfProviders(
   dbName: string,
   schema: DbSchema,
   wipeIfExists: boolean,
-  verbose: boolean
+  verbose: boolean,
 ): Promise<DbProvider> {
   return new Promise<DbProvider>((resolve, reject) => {
     let providerIndex = 0;
@@ -441,7 +441,7 @@ export function openListOfProviders(
           errorList.push(err);
           providerIndex++;
           tryNext();
-        }
+        },
       );
     };
 
