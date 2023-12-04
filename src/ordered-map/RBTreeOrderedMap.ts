@@ -43,7 +43,7 @@ export class RBTreeOrderedMap<K = any, V = any> implements IOrderedMap<K, V> {
   }
 
   public entriesReversed(
-    _highestKey?: K,
+    _highestKey?: K
   ): IterableIterator<IKeyValuePair<K, V>> {
     return iterateFromLast(this._tree);
   }

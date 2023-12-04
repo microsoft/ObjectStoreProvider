@@ -23,7 +23,7 @@ function runOpOnMap(
   k: number,
   v: number,
   arrIndex: number,
-  flag: boolean,
+  flag: boolean
 ) {
   switch (cmd) {
     case "GET":
@@ -46,7 +46,7 @@ export function runOp(
   k: number,
   v: number,
   arrIndex: number,
-  flag: boolean,
+  flag: boolean
 ) {
   try {
     const bTreeResult = runOpOnMap(bTree, cmd, k, v, arrIndex, flag);
@@ -72,7 +72,7 @@ export function finalResult(history: HistoryList, comp: TestingComparator) {
 function removeIdempotentOperations(history: HistoryList) {
   const idempotentCommands = ["GET", "GET_INDEX", "GET_RANGE"];
   const relevantOperations = history.filter(
-    ([cmd]) => !idempotentCommands.includes(cmd),
+    ([cmd]) => !idempotentCommands.includes(cmd)
   );
   const lastOp = _.last(history);
   if (lastOp !== _.last(relevantOperations)) {
@@ -111,7 +111,7 @@ function* shrinkHistory(history: HistoryList): IterableIterator<HistoryList> {
 
 function runAndShrink(
   history: HistoryList,
-  comp: TestingComparator,
+  comp: TestingComparator
 ):
   | { failed: true; history: HistoryList; numChecked: number }
   | { failed: false; numChecked: number } {
@@ -131,7 +131,7 @@ function runAndShrink(
 
 export function findShrunkHistory(
   history: HistoryList,
-  comp: TestingComparator,
+  comp: TestingComparator
 ) {
   const startTime = process.hrtime();
   const relevantHistory = removeIdempotentOperations(history);

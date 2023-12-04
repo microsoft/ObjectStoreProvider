@@ -39,7 +39,7 @@ export default class SortedArray implements ISortedTestingMap {
   getIndex(
     index: number,
     isReversed: boolean,
-    startKey: number,
+    startKey: number
   ): [number, number] | undefined {
     let i = index;
     let entry;
