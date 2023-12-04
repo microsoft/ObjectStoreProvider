@@ -56,7 +56,7 @@ export function arrayify<T>(obj: T | T[]): T[] {
 
 export function trimArray<TValue>(
   array: Array<TValue>,
-  trimLength: number,
+  trimLength: number
 ): Array<TValue> {
   if (trimLength < 0 || array.length < trimLength) {
     return array.slice();
@@ -77,7 +77,7 @@ const keypathJoinerString = "%&";
 // for compound (or non-compound) values.
 export function getSerializedKeyForKeypath(
   obj: any,
-  keyPathRaw: KeyPathType,
+  keyPathRaw: KeyPathType
 ): string | undefined {
   const values = getKeyForKeypath(obj, keyPathRaw);
   if (values === undefined) {
@@ -89,7 +89,7 @@ export function getSerializedKeyForKeypath(
 
 export function getKeyForKeypath(
   obj: any,
-  keyPathRaw: KeyPathType,
+  keyPathRaw: KeyPathType
 ): KeyType | undefined {
   const keyPathArray = arrayify(keyPathRaw);
 
@@ -117,7 +117,7 @@ export function isCompoundKeyPath(keyPath: KeyPathType) {
 
 export function formListOfKeys(
   keyOrKeys: KeyType | KeyType[],
-  keyPath: KeyPathType,
+  keyPath: KeyPathType
 ): any[] {
   if (isCompoundKeyPath(keyPath)) {
     if (!isArray(keyOrKeys)) {
@@ -126,7 +126,7 @@ export function formListOfKeys(
           JSON.stringify(keyPath) +
           ") but a non-compound keyOrKeys (" +
           JSON.stringify(keyOrKeys) +
-          ")",
+          ")"
       );
     }
     if (!isArray(keyOrKeys[0])) {
@@ -159,7 +159,7 @@ export function serializeValueToOrderableString(val: KeyComponentType): string {
   throw new Error(
     "Type '" +
       type +
-      "' unsupported at this time.  Only numbers, Dates, and strings are currently supported.",
+      "' unsupported at this time.  Only numbers, Dates, and strings are currently supported."
   );
 }
 
@@ -201,12 +201,12 @@ export function serializeNumberToOrderableString(n: number) {
 
 export function serializeKeyToString(
   key: KeyType,
-  keyPath: KeyPathType,
+  keyPath: KeyPathType
 ): string {
   if (isCompoundKeyPath(keyPath)) {
     if (isArray(key)) {
       return map(key, (k) => serializeValueToOrderableString(k)).join(
-        keypathJoinerString,
+        keypathJoinerString
       );
     } else {
       throw new Error(
@@ -214,7 +214,7 @@ export function serializeKeyToString(
           JSON.stringify(keyPath) +
           ") but a non-compound key (" +
           JSON.stringify(key) +
-          ")",
+          ")"
       );
     }
   } else {
@@ -224,7 +224,7 @@ export function serializeKeyToString(
           JSON.stringify(keyPath) +
           ") but a compound key (" +
           JSON.stringify(key) +
-          ")",
+          ")"
       );
     } else {
       return serializeValueToOrderableString(key);
@@ -234,9 +234,9 @@ export function serializeKeyToString(
 
 export function formListOfSerializedKeys(
   keyOrKeys: KeyType | KeyType[],
-  keyPath: KeyPathType,
+  keyPath: KeyPathType
 ): string[] {
   return map(formListOfKeys(keyOrKeys, keyPath), (key) =>
-    serializeKeyToString(key, keyPath),
+    serializeKeyToString(key, keyPath)
   );
 }

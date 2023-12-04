@@ -28,7 +28,7 @@ export class Deferred<T> {
     this._promise = new Promise((resolve, reject) => {
       this._reject = reject;
       this._resolve = resolve as (
-        value?: T | PromiseLike<T> | undefined,
+        value?: T | PromiseLike<T> | undefined
       ) => void;
     });
   }
@@ -66,7 +66,7 @@ export class TransactionLockHelper {
 
   constructor(
     private _schema: DbSchema,
-    private _supportsDiscreteTransactions: boolean,
+    private _supportsDiscreteTransactions: boolean
   ) {
     each(this._schema.stores, (store) => {
       this._exclusiveLocks[store.name] = false;
@@ -100,18 +100,18 @@ export class TransactionLockHelper {
 
   openTransaction(
     storeNames: string[] | undefined,
-    exclusive: boolean,
+    exclusive: boolean
   ): Promise<TransactionToken> {
     if (storeNames) {
       const missingStore = find(
         storeNames,
-        (name) => !some(this._schema.stores, (store) => name === store.name),
+        (name) => !some(this._schema.stores, (store) => name === store.name)
       );
       if (missingStore) {
         return Promise.reject(
           "Opened a transaction with a store name (" +
             missingStore +
-            ") not defined in your schema!",
+            ") not defined in your schema!"
         );
       }
     }
@@ -141,7 +141,7 @@ export class TransactionLockHelper {
   transactionComplete(token: TransactionToken) {
     const pendingTransIndex = findIndex(
       this._pendingTransactions,
-      (trans) => trans.token === token,
+      (trans) => trans.token === token
     );
     if (pendingTransIndex !== -1) {
       const pendingTrans = this._pendingTransactions[pendingTransIndex];
@@ -157,13 +157,13 @@ export class TransactionLockHelper {
           "Completing a transaction that has already been completed. Stores: " +
             token.storeNames.join(",") +
             ", HadSuccess: " +
-            pendingTrans.hadSuccess,
+            pendingTrans.hadSuccess
         );
       }
     } else {
       throw new Error(
         "Completing a transaction that is no longer tracked. Stores: " +
-          token.storeNames.join(","),
+          token.storeNames.join(",")
       );
     }
 
@@ -173,7 +173,7 @@ export class TransactionLockHelper {
   transactionFailed(token: TransactionToken, message: string) {
     const pendingTransIndex = findIndex(
       this._pendingTransactions,
-      (trans) => trans.token === token,
+      (trans) => trans.token === token
     );
     if (pendingTransIndex !== -1) {
       const pendingTrans = this._pendingTransactions[pendingTransIndex];
@@ -191,7 +191,7 @@ export class TransactionLockHelper {
             ", HadSuccess: " +
             pendingTrans.hadSuccess +
             ", Message: " +
-            message,
+            message
         );
       }
     } else {
@@ -199,7 +199,7 @@ export class TransactionLockHelper {
         "Failing a transaction that is no longer tracked. Stores: " +
           token.storeNames.join(",") +
           ", message: " +
-          message,
+          message
       );
     }
 
@@ -211,7 +211,7 @@ export class TransactionLockHelper {
       each(token.storeNames, (storeName) => {
         if (!this._exclusiveLocks[storeName]) {
           throw new Error(
-            "Missing expected exclusive lock for store: " + storeName,
+            "Missing expected exclusive lock for store: " + storeName
           );
         }
         this._exclusiveLocks[storeName] = false;
@@ -220,7 +220,7 @@ export class TransactionLockHelper {
       each(token.storeNames, (storeName) => {
         if (!(this._readOnlyCounts[storeName] > 0)) {
           throw new Error(
-            "Missing expected readonly lock for store: " + storeName,
+            "Missing expected readonly lock for store: " + storeName
           );
         }
         this._readOnlyCounts[storeName]--;
@@ -258,7 +258,7 @@ export class TransactionLockHelper {
           trans.token.storeNames,
           (storeName) =>
             this._exclusiveLocks[storeName] ||
-            (trans.token.exclusive && this._readOnlyCounts[storeName] > 0),
+            (trans.token.exclusive && this._readOnlyCounts[storeName] > 0)
         )
       ) {
         i++;
