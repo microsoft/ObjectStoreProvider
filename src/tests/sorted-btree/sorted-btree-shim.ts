@@ -26,7 +26,7 @@ export default class SortedBTree implements ISortedTestingMap {
   getIndex(
     index: number,
     isReversed: boolean,
-    startKey: number,
+    startKey: number
   ): [number, number] | undefined {
     let i = index;
     if (i >= this.tree.size) return undefined;

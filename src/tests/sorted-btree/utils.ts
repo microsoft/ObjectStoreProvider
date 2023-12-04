@@ -26,7 +26,7 @@ export interface ISortedTestingMap {
   getIndex(
     index: number,
     isReversed: boolean,
-    startKey: number,
+    startKey: number
   ): [number, number] | undefined;
 
   set(k: number, v: number): boolean;

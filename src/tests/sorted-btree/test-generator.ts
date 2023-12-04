@@ -41,7 +41,7 @@ function genRandBool() {
 
 function genRandIndex(arrLength: number, outOfBoundsPercentage: number) {
   return Math.floor(
-    Math.random() * (arrLength * (1 + outOfBoundsPercentage / 100)),
+    Math.random() * (arrLength * (1 + outOfBoundsPercentage / 100))
   );
 }
 
@@ -49,25 +49,25 @@ function shrinkAndExit(
   history: HistoryList,
   comp: TestingComparator,
   keyRange: number,
-  repeatIdx: number,
+  repeatIdx: number
 ) {
   console.log("Attempting to shrink history...");
   const shrunkHistory = findShrunkHistory(history, comp);
 
   const decreasePct = Number(
-    (1 - shrunkHistory.length / history.length) * 100,
+    (1 - shrunkHistory.length / history.length) * 100
   ).toPrecision(2);
   console.log(
     "Minimal repro of size",
     shrunkHistory.length,
-    `(${decreasePct}% decrease)`,
+    `(${decreasePct}% decrease)`
   );
   console.log(
     "Details of this failure: keyRange",
     keyRange,
     "- ran",
     repeatIdx + 1,
-    "rounds",
+    "rounds"
   );
   const shouldWriteToFile = process.env.CI !== "true";
   shouldWriteToFile
@@ -103,7 +103,7 @@ for (const keyRange of KEY_RANGES) {
         console.log(
           "Repro detection time: %ds %dms",
           detectionTime[0],
-          detectionTime[1] / 1000000,
+          detectionTime[1] / 1000000
         );
         shrinkAndExit(history, comp, keyRange, repeatIdx);
       }
@@ -117,7 +117,7 @@ for (const keyRange of KEY_RANGES) {
         console.log(
           "Repro detection time: %ds %dms",
           detectionTime[0],
-          detectionTime[1] / 1000000,
+          detectionTime[1] / 1000000
         );
         shrinkAndExit(history, comp, keyRange, repeatIdx);
       }
@@ -131,7 +131,7 @@ for (const keyRange of KEY_RANGES) {
         console.log(
           "Repro detection time: %ds %dms",
           detectionTime[0],
-          detectionTime[1] / 1000000,
+          detectionTime[1] / 1000000
         );
         shrinkAndExit(history, comp, keyRange, repeatIdx);
       }
