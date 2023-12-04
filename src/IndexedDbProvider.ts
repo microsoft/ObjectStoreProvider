@@ -223,7 +223,7 @@ export class IndexedDbProvider extends DbProvider {
 
       // Create all stores
       if (isActualUpgrade) {
-        this.logWriter.log(`Creating stores as part of upgrade process`);
+        this.logWriter.log(`Creating stores after db wipe due to lastUsableVersion change`);
       }
       each(schema.stores, (storeSchema) => {
         let store: IDBObjectStore;
@@ -370,6 +370,13 @@ export class IndexedDbProvider extends DbProvider {
                 multiEntry: indexSchema.multiEntry,
               });
             }
+          }
+
+          if (needsMigrate) {
+            this.logWriter.log(`schema changes require rebuilding indices`);
+          }
+          else {
+            this.logWriter.log(`Creating stores as part of upgrade process`);
           }
         });
 
