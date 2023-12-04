@@ -223,7 +223,9 @@ export class IndexedDbProvider extends DbProvider {
 
       // Create all stores
       if (isActualUpgrade) {
-        this.logWriter.log(`Creating stores after db wipe due to lastUsableVersion change`);
+        this.logWriter.log(
+          `Creating stores after db wipe due to lastUsableVersion change`
+        );
       }
       each(schema.stores, (storeSchema) => {
         let store: IDBObjectStore;
@@ -374,8 +376,7 @@ export class IndexedDbProvider extends DbProvider {
 
           if (needsMigrate) {
             this.logWriter.log(`schema changes require rebuilding indices`);
-          }
-          else {
+          } else {
             this.logWriter.log(`Creating stores as part of upgrade process`);
           }
         });
@@ -494,9 +495,12 @@ export class IndexedDbProvider extends DbProvider {
             return this.open(dbName, schema, true, verbose);
           }
         }
-        this.logWriter.error(`Error opening db, message: ${err?.message} ${err?.target?.error} ${err?.target?.error?.name}`, {
-          dbName,
-        });
+        this.logWriter.error(
+          `Error opening db, message: ${err?.message} ${err?.target?.error} ${err?.target?.error?.name}`,
+          {
+            dbName,
+          }
+        );
         return Promise.reject<void>(err);
       }
     );
