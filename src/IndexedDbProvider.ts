@@ -197,6 +197,7 @@ export class IndexedDbProvider extends DbProvider {
       // Avoid clearing object stores when event.oldVersion returns 0.
       // oldVersion returns 0 if db doesn't exist yet: https://developer.mozilla.org/en-US/docs/Web/API/IDBVersionChangeEvent/oldVersion
       if (event.oldVersion) {
+        const deletedStores: string[] = [];
         if (
           schema.lastUsableVersion &&
           event.oldVersion < schema.lastUsableVersion
@@ -208,6 +209,7 @@ export class IndexedDbProvider extends DbProvider {
           );
           each(db.objectStoreNames, (name) => {
             db.deleteObjectStore(name);
+            deletedStores.push(name);
           });
         }
 
@@ -215,10 +217,16 @@ export class IndexedDbProvider extends DbProvider {
         each(db.objectStoreNames, (storeName) => {
           if (!some(schema.stores, (store) => store.name === storeName)) {
             db.deleteObjectStore(storeName);
+            deletedStores.push(storeName);
           }
         });
 
-        this.logWriter.log(`Deleted all object stores`, { dbName });
+        this.logWriter.log(`Deleted all object stores`, {
+          dbName,
+          deletedStores,
+          oldVersion: event.oldVersion,
+          newVersion: event.newVersion ?? undefined,
+        });
       }
 
       // Create all stores
@@ -227,6 +235,7 @@ export class IndexedDbProvider extends DbProvider {
           `Creating stores after db wipe due to lastUsableVersion change`
         );
       }
+      const createdStores: string[] = [];
       each(schema.stores, (storeSchema) => {
         let store: IDBObjectStore;
         const storeExistedBefore = includes(
@@ -245,6 +254,7 @@ export class IndexedDbProvider extends DbProvider {
           store = db.createObjectStore(storeSchema.name, {
             keyPath: primaryKeyPath,
           } as any);
+          createdStores.push(storeSchema.name);
         } else {
           // store exists, might need to update indexes and migrate the data
           store = trans.objectStore(storeSchema.name);
@@ -428,6 +438,10 @@ export class IndexedDbProvider extends DbProvider {
           );
         }
       });
+
+      if (createdStores.length > 0) {
+        this.logWriter.log(`Created stores`, { dbName, createdStores });
+      }
     };
 
     const promise = IndexedDbProvider.WrapRequest<IDBDatabase>(dbOpen);
