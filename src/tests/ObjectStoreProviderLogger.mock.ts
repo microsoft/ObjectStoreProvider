@@ -16,14 +16,14 @@ export class MockLogger implements TestLogger {
   }
 
   hasLoggedMessageContaining(messageToSearch: string): boolean {
-    return this.loggedMessages.some((log) => log.indexOf(messageToSearch) > 0);
+    return this.loggedMessages.some((log) => log.indexOf(messageToSearch) >= 0);
   }
 
   hasLoggedWarningContaining(messageToSearch: string): boolean {
-    return this.loggedWarnings.some((log) => log.indexOf(messageToSearch) > 0);
+    return this.loggedWarnings.some((log) => log.indexOf(messageToSearch) >= 0);
   }
   hasLoggedErrorContaining(messageToSearch: string): boolean {
-    return this.loggedErrors.some((log) => log.indexOf(messageToSearch) > 0);
+    return this.loggedErrors.some((log) => log.indexOf(messageToSearch) >= 0);
   }
 }
 
