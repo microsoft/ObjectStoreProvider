@@ -12,12 +12,14 @@ import {
   FullTextTermResolution,
   IDBCloseConnectionPayload,
   OnCloseHandler,
+  IObjectStoreProviderLogger,
 } from "../ObjectStoreProvider";
 
 import { InMemoryProvider } from "../InMemoryProvider";
 import { IndexedDbProvider } from "../IndexedDbProvider";
 
 import { serializeValueToOrderableString } from "../ObjectStoreProviderUtils";
+import { MockLogger, TestLogger } from "./ObjectStoreProviderLogger.mock";
 
 type TestObj = { id?: string; val: string };
 
@@ -26,7 +28,8 @@ function openProvider(
   schema: DbSchema,
   wipeFirst: boolean,
   handleOnClose?: OnCloseHandler,
-  supportsRollback?: boolean
+  supportsRollback?: boolean,
+  logger?: IObjectStoreProviderLogger
 ) {
   let provider: DbProvider;
   if (providerName === "memory-rbtree") {
@@ -34,11 +37,16 @@ function openProvider(
   } else if (providerName === "memory-btree") {
     provider = new InMemoryProvider("b+tree", supportsRollback);
   } else if (providerName === "indexeddb") {
-    provider = new IndexedDbProvider();
+    provider = new IndexedDbProvider(undefined, undefined, undefined, logger);
   } else if (providerName === "indexeddbfakekeys") {
-    provider = new IndexedDbProvider(undefined, false);
+    provider = new IndexedDbProvider(undefined, false, undefined, logger);
   } else if (providerName === "indexeddbonclose") {
-    provider = new IndexedDbProvider(undefined, undefined, handleOnClose);
+    provider = new IndexedDbProvider(
+      undefined,
+      undefined,
+      handleOnClose,
+      logger
+    );
   } else {
     throw new Error("Provider not found for name: " + providerName);
   }
@@ -2704,6 +2712,10 @@ describe("ObjectStoreProvider", function () {
 
       if (provName.indexOf("memory") === -1) {
         describe("Schema Upgrades", () => {
+          let mockLogger: TestLogger;
+          beforeEach(() => {
+            mockLogger = new MockLogger();
+          });
           it("Opening an older DB version", (done) => {
             openProvider(
               provName,
@@ -2766,7 +2778,10 @@ describe("ObjectStoreProvider", function () {
                   },
                 ],
               },
-              true
+              true,
+              undefined,
+              undefined,
+              mockLogger
             )
               .then((prov) => {
                 return prov
@@ -3046,6 +3061,168 @@ describe("ObjectStoreProvider", function () {
                   return Promise.all([p1, p2, p3])
                     .then(() => prov.close())
                     .catch((e) => prov.close().then(() => Promise.reject(e)));
+                });
+              })
+              .then(
+                () => done(),
+                (err) => done(err)
+              );
+          });
+
+          it("logs no deleted stores on db upgrade when no stores are deleted", (done) => {
+            openProvider(
+              provName,
+              {
+                version: 1,
+                stores: [
+                  {
+                    name: "test",
+                    primaryKeyPath: "id",
+                  },
+                ],
+              },
+              true
+            )
+              .then((prov) => {
+                prov.close();
+                return openProvider(
+                  provName,
+                  {
+                    version: 2,
+                    stores: [
+                      {
+                        name: "test",
+                        primaryKeyPath: "id",
+                      },
+                    ],
+                  },
+                  false,
+                  undefined,
+                  undefined,
+                  mockLogger
+                ).then((prov) => {
+                  try {
+                    assert(
+                      mockLogger.hasLoggedMessageContaining("deletedStores: ,")
+                    );
+                    return Promise.resolve();
+                  } catch (e) {
+                    return Promise.reject(e);
+                  } finally {
+                    prov.close();
+                  }
+                });
+              })
+              .then(
+                () => done(),
+                (err) => done(err)
+              );
+          });
+          it("logs deleted stores on db upgrade when stores are deleted", (done) => {
+            openProvider(
+              provName,
+              {
+                version: 1,
+                stores: [
+                  {
+                    name: "test",
+                    primaryKeyPath: "id",
+                  },
+                  {
+                    name: "storeToDelete",
+                    primaryKeyPath: "id",
+                  },
+                  {
+                    name: "storeToDelete2",
+                    primaryKeyPath: "id",
+                  },
+                ],
+              },
+              true
+            )
+              .then((prov) => {
+                prov.close();
+
+                return openProvider(
+                  provName,
+                  {
+                    version: 2,
+                    stores: [
+                      {
+                        name: "test",
+                        primaryKeyPath: "id",
+                      },
+                    ],
+                  },
+                  false,
+                  undefined,
+                  undefined,
+                  mockLogger
+                ).then((prov) => {
+                  try {
+                    assert(
+                      mockLogger.hasLoggedMessageContaining(
+                        "deletedStores: storeToDelete,storeToDelete2,"
+                      )
+                    );
+                    return;
+                  } catch (e) {
+                    return Promise.reject(e);
+                  } finally {
+                    prov.close();
+                  }
+                });
+              })
+              .then(
+                () => done(),
+                (err) => done(err)
+              );
+          });
+          it("logs created stores on db upgrade", (done) => {
+            openProvider(
+              provName,
+              {
+                version: 1,
+                stores: [
+                  {
+                    name: "test",
+                    primaryKeyPath: "id",
+                  },
+                ],
+              },
+              true
+            )
+              .then((prov) => {
+                prov.close();
+
+                return openProvider(
+                  provName,
+                  {
+                    version: 2,
+                    stores: [
+                      {
+                        name: "newStore",
+                        primaryKeyPath: "id",
+                      },
+                    ],
+                  },
+                  false,
+                  undefined,
+                  undefined,
+                  mockLogger
+                ).then((prov) => {
+                  try {
+                    assert(
+                      mockLogger.hasLoggedMessageContaining(
+                        "createdStores: newStore"
+                      )
+                    );
+                    return;
+                  } catch (e) {
+                    return Promise.reject(e);
+                  } finally {
+                    prov.close();
+                  }
                 });
               })
               .then(

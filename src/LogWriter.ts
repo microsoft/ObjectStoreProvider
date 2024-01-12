@@ -4,6 +4,10 @@ export interface ILoggerContext {
   dbName?: string;
   storeName?: string;
   indexName?: string;
+  deletedStores?: string[];
+  createdStores?: string[];
+  oldVersion?: number;
+  newVersion?: number;
 }
 
 export class LogWriter {
