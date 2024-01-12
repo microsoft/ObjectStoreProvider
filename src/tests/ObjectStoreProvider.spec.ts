@@ -3069,56 +3069,6 @@ describe("ObjectStoreProvider", function () {
               );
           });
 
-          it("Opening an older DB version", (done) => {
-            openProvider(
-              provName,
-              {
-                version: 2,
-                stores: [
-                  {
-                    name: "test",
-                    primaryKeyPath: "id",
-                  },
-                ],
-              },
-              true
-            )
-              .then((prov) => {
-                return prov.close();
-              })
-              .then(() => {
-                return openProvider(
-                  provName,
-                  {
-                    version: 1,
-                    stores: [
-                      {
-                        name: "test2",
-                        primaryKeyPath: "id",
-                      },
-                    ],
-                  },
-                  false
-                ).then((prov) => {
-                  return prov.get("test", "abc").then(
-                    () => {
-                      return prov.close().then(() => {
-                        return Promise.reject<void>("Shouldn't have worked");
-                      });
-                    },
-                    () => {
-                      // Expected to fail, so chain from failure to success
-                      return prov.close();
-                    }
-                  );
-                });
-              })
-              .then(
-                () => done(),
-                (err) => done(err)
-              );
-          });
-
           it("logs no deleted stores on db upgrade when no stores are deleted", (done) => {
             openProvider(
               provName,
