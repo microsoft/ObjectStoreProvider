@@ -376,8 +376,6 @@ export class IndexedDbProvider extends DbProvider {
 
           if (needsMigrate) {
             this.logWriter.log(`schema changes require rebuilding indices`);
-          } else {
-            this.logWriter.log(`Creating stores as part of upgrade process`);
           }
         });
 
