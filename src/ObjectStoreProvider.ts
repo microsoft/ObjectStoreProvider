@@ -205,6 +205,7 @@ export abstract class DbProvider {
 
   clearAllData(): Promise<void> {
     var storeNames = this._schema!!!.stores.map((store) => store.name);
+    console.log("test");
 
     return this.openTransaction(storeNames, true).then((trans) => {
       const clearers = storeNames.map((storeName) => {
