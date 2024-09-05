@@ -768,17 +768,16 @@ class InMemoryIndex extends DbIndexFTSFromRangeQueries {
             break;
           }
 
+          const pushToResult = (v: ItemType) => values.push(v);
           if (this.isUniqueIndex()) {
-            values = values.concat(this._indexTree.get(key) as ItemType[]);
+            (this._indexTree.get(key) as ItemType[]).forEach(pushToResult);
           } else {
-            values = values.concat(
-              this._getKeyValues(
-                key,
-                limit - values.length,
-                Math.abs(offset),
-                reverse
-              )
-            );
+            this._getKeyValues(
+              key,
+              limit - values.length,
+              Math.abs(offset),
+              reverse
+            ).forEach(pushToResult);
 
             if (offset < 0) {
               offset = 0;
