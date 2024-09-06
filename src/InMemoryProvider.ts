@@ -740,7 +740,7 @@ class InMemoryIndex extends DbIndexFTSFromRangeQueries {
       const iterator = reverse
         ? this._indexTree.entriesReversed()
         : this._indexTree.entries();
-      let values = [] as ItemType[];
+      const values = [] as ItemType[];
       for (const entry of iterator) {
         const key = entry.key;
         if (key === undefined) {
