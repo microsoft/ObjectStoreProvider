@@ -62,6 +62,16 @@ export interface StoreData {
   mapType?: OrderedMapType;
 }
 
+export interface ILiveConsumerConfigs {
+  usePushForGetRange: boolean;
+}
+
+export type GetLiveConsumerConfigsFn = () => ILiveConsumerConfigs;
+
+const defaultLiveConsumerConfigs: ILiveConsumerConfigs = {
+  usePushForGetRange: false,
+};
+
 export class InMemoryProvider extends DbProvider {
   private _stores: Map<string, StoreData> = new Map();
 
@@ -73,7 +83,8 @@ export class InMemoryProvider extends DbProvider {
   constructor(
     mapType?: OrderedMapType,
     supportsRollback = false,
-    logger?: IObjectStoreProviderLogger
+    logger?: IObjectStoreProviderLogger,
+    private getLiveConfigs?: GetLiveConsumerConfigsFn
   ) {
     super();
     this._mapType = mapType;
@@ -120,7 +131,8 @@ export class InMemoryProvider extends DbProvider {
           token,
           writeNeeded,
           this._supportsRollback!,
-          this.logger
+          this.logger,
+          this.getLiveConfigs
         )
     );
   }
@@ -146,7 +158,8 @@ class InMemoryTransaction implements DbTransaction {
     private _transToken: TransactionToken,
     private _writeNeeded: boolean,
     private _supportsRollback: boolean,
-    private logger: IObjectStoreProviderLogger
+    private logger: IObjectStoreProviderLogger,
+    private getLiveConfigs?: GetLiveConsumerConfigsFn
   ) {
     // Close the transaction on the next tick.  By definition, anything is completed synchronously here, so after an event tick
     // goes by, there can't have been anything pending.
@@ -217,7 +230,8 @@ class InMemoryTransaction implements DbTransaction {
     const ims = new InMemoryStore(
       this,
       store,
-      this._writeNeeded && this._supportsRollback
+      this._writeNeeded && this._supportsRollback,
+      this.getLiveConfigs
     );
     this._stores.set(storeName, ims);
     return ims;
@@ -237,7 +251,8 @@ class InMemoryStore implements DbStore {
   constructor(
     private _trans: InMemoryTransaction,
     storeInfo: StoreData,
-    private _supportsRollback: boolean
+    private _supportsRollback: boolean,
+    private getLiveConfigs?: GetLiveConsumerConfigsFn
   ) {
     this._storeSchema = storeInfo.schema;
     if (this._supportsRollback) {
@@ -273,7 +288,8 @@ class InMemoryStore implements DbStore {
           this._mergedData,
           index,
           this._storeSchema.primaryKeyPath,
-          this._mapType
+          this._mapType,
+          this.getLiveConfigs
         )
       );
     });
@@ -394,7 +410,8 @@ class InMemoryStore implements DbStore {
           this._mergedData,
           undefined as any,
           this._storeSchema.primaryKeyPath,
-          this._mapType
+          this._mapType,
+          this.getLiveConfigs
         )
       );
     }
@@ -419,7 +436,8 @@ class InMemoryStore implements DbStore {
           this._mergedData,
           indexSchema,
           this._storeSchema.primaryKeyPath,
-          this._mapType
+          this._mapType,
+          this.getLiveConfigs
         )
       );
     }
@@ -441,7 +459,8 @@ class InMemoryStore implements DbStore {
           this._mergedData,
           index,
           this._storeSchema.primaryKeyPath,
-          this._mapType
+          this._mapType,
+          this.getLiveConfigs
         )
       );
     });
@@ -498,15 +517,18 @@ class InMemoryStore implements DbStore {
 class InMemoryIndex extends DbIndexFTSFromRangeQueries {
   private _indexTree: IOrderedMap<string, ItemType[]>;
   private _trans?: InMemoryTransaction;
+  private getLiveConfigs: GetLiveConsumerConfigsFn;
   constructor(
     _mergedData: Map<string, ItemType>,
     indexSchema: IndexSchema,
     primaryKeyPath: KeyPathType,
-    mapType?: OrderedMapType
+    mapType?: OrderedMapType,
+    getLiveConfigs?: GetLiveConsumerConfigsFn
   ) {
     super(indexSchema, primaryKeyPath);
     this._indexTree = createOrderedMap(mapType);
     this.put(values(_mergedData), true);
+    this.getLiveConfigs = getLiveConfigs ?? (() => defaultLiveConsumerConfigs);
   }
 
   public internal_SetTransaction(trans: InMemoryTransaction) {
@@ -741,6 +763,15 @@ class InMemoryIndex extends DbIndexFTSFromRangeQueries {
         ? this._indexTree.entriesReversed()
         : this._indexTree.entries();
       let values = [] as ItemType[];
+      const { usePushForGetRange } = this.getLiveConfigs();
+      const pushValues = (values: ItemType[], newValues: ItemType[]) => {
+        newValues.forEach((v) => values.push(v));
+        return values;
+      };
+      const concatValues = (values: ItemType[], newValues: ItemType[]) => {
+        return values.concat(newValues);
+      };
+      const mergeFn = usePushForGetRange ? pushValues : concatValues;
       for (const entry of iterator) {
         const key = entry.key;
         if (key === undefined) {
@@ -769,16 +800,16 @@ class InMemoryIndex extends DbIndexFTSFromRangeQueries {
           }
 
           if (this.isUniqueIndex()) {
-            values = values.concat(this._indexTree.get(key) as ItemType[]);
+            const newValues = this._indexTree.get(key) as ItemType[];
+            values = mergeFn(values, newValues);
           } else {
-            values = values.concat(
-              this._getKeyValues(
-                key,
-                limit - values.length,
-                Math.abs(offset),
-                reverse
-              )
+            const newValues = this._getKeyValues(
+              key,
+              limit - values.length,
+              Math.abs(offset),
+              reverse
             );
+            values = mergeFn(values, newValues);
 
             if (offset < 0) {
               offset = 0;

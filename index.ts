@@ -3,7 +3,11 @@ export {
   breakAndNormalizeSearchPhrase,
   getFullTextIndexWordsForItem,
 } from "./src/FullTextSearchHelpers";
-export { InMemoryProvider, StoreData } from "./src/InMemoryProvider";
+export {
+  InMemoryProvider,
+  StoreData,
+  ILiveConsumerConfigs,
+} from "./src/InMemoryProvider";
 export {
   ItemType,
   KeyComponentType,
