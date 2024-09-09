@@ -64,12 +64,12 @@ export interface StoreData {
 
 export interface ILiveConsumerConfigs {
   usePushForGetRange: boolean;
-};
+}
 
 export type GetLiveConsumerConfigsFn = () => ILiveConsumerConfigs;
 
 const defaultLiveConsumerConfigs: ILiveConsumerConfigs = {
-  usePushForGetRange: false
+  usePushForGetRange: false,
 };
 
 export class InMemoryProvider extends DbProvider {
@@ -765,7 +765,7 @@ class InMemoryIndex extends DbIndexFTSFromRangeQueries {
       let values = [] as ItemType[];
       const { usePushForGetRange } = this.getLiveConfigs();
       const pushValues = (values: ItemType[], newValues: ItemType[]) => {
-        newValues.forEach(v => values.push(v));
+        newValues.forEach((v) => values.push(v));
         return values;
       };
       const concatValues = (values: ItemType[], newValues: ItemType[]) => {
