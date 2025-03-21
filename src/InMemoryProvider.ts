@@ -231,6 +231,7 @@ class InMemoryTransaction implements DbTransaction {
       this,
       store,
       this._writeNeeded && this._supportsRollback,
+      this.logger,
       this.getLiveConfigs
     );
     this._stores.set(storeName, ims);
@@ -252,6 +253,7 @@ class InMemoryStore implements DbStore {
     private _trans: InMemoryTransaction,
     storeInfo: StoreData,
     private _supportsRollback: boolean,
+    private logger: IObjectStoreProviderLogger,
     private getLiveConfigs?: GetLiveConsumerConfigsFn
   ) {
     this._storeSchema = storeInfo.schema;
@@ -288,6 +290,8 @@ class InMemoryStore implements DbStore {
           this._mergedData,
           index,
           this._storeSchema.primaryKeyPath,
+          this._storeSchema.name,
+          this.logger,
           this._mapType,
           this.getLiveConfigs
         )
@@ -410,6 +414,8 @@ class InMemoryStore implements DbStore {
           this._mergedData,
           undefined as any,
           this._storeSchema.primaryKeyPath,
+          this._storeSchema.name,
+          this.logger,
           this._mapType,
           this.getLiveConfigs
         )
@@ -436,6 +442,8 @@ class InMemoryStore implements DbStore {
           this._mergedData,
           indexSchema,
           this._storeSchema.primaryKeyPath,
+          this._storeSchema.name,
+          this.logger,
           this._mapType,
           this.getLiveConfigs
         )
@@ -459,6 +467,8 @@ class InMemoryStore implements DbStore {
           this._mergedData,
           index,
           this._storeSchema.primaryKeyPath,
+          this._storeSchema.name,
+          this.logger,
           this._mapType,
           this.getLiveConfigs
         )
@@ -522,6 +532,8 @@ class InMemoryIndex extends DbIndexFTSFromRangeQueries {
     _mergedData: Map<string, ItemType>,
     indexSchema: IndexSchema,
     primaryKeyPath: KeyPathType,
+    private tableName: string,
+    private logger: IObjectStoreProviderLogger,
     mapType?: OrderedMapType,
     getLiveConfigs?: GetLiveConsumerConfigsFn
   ) {
@@ -551,7 +563,15 @@ class InMemoryIndex extends DbIndexFTSFromRangeQueries {
         );
       }
     } else {
-      keys = [getSerializedKeyForKeypath(item, this._keyPath)!!!];
+      const keyFromKeyPath = getSerializedKeyForKeypath(item, this._keyPath);
+      if (keyFromKeyPath) {
+        keys = [keyFromKeyPath];
+      } else {
+        this.logger.warn(
+          `getSerializedKeyForKeypath returned undefined key in InMemoryIndex for table: ${this.tableName}, with index: ${this._indexSchema?.name}`
+        );
+        keys = [];
+      }
     }
     return keys;
   }
