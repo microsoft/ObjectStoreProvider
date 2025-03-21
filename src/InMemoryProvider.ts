@@ -566,9 +566,10 @@ class InMemoryIndex extends DbIndexFTSFromRangeQueries {
       const keyFromKeyPath = getSerializedKeyForKeypath(item, this._keyPath);
       if (keyFromKeyPath) {
         keys = [keyFromKeyPath];
-      }
-      else {
-        this.logger.warn(`getSerializedKeyForKeypath returned undefined key in InMemoryIndex for table: ${this.tableName}, with index: ${this._indexSchema?.name}`);
+      } else {
+        this.logger.warn(
+          `getSerializedKeyForKeypath returned undefined key in InMemoryIndex for table: ${this.tableName}, with index: ${this._indexSchema?.name}`
+        );
         keys = [];
       }
     }
