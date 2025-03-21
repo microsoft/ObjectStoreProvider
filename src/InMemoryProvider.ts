@@ -552,9 +552,7 @@ class InMemoryIndex extends DbIndexFTSFromRangeQueries {
       }
     } else {
       const keyFromKeyPath = getSerializedKeyForKeypath(item, this._keyPath);
-      if (keyFromKeyPath) {
-        keys = [keyFromKeyPath];
-      }
+      keys = keyFromKeyPath ? [keyFromKeyPath] : [];
     }
     return keys;
   }
