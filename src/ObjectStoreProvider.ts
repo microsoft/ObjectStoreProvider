@@ -89,6 +89,39 @@ export type DBClosure = "unexpectedClosure" | "expectedClosure";
 
 export type OnCloseHandler = (payload: IDBCloseConnectionPayload) => void;
 
+export type Status = "Success" | "Error";
+export type StoreUpgradeStep =
+  | "DeleteOldVersion"
+  | "DeleteDeadStores"
+  | "DeletingIndex"
+  | "CreatingIndex"
+  | "CopyingData"
+  | "DBUpgradeComplete";
+
+export type UpgradeStep = {
+  timestamp: number;
+  step: StoreUpgradeStep;
+  storeName?: string;
+  storeExistedBefore?: boolean;
+  indexName?: string;
+};
+
+export type UpgradeMetadata = {
+  oldVersion: number;
+  newVersion: number;
+};
+
+export type UpgradeStatus = {
+  status: Status;
+  upgradeSteps: UpgradeStep[];
+  oldVersion?: number;
+  newVersion?: number;
+  isCopyRequired: boolean;
+  errorMessage?: string;
+};
+
+export type UpgradeCallback = (upgradeStatus: UpgradeStatus) => void;
+
 // Interface type describing an index being opened for querying.
 export interface DbIndex {
   getAll(

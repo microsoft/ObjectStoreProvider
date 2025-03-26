@@ -41,6 +41,9 @@ import {
   IDBCloseConnectionPayload,
   OnCloseHandler,
   IObjectStoreProviderLogger,
+  UpgradeCallback,
+  UpgradeStep,
+  UpgradeMetadata,
 } from "./ObjectStoreProvider";
 import { ItemType, KeyPathType, KeyType } from "./ObjectStoreProvider";
 import {
@@ -79,6 +82,7 @@ export class IndexedDbProvider extends DbProvider {
   private _dbFactory: IDBFactory;
   private _fakeComplicatedKeys: boolean;
   private _handleOnClose: OnCloseHandler | undefined = undefined;
+  private _upgradeCallback: UpgradeCallback | undefined = undefined;
 
   private _lockHelper: TransactionLockHelper | undefined;
   private logWriter: LogWriter;
@@ -88,7 +92,8 @@ export class IndexedDbProvider extends DbProvider {
     explicitDbFactory?: IDBFactory,
     explicitDbFactorySupportsCompoundKeys?: boolean,
     handleOnClose?: OnCloseHandler,
-    logger?: IObjectStoreProviderLogger
+    logger?: IObjectStoreProviderLogger,
+    upgradeCallback?: UpgradeCallback
   ) {
     super();
 
@@ -117,6 +122,10 @@ export class IndexedDbProvider extends DbProvider {
 
     if (handleOnClose) {
       this._handleOnClose = handleOnClose;
+    }
+
+    if (upgradeCallback) {
+      this._upgradeCallback = upgradeCallback;
     }
   }
 
@@ -181,6 +190,8 @@ export class IndexedDbProvider extends DbProvider {
     const dbOpen = this._dbFactory.open(dbName, schema.version);
 
     let migrationPutters: Promise<void>[] = [];
+    const upgradeSteps: UpgradeStep[] = [];
+    let upgradeMetadata: UpgradeMetadata | undefined;
 
     dbOpen.onupgradeneeded = (event) => {
       const db: IDBDatabase = dbOpen.result;
@@ -193,6 +204,11 @@ export class IndexedDbProvider extends DbProvider {
         this.logWriter.error(`No transaction, unable to do upgrade`);
         throw new Error("onupgradeneeded: target is null!");
       }
+
+      upgradeMetadata = {
+        oldVersion: event.oldVersion,
+        newVersion: schema.version,
+      };
 
       // Avoid clearing object stores when event.oldVersion returns 0.
       // oldVersion returns 0 if db doesn't exist yet: https://developer.mozilla.org/en-US/docs/Web/API/IDBVersionChangeEvent/oldVersion
@@ -208,6 +224,11 @@ export class IndexedDbProvider extends DbProvider {
           );
           each(db.objectStoreNames, (name) => {
             db.deleteObjectStore(name);
+            upgradeSteps.push({
+              step: "DeleteOldVersion",
+              storeName: name,
+              timestamp: Date.now(),
+            });
           });
         }
 
@@ -215,6 +236,11 @@ export class IndexedDbProvider extends DbProvider {
         each(db.objectStoreNames, (storeName) => {
           if (!some(schema.stores, (store) => store.name === storeName)) {
             db.deleteObjectStore(storeName);
+            upgradeSteps.push({
+              step: "DeleteDeadStores",
+              storeName,
+              timestamp: Date.now(),
+            });
           }
         });
 
@@ -245,6 +271,13 @@ export class IndexedDbProvider extends DbProvider {
           store = db.createObjectStore(storeSchema.name, {
             keyPath: primaryKeyPath,
           } as any);
+
+          upgradeSteps.push({
+            step: "CreatingIndex",
+            storeName: storeSchema.name,
+            storeExistedBefore: false,
+            timestamp: Date.now(),
+          });
         } else {
           // store exists, might need to update indexes and migrate the data
           store = trans.objectStore(storeSchema.name);
@@ -286,6 +319,12 @@ export class IndexedDbProvider extends DbProvider {
                 storeName: storeSchema.name,
                 indexName,
               });
+              upgradeSteps.push({
+                step: "DeletingIndex",
+                storeName: storeSchema.name,
+                indexName,
+                timestamp: Date.now(),
+              });
               store.deleteIndex(indexName);
             }
           });
@@ -296,6 +335,12 @@ export class IndexedDbProvider extends DbProvider {
         let needsMigrate = false;
         // Check any indexes in the schema that need to be created
         each(storeSchema.indexes, (indexSchema) => {
+          upgradeSteps.push({
+            step: "CreatingIndex",
+            storeName: storeSchema.name,
+            indexName: indexSchema.name,
+            timestamp: Date.now(),
+          });
           if (!includes(store.indexNames, indexSchema.name)) {
             const keyPath = indexSchema.keyPath;
             if (this._fakeComplicatedKeys) {
@@ -380,6 +425,12 @@ export class IndexedDbProvider extends DbProvider {
         });
 
         if (needsMigrate) {
+          upgradeSteps.push({
+            step: "CopyingData",
+            timestamp: Date.now(),
+            storeName: storeSchema.name,
+          });
+
           // Walk every element in the store and re-put it to fill out the new index.
           const fakeToken: TransactionToken = {
             storeNames: [storeSchema.name],
@@ -444,6 +495,20 @@ export class IndexedDbProvider extends DbProvider {
           if (isActualMigration) {
             this.logWriter.log(`Opening db success`, { dbName });
           }
+
+          if (this._upgradeCallback && upgradeSteps.length > 0) {
+            upgradeSteps.push({
+              step: "DBUpgradeComplete",
+              timestamp: Date.now(),
+            });
+            this._upgradeCallback({
+              status: "Success",
+              isCopyRequired: isActualMigration,
+              upgradeSteps,
+              ...upgradeMetadata,
+            });
+          }
+
           this._db = db;
           this._db.onclose = (event: Event) => {
             if (this._handleOnClose) {
@@ -499,6 +564,20 @@ export class IndexedDbProvider extends DbProvider {
             dbName,
           }
         );
+
+        // Invoke the upgradeCallback with error details
+        if (this._upgradeCallback) {
+          this._upgradeCallback({
+            status: "Error",
+            isCopyRequired: false,
+            upgradeSteps,
+            ...upgradeMetadata,
+            errorMessage: err
+              ? `${err?.message} ${err?.target?.error} ${err?.target?.error?.name}`
+              : "Unknown error occurred during upgrade",
+          });
+        }
+
         return Promise.reject<void>(err);
       }
     );
