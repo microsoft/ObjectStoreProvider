@@ -110,7 +110,7 @@ export type UpgradeMetadata = {
   oldVersion: number;
   newVersion: number;
   upgradeScenarioStartTime: number;
-  upgradePerformanceStartTimeMarker: number;
+  upgradeStartTimePerformanceMarker: number;
 };
 
 export type UpgradeDetails = UpgradeMetadata & {

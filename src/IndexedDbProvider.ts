@@ -191,7 +191,12 @@ export class IndexedDbProvider extends DbProvider {
 
     let migrationPutters: Promise<void>[] = [];
     const upgradeSteps: UpgradeStep[] = [];
-    let upgradeMetadata: UpgradeMetadata | undefined;
+    let upgradeMetadata: UpgradeMetadata = {
+      oldVersion: 0,
+      newVersion: 0,
+      upgradeStartTimePerformanceMarker: 0,
+      upgradeScenarioStartTime: 0,
+    };
 
     dbOpen.onupgradeneeded = (event) => {
       const db: IDBDatabase = dbOpen.result;
@@ -208,6 +213,8 @@ export class IndexedDbProvider extends DbProvider {
       upgradeMetadata = {
         oldVersion: event.oldVersion,
         newVersion: schema.version,
+        upgradeScenarioStartTime: Date.now(),
+        upgradeStartTimePerformanceMarker: performance.now(),
       };
 
       // Avoid clearing object stores when event.oldVersion returns 0.
@@ -227,7 +234,7 @@ export class IndexedDbProvider extends DbProvider {
             upgradeSteps.push({
               step: "DeleteOldVersion",
               storeName: name,
-              timestamp: Date.now(),
+              timestamp: performance.now(),
             });
           });
         }
@@ -239,7 +246,7 @@ export class IndexedDbProvider extends DbProvider {
             upgradeSteps.push({
               step: "DeleteDeadStores",
               storeName,
-              timestamp: Date.now(),
+              timestamp: performance.now(),
             });
           }
         });
@@ -276,7 +283,7 @@ export class IndexedDbProvider extends DbProvider {
             step: "CreatingIndex",
             storeName: storeSchema.name,
             storeExistedBefore: false,
-            timestamp: Date.now(),
+            timestamp: performance.now(),
           });
         } else {
           // store exists, might need to update indexes and migrate the data
@@ -323,7 +330,7 @@ export class IndexedDbProvider extends DbProvider {
                 step: "DeletingIndex",
                 storeName: storeSchema.name,
                 indexName,
-                timestamp: Date.now(),
+                timestamp: performance.now(),
               });
               store.deleteIndex(indexName);
             }
@@ -339,7 +346,7 @@ export class IndexedDbProvider extends DbProvider {
             step: "CreatingIndex",
             storeName: storeSchema.name,
             indexName: indexSchema.name,
-            timestamp: Date.now(),
+            timestamp: performance.now(),
           });
           if (!includes(store.indexNames, indexSchema.name)) {
             const keyPath = indexSchema.keyPath;
@@ -427,7 +434,7 @@ export class IndexedDbProvider extends DbProvider {
         if (needsMigrate) {
           upgradeSteps.push({
             step: "CopyingData",
-            timestamp: Date.now(),
+            timestamp: performance.now(),
             storeName: storeSchema.name,
           });
 
@@ -499,7 +506,7 @@ export class IndexedDbProvider extends DbProvider {
           if (this._upgradeCallback && upgradeSteps.length > 0) {
             upgradeSteps.push({
               step: "DBUpgradeComplete",
-              timestamp: Date.now(),
+              timestamp: performance.now(),
             });
             this._upgradeCallback({
               status: "Success",
