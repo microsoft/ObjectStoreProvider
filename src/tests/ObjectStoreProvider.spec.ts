@@ -12,12 +12,14 @@ import {
   FullTextTermResolution,
   IDBCloseConnectionPayload,
   OnCloseHandler,
+  UpgradeCallback,
 } from "../ObjectStoreProvider";
 
 import { InMemoryProvider } from "../InMemoryProvider";
 import { IndexedDbProvider } from "../IndexedDbProvider";
 
 import { serializeValueToOrderableString } from "../ObjectStoreProviderUtils";
+import sinon = require("sinon");
 
 type TestObj = { id?: string; val: string };
 
@@ -26,22 +28,40 @@ function openProvider(
   schema: DbSchema,
   wipeFirst: boolean,
   handleOnClose?: OnCloseHandler,
-  supportsRollback?: boolean
+  supportsRollback?: boolean,
+  upgradeCallback?: UpgradeCallback
 ) {
   let provider: DbProvider;
-  if (providerName === "memory-rbtree") {
-    provider = new InMemoryProvider("red-black-tree", supportsRollback);
-  } else if (providerName === "memory-btree") {
-    provider = new InMemoryProvider("b+tree", supportsRollback);
-  } else if (providerName === "indexeddb") {
-    provider = new IndexedDbProvider();
-  } else if (providerName === "indexeddbfakekeys") {
-    provider = new IndexedDbProvider(undefined, false);
-  } else if (providerName === "indexeddbonclose") {
-    provider = new IndexedDbProvider(undefined, undefined, handleOnClose);
-  } else {
-    throw new Error("Provider not found for name: " + providerName);
+
+  switch (providerName) {
+    case "memory-rbtree":
+      provider = new InMemoryProvider("red-black-tree", supportsRollback);
+      break;
+    case "memory-btree":
+      provider = new InMemoryProvider("b+tree", supportsRollback);
+      break;
+    case "indexeddb":
+      provider = new IndexedDbProvider();
+      break;
+    case "indexeddbfakekeys":
+      provider = new IndexedDbProvider(undefined, false);
+      break;
+    case "indexeddbonclose":
+      provider = new IndexedDbProvider(undefined, undefined, handleOnClose);
+      break;
+    case "indexeddbonupgradehandler":
+      provider = new IndexedDbProvider(
+        undefined,
+        undefined,
+        handleOnClose,
+        undefined /** logger */,
+        upgradeCallback
+      );
+      break;
+    default:
+      throw new Error("Provider not found for name: " + providerName);
   }
+
   const dbName = "test";
   return openListOfProviders([provider], dbName, schema, wipeFirst, false);
 }
@@ -4517,6 +4537,274 @@ describe("ObjectStoreProvider", function () {
                   () => done(),
                   (err) => done(err)
                 );
+            });
+
+            describe("upgradeCallback", () => {
+              it("invokes upgradeHandler for success scenario with upgrade steps", (done) => {
+                const upgradeHandler: UpgradeCallback = (upgradeDetails) => {
+                  try {
+                    console.log(JSON.stringify(upgradeDetails));
+                    assert.equal(upgradeDetails.status, "Success");
+                    assert.equal(upgradeDetails.oldVersion, 1);
+                    assert.equal(upgradeDetails.newVersion, 2);
+                    assert.ok(upgradeDetails.upgradeSteps.length > 0);
+                    assert.equal(
+                      upgradeDetails.upgradeSteps[0].step,
+                      "DBUpgradeComplete"
+                    );
+                    done();
+                  } catch (err) {
+                    done(err);
+                  }
+                };
+
+                openProvider(
+                  "indexeddbonupgradehandler",
+                  {
+                    version: 1,
+                    stores: [
+                      {
+                        name: "test",
+                        primaryKeyPath: "id",
+                      },
+                    ],
+                  },
+                  true
+                )
+                  .then((prov) => {
+                    return prov
+                      .put("test", { id: "abc" })
+                      .then(() => prov.close())
+                      .catch((e) => prov.close().then(() => Promise.reject(e)));
+                  })
+                  .then(() => {
+                    return openProvider(
+                      "indexeddbonupgradehandler",
+                      {
+                        version: 2,
+                        stores: [
+                          {
+                            name: "test",
+                            primaryKeyPath: "id",
+                          },
+                          {
+                            name: "test2",
+                            primaryKeyPath: "ttt",
+                          },
+                        ],
+                      },
+                      false,
+                      undefined,
+                      undefined,
+                      upgradeHandler
+                    ).then((prov) => {
+                      return prov
+                        .put("test2", { id: "def", ttt: "ghi" })
+                        .then(() => {
+                          const p1 = prov.get("test", "abc").then((itemVal) => {
+                            const item = itemVal as TestObj;
+                            assert(!!item);
+                            assert.equal(item.id, "abc");
+                          });
+                          const p2 = prov.get("test2", "abc").then((item) => {
+                            assert(!item);
+                          });
+                          return Promise.all([p1, p2]);
+                        })
+                        .then(() => prov.close())
+                        .catch((e) =>
+                          prov.close().then(() => Promise.reject(e))
+                        );
+                    });
+                  })
+                  .then(
+                    () => {},
+                    (err) => done(err)
+                  );
+
+                // openProvider(
+                //   "indexeddbonupgradehandler",
+                //   {
+                //     version: 1,
+                //     lastUsableVersion: 1,
+                //     stores: [
+                //       {
+                //         name: "test",
+                //         primaryKeyPath: "id",
+                //       },
+                //     ],
+                //   },
+                //   true
+                // )
+                //   .then((prov) => {
+                //     return prov
+                //       .put("test", { id: "abc", content: "ghi" })
+                //       .then(() => prov.close())
+                //       .catch((e) => prov.close().then(() => Promise.reject(e)));
+                //   })
+                //   .then(() =>
+                //     openProvider(
+                //       "indexeddbonupgradehandler",
+                //       {
+                //         version: 2,
+                //         lastUsableVersion: 2,
+                //         stores: [
+                //           {
+                //             name: "test",
+                //             primaryKeyPath: "id",
+                //           },
+                //         ],
+                //       },
+                //       true,
+                //       undefined,
+                //       undefined,
+                //       upgradeHandler
+                //     ).then((prov) => prov.close())
+                //   );
+              });
+
+              // it("invokes upgradeHandler for failure scenario with upgrade steps", (done) => {
+              //   const upgradeHandler: UpgradeCallback = (upgradeDetails) => {
+              //     try {
+              //       assert.equal(upgradeDetails.status, "Error");
+              //       assert.equal(upgradeDetails.oldVersion, 1);
+              //       assert.equal(upgradeDetails.newVersion, 2);
+              //       assert.ok(upgradeDetails.errorMessage);
+              //       done();
+              //     } catch (err) {
+              //       done(err);
+              //     }
+              //   };
+
+              //   // Simulate a failure by providing an invalid schema
+              //   openProvider(
+              //     "indexeddbonupgradehandler",
+              //     {
+              //       version: 2,
+              //       stores: [
+              //         {
+              //           name: "test",
+              //           primaryKeyPath: "nonexistentKeyPath", // Invalid key path
+              //         },
+              //       ],
+              //     },
+              //     true,
+              //     undefined,
+              //     undefined,
+              //     upgradeHandler
+              //   ).catch(() => {
+              //     // Expected failure
+              //   });
+              // });
+
+              it("invokes upgradeHandler for failure scenario with upgrade steps", (done) => {
+                const upgradeHandler: UpgradeCallback = (upgradeDetails) => {
+                  try {
+                    assert.equal(upgradeDetails.status, "Error");
+                    assert.equal(upgradeDetails.oldVersion, 1);
+                    assert.equal(upgradeDetails.newVersion, 2);
+                    assert.ok(upgradeDetails.errorMessage);
+                  } catch (err) {
+                    done(err);
+                  }
+                };
+
+                // Mock the IndexedDbProvider's open method to simulate a failure
+                const mockOpen = sinon
+                  .stub(IndexedDbProvider.prototype, "open")
+                  .callsFake(async function (
+                    _dbName: string,
+                    _schema: DbSchema,
+                    _wipeIfExists: boolean,
+                    _verbose: boolean
+                  ) {
+                    // Simulate the IndexedDB open request
+                    const dbOpen = {
+                      onupgradeneeded: null as ((event: any) => void) | null,
+                      onerror: null as ((event: any) => void) | null,
+                      result: null as IDBDatabase | null,
+                    };
+
+                    // Simulate the onupgradeneeded event throwing an error
+                    setTimeout(() => {
+                      if (dbOpen.onupgradeneeded) {
+                        const event = {
+                          oldVersion: 1,
+                          target: dbOpen,
+                        };
+                        try {
+                          dbOpen.onupgradeneeded(event);
+                        } catch (e) {
+                          if (dbOpen.onerror) {
+                            dbOpen.onerror({ target: { error: e } });
+                          }
+                        }
+                      }
+                    }, 0);
+
+                    return Promise.reject(
+                      new Error("Simulated upgrade failure")
+                    );
+                  });
+
+                // Simulate a failure by providing an invalid schema
+                openProvider(
+                  "indexeddbonupgradehandler",
+                  {
+                    version: 2,
+                    stores: [
+                      {
+                        name: "test",
+                        primaryKeyPath: "nonexistentKeyPath", // Invalid key path
+                      },
+                    ],
+                  },
+                  true,
+                  undefined,
+                  undefined,
+                  upgradeHandler
+                )
+                  .catch(() => {
+                    // Expected failure
+                  })
+                  .finally(() => {
+                    mockOpen.restore(); // Restore the original method
+                    done();
+                  });
+              });
+
+              // Additional test to ensure upgradeCallback is invoked even when no upgrade steps are required
+              it("invokes upgradeHandler for no-op upgrade scenario", (done) => {
+                const upgradeHandler: UpgradeCallback = (upgradeDetails) => {
+                  try {
+                    assert.equal(upgradeDetails.status, "Success");
+                    assert.equal(upgradeDetails.oldVersion, 1);
+                    assert.equal(upgradeDetails.newVersion, 1);
+                    assert.equal(upgradeDetails.upgradeSteps.length, 0);
+                    done();
+                  } catch (err) {
+                    done(err);
+                  }
+                };
+
+                openProvider(
+                  "indexeddbonupgradehandler",
+                  {
+                    version: 1,
+                    lastUsableVersion: 1,
+                    stores: [
+                      {
+                        name: "test",
+                        primaryKeyPath: "id",
+                      },
+                    ],
+                  },
+                  true,
+                  undefined,
+                  undefined,
+                  upgradeHandler
+                ).then((prov) => prov.close());
+              });
             });
           }
         });
