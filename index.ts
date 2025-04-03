@@ -28,6 +28,12 @@ export {
   OnCloseHandler,
   openListOfProviders,
   IObjectStoreProviderLogger,
+  UpgradeStatus,
+  StoreUpgradeStep,
+  UpgradeStep,
+  UpgradeMetadata,
+  UpgradeDetails,
+  UpgradeCallback,
 } from "./src/ObjectStoreProvider";
 export {
   isIE,
