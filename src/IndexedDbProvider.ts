@@ -199,6 +199,13 @@ export class IndexedDbProvider extends DbProvider {
     };
 
     dbOpen.onupgradeneeded = (event) => {
+      upgradeMetadata = {
+        oldVersion: event.oldVersion,
+        newVersion: schema.version,
+        upgradeScenarioStartTime: Date.now(),
+        upgradeStartTimePerformanceMarker: performance.now(),
+      };
+
       const db: IDBDatabase = dbOpen.result;
       const target = <IDBOpenDBRequest>(event.currentTarget || event.target);
       const trans = target.transaction;
@@ -209,13 +216,6 @@ export class IndexedDbProvider extends DbProvider {
         this.logWriter.error(`No transaction, unable to do upgrade`);
         throw new Error("onupgradeneeded: target is null!");
       }
-
-      upgradeMetadata = {
-        oldVersion: event.oldVersion,
-        newVersion: schema.version,
-        upgradeScenarioStartTime: Date.now(),
-        upgradeStartTimePerformanceMarker: performance.now(),
-      };
 
       // Avoid clearing object stores when event.oldVersion returns 0.
       // oldVersion returns 0 if db doesn't exist yet: https://developer.mozilla.org/en-US/docs/Web/API/IDBVersionChangeEvent/oldVersion
