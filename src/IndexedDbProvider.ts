@@ -61,6 +61,7 @@ import {
   TransactionLockHelper,
 } from "./TransactionLockHelper";
 import { LogWriter } from "./LogWriter";
+import { IDBGetAllRecordsOptions } from "./types/extended-idb";
 
 const IndexPrefix = "nsp_i_";
 
@@ -73,6 +74,14 @@ declare global {
     msIndexedDB: IDBFactory;
   }
 }
+
+export interface IDBConfigs {
+  useGetAllRecordsForGetRange: boolean;
+}
+
+const defaultIDBConfigs: IDBConfigs = {
+  useGetAllRecordsForGetRange: false,
+};
 
 // The DbProvider implementation for IndexedDB.  This one is fairly straightforward since the library's access patterns pretty
 // closely mirror IndexedDB's.  We mostly do a lot of wrapping of the APIs into JQuery promises and have some fancy footwork to
@@ -93,7 +102,8 @@ export class IndexedDbProvider extends DbProvider {
     explicitDbFactorySupportsCompoundKeys?: boolean,
     handleOnClose?: OnCloseHandler,
     logger?: IObjectStoreProviderLogger,
-    upgradeCallback?: UpgradeCallback
+    upgradeCallback?: UpgradeCallback,
+    private idbConfigs: IDBConfigs = defaultIDBConfigs
   ) {
     super();
 
@@ -450,7 +460,8 @@ export class IndexedDbProvider extends DbProvider {
             fakeToken,
             schema,
             this._fakeComplicatedKeys,
-            this.logWriter
+            this.logWriter,
+            this.idbConfigs
           );
           const tStore = iTrans.getStore(storeSchema.name);
 
@@ -688,7 +699,8 @@ export class IndexedDbProvider extends DbProvider {
             transToken,
             this._schema!!!,
             this._fakeComplicatedKeys,
-            this.logWriter
+            this.logWriter,
+            this.idbConfigs
           )
         );
       }
@@ -706,7 +718,8 @@ class IndexedDbTransaction implements DbTransaction {
     private _transToken: TransactionToken,
     private _schema: DbSchema,
     private _fakeComplicatedKeys: boolean,
-    private logWriter: LogWriter
+    private logWriter: LogWriter,
+    private idbConfigs?: IDBConfigs
   ) {
     this._stores = map(this._transToken.storeNames, (storeName) =>
       this._trans.objectStore(storeName)
@@ -801,7 +814,8 @@ class IndexedDbTransaction implements DbTransaction {
       store,
       indexStores,
       storeSchema,
-      this._fakeComplicatedKeys
+      this._fakeComplicatedKeys,
+      this.idbConfigs
     );
   }
 
@@ -839,7 +853,8 @@ class IndexedDbStore implements DbStore {
     private _store: IDBObjectStore,
     private _indexStores: IDBObjectStore[],
     private _schema: StoreSchema,
-    private _fakeComplicatedKeys: boolean
+    private _fakeComplicatedKeys: boolean,
+    private idbConfigs?: IDBConfigs
   ) {
     // NOP
   }
@@ -1166,7 +1181,8 @@ class IndexedDbStore implements DbStore {
         indexSchema,
         this._schema.primaryKeyPath,
         this._fakeComplicatedKeys,
-        this._store
+        this._store,
+        this.idbConfigs
       );
     } else {
       const index = this._store.index(indexName);
@@ -1177,7 +1193,9 @@ class IndexedDbStore implements DbStore {
         index,
         indexSchema,
         this._schema.primaryKeyPath,
-        this._fakeComplicatedKeys
+        this._fakeComplicatedKeys,
+        undefined,
+        this.idbConfigs
       );
     }
   }
@@ -1187,7 +1205,9 @@ class IndexedDbStore implements DbStore {
       this._store,
       undefined,
       this._schema.primaryKeyPath,
-      this._fakeComplicatedKeys
+      this._fakeComplicatedKeys,
+      undefined,
+      this.idbConfigs
     );
   }
 
@@ -1214,7 +1234,8 @@ class IndexedDbIndex extends DbIndexFTSFromRangeQueries {
     indexSchema: IndexSchema | undefined,
     primaryKeyPath: KeyPathType,
     private _fakeComplicatedKeys: boolean,
-    private _fakedOriginalStore?: IDBObjectStore
+    private _fakedOriginalStore?: IDBObjectStore,
+    private idbConfigs?: IDBConfigs
   ) {
     super(indexSchema, primaryKeyPath);
   }
@@ -1351,6 +1372,29 @@ class IndexedDbIndex extends DbIndexFTSFromRangeQueries {
     ) {
       return IndexedDbProvider.WrapRequest(this._store.getAll(keyRange, limit));
     }
+
+    const shouldUseGetAllRecords = this.idbConfigs?.useGetAllRecordsForGetRange;
+    if (
+      shouldUseGetAllRecords &&
+      !!this._store.getAllRecords &&
+      typeof this._store.getAllRecords === "function" &&
+      reverse &&
+      !!limit &&
+      !offset
+    ) {
+      // use getAllRecords for reverse order, if available.
+      // It does not support offset currently.
+      const query_options = {
+        direction: "prev",
+        count: limit,
+        query: keyRange,
+      } as IDBGetAllRecordsOptions;
+
+      return IndexedDbProvider.WrapRequest(
+        this._store.getAllRecords(query_options)
+      );
+    }
+
     const req = this._store.openCursor(keyRange, reverse ? "prev" : "next");
     return this._resolveCursorResult(req, limit, offset);
   }
