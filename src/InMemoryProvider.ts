@@ -920,7 +920,7 @@ class InMemoryIndex extends DbIndexFTSFromRangeQueries {
     const iterator = this._indexTree.entries();
     const keys = [];
     for (const entry of iterator) {
-      const key = entry.key;
+      let key = entry.key;
       if (key === undefined) {
         continue;
       }
@@ -929,9 +929,17 @@ class InMemoryIndex extends DbIndexFTSFromRangeQueries {
         (key > keyLow || (key === keyLow && !lowRangeExclusive)) &&
         (key < keyHigh || (key === keyHigh && !highRangeExclusive))
       ) {
+        if (this._keyPath !== this._primaryKeyPath) {
+          key =
+            getSerializedKeyForKeypath(
+              entry.value?.[0],
+              this._primaryKeyPath
+            ) ?? key;
+        }
         keys.push(key);
       }
     }
+
     return keys;
   }
 
