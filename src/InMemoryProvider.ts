@@ -935,6 +935,11 @@ class InMemoryIndex extends DbIndexFTSFromRangeQueries {
               entry.value?.[0],
               this._primaryKeyPath
             ) ?? key;
+          if (key === entry.key) {
+            this.logger.warn(
+              `getSerializedKeyForKeypath returned undefined key in InMemoryIndex for table: ${this.tableName}, with index: ${this._indexSchema?.name}`
+            );
+          }
         }
         keys.push(key);
       }
