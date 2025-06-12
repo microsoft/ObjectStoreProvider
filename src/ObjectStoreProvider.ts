@@ -143,8 +143,9 @@ export interface DbIndex {
     highRangeExclusive?: boolean,
     reverseOrSortOrder?: boolean | QuerySortOrder,
     limit?: number,
-    offset?: number
-  ): Promise<ItemType[]>;
+    offset?: number,
+    forceDisableGetAllRecords?: boolean
+  ): Promise<ItemType[] & { isFromNewGetAllReverseMethod?: boolean }>;
   getKeysForRange(
     keyLowRange: KeyType,
     keyHighRange: KeyType,
@@ -374,8 +375,9 @@ export abstract class DbProvider {
     highRangeExclusive?: boolean,
     reverseOrSortOrder?: boolean | QuerySortOrder,
     limit?: number,
-    offset?: number
-  ): Promise<ItemType[]> {
+    offset?: number,
+    forceDisableGetAllRecords?: boolean
+  ): Promise<ItemType[] & { isFromNewGetAllReverseMethod?: boolean }> {
     return this._getStoreIndexTransaction(storeName, false, indexName).then(
       (index) => {
         return index.getRange(
@@ -385,7 +387,8 @@ export abstract class DbProvider {
           highRangeExclusive,
           reverseOrSortOrder,
           limit,
-          offset
+          offset,
+          forceDisableGetAllRecords
         );
       }
     );
