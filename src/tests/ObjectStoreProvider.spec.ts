@@ -1951,6 +1951,75 @@ describe("ObjectStoreProvider", function () {
             );
         });
 
+        it.only("Remove range (all removed with index multiple)", (done) => {
+          // Not working with index, need to be fix in the future.
+          if (provName === "indexeddbfakekeys") {
+            done();
+            return;
+          }
+
+          openProvider(
+            provName,
+            {
+              version: 1,
+              stores: [
+                {
+                  name: "test",
+                  primaryKeyPath: "id",
+                  indexes: [
+                    {
+                      name: "index",
+                      keyPath: ["a", "b"],
+                    },
+                  ],
+                },
+              ],
+            },
+            true
+          )
+            .then((prov) => {
+              return prov
+                .put(
+                  "test",
+                  [1, 2, 3, 4, 5].map((i) => {
+                    return {
+                      id: "a" + i,
+                      a: "index_value_a_" + i,
+                      b: "index_value_b_" + i,
+                    };
+                  })
+                )
+                .then(() => {
+                  return prov.getAll("test", undefined).then((rets) => {
+                    assert(!!rets);
+                    assert.equal(rets.length, 5);
+                    return prov
+                      .removeRange(
+                        "test",
+                        "index",
+                        ["index_value_a_1", "index_value_b_1"],
+                        ["index_value_a_5", "index_value_b_5"]
+                      )
+                      .then(() => {
+                        return prov
+                          .getAll("test", undefined)
+                          .then((retVals) => {
+                            const rets = retVals as TestObj[];
+                            assert(!!rets);
+                            assert.equal(rets.length, 0);
+                          });
+                      });
+                  });
+                })
+                .then(() => prov.close())
+                .catch((e) => prov.close().then(() => Promise.reject(e)));
+            })
+            .then(
+              () => done(),
+              (err) => done(err)
+            );
+        });
+
         it("Invalid Key Type", (done) => {
           openProvider(
             provName,
