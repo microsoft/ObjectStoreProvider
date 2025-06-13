@@ -1347,8 +1347,9 @@ class IndexedDbIndex extends DbIndexFTSFromRangeQueries {
     highRangeExclusive?: boolean,
     reverseOrSortOrder?: boolean | QuerySortOrder,
     limit?: number,
-    offset?: number
-  ): Promise<ItemType[]> {
+    offset?: number,
+    forceDisableGetAllRecords = false
+  ): Promise<ItemType[] & { isFromNewGetAllReverseMethod?: boolean }> {
     const keyRange = attempt(() => {
       return this._getKeyRangeForRange(
         keyLowRange,
@@ -1373,7 +1374,10 @@ class IndexedDbIndex extends DbIndexFTSFromRangeQueries {
       return IndexedDbProvider.WrapRequest(this._store.getAll(keyRange, limit));
     }
 
-    const shouldUseGetAllRecords = this.idbConfigs?.useGetAllRecordsForGetRange;
+    // use getAllRecords if it is allowed by config during init, and caller does not want to disable it
+    const shouldUseGetAllRecords =
+      this.idbConfigs?.useGetAllRecordsForGetRange &&
+      !forceDisableGetAllRecords;
     if (
       shouldUseGetAllRecords &&
       !!this._store.getAllRecords &&
@@ -1392,7 +1396,12 @@ class IndexedDbIndex extends DbIndexFTSFromRangeQueries {
 
       return IndexedDbProvider.WrapRequest(
         this._store.getAllRecords(query_options)
-      );
+      ).then((result) => {
+        if (!!result) {
+          (result as any).isFromNewGetAllReverseMethod = true;
+        }
+        return result;
+      });
     }
 
     const req = this._store.openCursor(keyRange, reverse ? "prev" : "next");
