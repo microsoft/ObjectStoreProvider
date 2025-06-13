@@ -1951,7 +1951,7 @@ describe("ObjectStoreProvider", function () {
             );
         });
 
-        it.only("Remove range (all removed with index multiple)", (done) => {
+        it("Remove range (all removed with index not unique)", (done) => {
           // Not working with index, need to be fix in the future.
           if (provName === "indexeddbfakekeys") {
             done();
@@ -1969,7 +1969,8 @@ describe("ObjectStoreProvider", function () {
                   indexes: [
                     {
                       name: "index",
-                      keyPath: ["a", "b"],
+                      keyPath: "a",
+                      unique: false,
                     },
                   ],
                 },
@@ -1981,24 +1982,23 @@ describe("ObjectStoreProvider", function () {
               return prov
                 .put(
                   "test",
-                  [1, 2, 3, 4, 5].map((i) => {
+                  [1, 1, 2, 3, 4, 5].map((i, index) => {
                     return {
-                      id: "a" + i,
+                      id: index,
                       a: "index_value_a_" + i,
-                      b: "index_value_b_" + i,
                     };
                   })
                 )
                 .then(() => {
                   return prov.getAll("test", undefined).then((rets) => {
                     assert(!!rets);
-                    assert.equal(rets.length, 5);
+                    assert.equal(rets.length, 6);
                     return prov
                       .removeRange(
                         "test",
                         "index",
-                        ["index_value_a_1", "index_value_b_1"],
-                        ["index_value_a_5", "index_value_b_5"]
+                        "index_value_a_1",
+                        "index_value_a_5"
                       )
                       .then(() => {
                         return prov

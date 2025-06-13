@@ -918,29 +918,39 @@ class InMemoryIndex extends DbIndexFTSFromRangeQueries {
     const keyLow = serializeKeyToString(keyLowRange, this._keyPath);
     const keyHigh = serializeKeyToString(keyHighRange, this._keyPath);
     const iterator = this._indexTree.entries();
-    const keys = [];
+    const keys: string[] = [];
+
     for (const entry of iterator) {
       let key = entry.key;
       if (key === undefined) {
         continue;
       }
 
-      if (
+      const isMatch =
         (key > keyLow || (key === keyLow && !lowRangeExclusive)) &&
-        (key < keyHigh || (key === keyHigh && !highRangeExclusive))
-      ) {
-        if (this._keyPath !== this._primaryKeyPath) {
-          key =
-            getSerializedKeyForKeypath(
-              entry.value?.[0],
-              this._primaryKeyPath
-            ) ?? key;
+        (key < keyHigh || (key === keyHigh && !highRangeExclusive));
+      if (!isMatch) {
+        continue;
+      }
+
+      // If the current index is not the primary one. We need to find primary key for each value and return that instead.
+      if (entry.value && this._keyPath !== this._primaryKeyPath) {
+        for (const value of entry.value) {
+          key = getSerializedKeyForKeypath(value, this._primaryKeyPath) ?? key;
+
           if (key === entry.key) {
             this.logger.warn(
               `getSerializedKeyForKeypath returned undefined key in InMemoryIndex for table: ${this.tableName}, with index: ${this._indexSchema?.name}`
             );
           }
+
+          if (!keys.includes(key)) {
+            keys.push(key);
+          }
         }
+      }
+      // Otherwise, we can just use the key as is.
+      else {
         keys.push(key);
       }
     }
