@@ -64,12 +64,14 @@ export interface StoreData {
 
 export interface ILiveConsumerConfigs {
   usePushForGetRange: boolean;
+  usePrimaryKeyForGetKeysForRange: boolean;
 }
 
 export type GetLiveConsumerConfigsFn = () => ILiveConsumerConfigs;
 
 const defaultLiveConsumerConfigs: ILiveConsumerConfigs = {
   usePushForGetRange: false,
+  usePrimaryKeyForGetKeysForRange: false,
 };
 
 export class InMemoryProvider extends DbProvider {
@@ -915,23 +917,51 @@ class InMemoryIndex extends DbIndexFTSFromRangeQueries {
     lowRangeExclusive?: boolean,
     highRangeExclusive?: boolean
   ): string[] {
+    const usePrimaryKey = this.getLiveConfigs().usePrimaryKeyForGetKeysForRange;
     const keyLow = serializeKeyToString(keyLowRange, this._keyPath);
     const keyHigh = serializeKeyToString(keyHighRange, this._keyPath);
     const iterator = this._indexTree.entries();
-    const keys = [];
+    const keys: string[] = [];
+
     for (const entry of iterator) {
-      const key = entry.key;
+      let key = entry.key;
       if (key === undefined) {
         continue;
       }
 
-      if (
+      const isMatch =
         (key > keyLow || (key === keyLow && !lowRangeExclusive)) &&
-        (key < keyHigh || (key === keyHigh && !highRangeExclusive))
+        (key < keyHigh || (key === keyHigh && !highRangeExclusive));
+      if (!isMatch) {
+        continue;
+      }
+
+      // If the current index is not the primary one. We need to find primary key for each value and return that instead.
+      if (
+        usePrimaryKey &&
+        entry.value &&
+        this._keyPath !== this._primaryKeyPath
       ) {
+        for (const value of entry.value) {
+          key = getSerializedKeyForKeypath(value, this._primaryKeyPath) ?? key;
+
+          if (key === entry.key) {
+            this.logger.warn(
+              `getSerializedKeyForKeypath returned undefined key in InMemoryIndex for table: ${this.tableName}, with index: ${this._indexSchema?.name}`
+            );
+          }
+
+          if (!keys.includes(key)) {
+            keys.push(key);
+          }
+        }
+      }
+      // Otherwise, we can just use the key as is.
+      else {
         keys.push(key);
       }
     }
+
     return keys;
   }
 

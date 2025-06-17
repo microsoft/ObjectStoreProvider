@@ -35,10 +35,26 @@ function openProvider(
 
   switch (providerName) {
     case "memory-rbtree":
-      provider = new InMemoryProvider("red-black-tree", supportsRollback);
+      provider = new InMemoryProvider(
+        "red-black-tree",
+        supportsRollback,
+        undefined,
+        () => ({
+          usePushForGetRange: false,
+          usePrimaryKeyForGetKeysForRange: true,
+        })
+      );
       break;
     case "memory-btree":
-      provider = new InMemoryProvider("b+tree", supportsRollback);
+      provider = new InMemoryProvider(
+        "b+tree",
+        supportsRollback,
+        undefined,
+        () => ({
+          usePushForGetRange: false,
+          usePrimaryKeyForGetKeysForRange: true,
+        })
+      );
       break;
     case "indexeddb":
       provider = new IndexedDbProvider();
@@ -1875,6 +1891,140 @@ describe("ObjectStoreProvider", function () {
                         assert.equal(rets.length, 0);
                       });
                     });
+                  });
+                })
+                .then(() => prov.close())
+                .catch((e) => prov.close().then(() => Promise.reject(e)));
+            })
+            .then(
+              () => done(),
+              (err) => done(err)
+            );
+        });
+
+        it("Remove range (all removed with index)", (done) => {
+          // Not working with index, need to be fix in the future.
+          if (provName === "indexeddbfakekeys") {
+            done();
+            return;
+          }
+
+          openProvider(
+            provName,
+            {
+              version: 1,
+              stores: [
+                {
+                  name: "test",
+                  primaryKeyPath: "id",
+                  indexes: [
+                    {
+                      name: "index",
+                      keyPath: "a",
+                    },
+                  ],
+                },
+              ],
+            },
+            true
+          )
+            .then((prov) => {
+              return prov
+                .put(
+                  "test",
+                  [1, 2, 3, 4, 5].map((i) => {
+                    return { id: "a" + i, a: "index_value_a_" + i };
+                  })
+                )
+                .then(() => {
+                  return prov.getAll("test", undefined).then((rets) => {
+                    assert(!!rets);
+                    assert.equal(rets.length, 5);
+                    return prov
+                      .removeRange(
+                        "test",
+                        "index",
+                        "index_value_a_1",
+                        "index_value_a_5"
+                      )
+                      .then(() => {
+                        return prov
+                          .getAll("test", undefined)
+                          .then((retVals) => {
+                            const rets = retVals as TestObj[];
+                            assert(!!rets);
+                            assert.equal(rets.length, 0);
+                          });
+                      });
+                  });
+                })
+                .then(() => prov.close())
+                .catch((e) => prov.close().then(() => Promise.reject(e)));
+            })
+            .then(
+              () => done(),
+              (err) => done(err)
+            );
+        });
+
+        it("Remove range (all removed with index not unique)", (done) => {
+          // Not working with index, need to be fix in the future.
+          if (provName === "indexeddbfakekeys") {
+            done();
+            return;
+          }
+
+          openProvider(
+            provName,
+            {
+              version: 1,
+              stores: [
+                {
+                  name: "test",
+                  primaryKeyPath: "id",
+                  indexes: [
+                    {
+                      name: "index",
+                      keyPath: "a",
+                      unique: false,
+                    },
+                  ],
+                },
+              ],
+            },
+            true
+          )
+            .then((prov) => {
+              return prov
+                .put(
+                  "test",
+                  [1, 1, 2, 3, 4, 5].map((i, index) => {
+                    return {
+                      id: index,
+                      a: "index_value_a_" + i,
+                    };
+                  })
+                )
+                .then(() => {
+                  return prov.getAll("test", undefined).then((rets) => {
+                    assert(!!rets);
+                    assert.equal(rets.length, 6);
+                    return prov
+                      .removeRange(
+                        "test",
+                        "index",
+                        "index_value_a_1",
+                        "index_value_a_5"
+                      )
+                      .then(() => {
+                        return prov
+                          .getAll("test", undefined)
+                          .then((retVals) => {
+                            const rets = retVals as TestObj[];
+                            assert(!!rets);
+                            assert.equal(rets.length, 0);
+                          });
+                      });
                   });
                 })
                 .then(() => prov.close())
