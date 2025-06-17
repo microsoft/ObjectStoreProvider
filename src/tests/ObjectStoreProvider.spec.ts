@@ -35,10 +35,26 @@ function openProvider(
 
   switch (providerName) {
     case "memory-rbtree":
-      provider = new InMemoryProvider("red-black-tree", supportsRollback);
+      provider = new InMemoryProvider(
+        "red-black-tree",
+        supportsRollback,
+        undefined,
+        () => ({
+          usePushForGetRange: false,
+          usePrimaryKeyForGetKeysForRange: true,
+        })
+      );
       break;
     case "memory-btree":
-      provider = new InMemoryProvider("b+tree", supportsRollback);
+      provider = new InMemoryProvider(
+        "b+tree",
+        supportsRollback,
+        undefined,
+        () => ({
+          usePushForGetRange: false,
+          usePrimaryKeyForGetKeysForRange: true,
+        })
+      );
       break;
     case "indexeddb":
       provider = new IndexedDbProvider();

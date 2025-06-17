@@ -64,12 +64,14 @@ export interface StoreData {
 
 export interface ILiveConsumerConfigs {
   usePushForGetRange: boolean;
+  usePrimaryKeyForGetKeysForRange: boolean;
 }
 
 export type GetLiveConsumerConfigsFn = () => ILiveConsumerConfigs;
 
 const defaultLiveConsumerConfigs: ILiveConsumerConfigs = {
   usePushForGetRange: false,
+  usePrimaryKeyForGetKeysForRange: false,
 };
 
 export class InMemoryProvider extends DbProvider {
@@ -915,6 +917,7 @@ class InMemoryIndex extends DbIndexFTSFromRangeQueries {
     lowRangeExclusive?: boolean,
     highRangeExclusive?: boolean
   ): string[] {
+    const usePrimaryKey = this.getLiveConfigs().usePrimaryKeyForGetKeysForRange;
     const keyLow = serializeKeyToString(keyLowRange, this._keyPath);
     const keyHigh = serializeKeyToString(keyHighRange, this._keyPath);
     const iterator = this._indexTree.entries();
@@ -934,7 +937,11 @@ class InMemoryIndex extends DbIndexFTSFromRangeQueries {
       }
 
       // If the current index is not the primary one. We need to find primary key for each value and return that instead.
-      if (entry.value && this._keyPath !== this._primaryKeyPath) {
+      if (
+        usePrimaryKey &&
+        entry.value &&
+        this._keyPath !== this._primaryKeyPath
+      ) {
         for (const value of entry.value) {
           key = getSerializedKeyForKeypath(value, this._primaryKeyPath) ?? key;
 
