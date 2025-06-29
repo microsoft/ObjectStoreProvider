@@ -4854,6 +4854,799 @@ describe("ObjectStoreProvider", function () {
                   (err) => done(err)
                 );
             });
+
+            describe("doesUpgradeRequireFullCopy method", () => {
+              describe("lastUsableVersion scenarios", () => {
+                it("returns true when current version is below lastUsableVersion", async () => {
+                  const prov = await openProvider(
+                    provName,
+                    {
+                      version: 1,
+                      stores: [
+                        {
+                          name: "test",
+                          primaryKeyPath: "id",
+                        },
+                      ],
+                    },
+                    true
+                  );
+
+                  try {
+                    const targetSchema = {
+                      version: 3,
+                      lastUsableVersion: 2,
+                      stores: [
+                        {
+                          name: "test",
+                          primaryKeyPath: "id",
+                        },
+                      ],
+                    };
+
+                    const requiresFullCopy = await prov.doesUpgradeRequireFullCopy(targetSchema);
+                    assert.equal(requiresFullCopy, true);
+                  } finally {
+                    await prov.close();
+                  }
+                });
+
+                it("returns false when current version equals lastUsableVersion", async () => {
+                  const prov = await openProvider(
+                    provName,
+                    {
+                      version: 2,
+                      stores: [
+                        {
+                          name: "test",
+                          primaryKeyPath: "id",
+                        },
+                      ],
+                    },
+                    true
+                  );
+
+                  try {
+                    const targetSchema = {
+                      version: 3,
+                      lastUsableVersion: 2,
+                      stores: [
+                        {
+                          name: "test",
+                          primaryKeyPath: "id",
+                        },
+                      ],
+                    };
+
+                    const requiresFullCopy = await prov.doesUpgradeRequireFullCopy(targetSchema);
+                    assert.equal(requiresFullCopy, false);
+                  } finally {
+                    await prov.close();
+                  }
+                });
+
+                it("returns false when current version is above lastUsableVersion", async () => {
+                  const prov = await openProvider(
+                    provName,
+                    {
+                      version: 3,
+                      stores: [
+                        {
+                          name: "test",
+                          primaryKeyPath: "id",
+                        },
+                      ],
+                    },
+                    true
+                  );
+
+                  try {
+                    const targetSchema = {
+                      version: 4,
+                      lastUsableVersion: 2,
+                      stores: [
+                        {
+                          name: "test",
+                          primaryKeyPath: "id",
+                        },
+                      ],
+                    };
+
+                    const requiresFullCopy = await prov.doesUpgradeRequireFullCopy(targetSchema);
+                    assert.equal(requiresFullCopy, false);
+                  } finally {
+                    await prov.close();
+                  }
+                });
+
+                it("continues processing when lastUsableVersion is not set", async () => {
+                  const prov = await openProvider(
+                    provName,
+                    {
+                      version: 1,
+                      stores: [
+                        {
+                          name: "test",
+                          primaryKeyPath: "id",
+                        },
+                      ],
+                    },
+                    true
+                  );
+
+                  try {
+                    const targetSchema = {
+                      version: 2,
+                      stores: [
+                        {
+                          name: "test",
+                          primaryKeyPath: "id",
+                        },
+                      ],
+                    };
+
+                    const requiresFullCopy = await prov.doesUpgradeRequireFullCopy(targetSchema);
+                    assert.equal(requiresFullCopy, false);
+                  } finally {
+                    await prov.close();
+                  }
+                });
+              });
+
+              describe("store and index scenarios", () => {
+                it("returns false for new stores that don't exist in current schema", async () => {
+                  const prov = await openProvider(
+                    provName,
+                    {
+                      version: 1,
+                      stores: [
+                        {
+                          name: "test",
+                          primaryKeyPath: "id",
+                        },
+                      ],
+                    },
+                    true
+                  );
+
+                  try {
+                    const targetSchema = {
+                      version: 2,
+                      stores: [
+                        {
+                          name: "test",
+                          primaryKeyPath: "id",
+                        },
+                        {
+                          name: "newStore",
+                          primaryKeyPath: "id",
+                          indexes: [
+                            {
+                              name: "idx1",
+                              keyPath: "field1",
+                              multiEntry: true,
+                            },
+                          ],
+                        },
+                      ],
+                    };
+
+                    const requiresFullCopy = await prov.doesUpgradeRequireFullCopy(targetSchema);
+                    assert.equal(requiresFullCopy, false);
+                  } finally {
+                    await prov.close();
+                  }
+                });
+
+                if (provName.indexOf("indexeddbfakekeys") === 0) {
+                  it("returns true for multiEntry index when fakeComplicatedKeys is true", async () => {
+                    const prov = await openProvider(
+                      provName,
+                      {
+                        version: 1,
+                        stores: [
+                          {
+                            name: "test",
+                            primaryKeyPath: "id",
+                          },
+                        ],
+                      },
+                      true
+                    );
+
+                    try {
+                      const targetSchema = {
+                        version: 2,
+                        stores: [
+                          {
+                            name: "test",
+                            primaryKeyPath: "id",
+                            indexes: [
+                              {
+                                name: "idx1",
+                                keyPath: "field1",
+                                multiEntry: true,
+                              },
+                            ],
+                          },
+                        ],
+                      };
+
+                      const requiresFullCopy = await prov.doesUpgradeRequireFullCopy(targetSchema);
+                      assert.equal(requiresFullCopy, true);
+                    } finally {
+                      await prov.close();
+                    }
+                  });
+
+                  it("returns true for fullText index when fakeComplicatedKeys is true", async () => {
+                    const prov = await openProvider(
+                      provName,
+                      {
+                        version: 1,
+                        stores: [
+                          {
+                            name: "test",
+                            primaryKeyPath: "id",
+                          },
+                        ],
+                      },
+                      true
+                    );
+
+                    try {
+                      const targetSchema = {
+                        version: 2,
+                        stores: [
+                          {
+                            name: "test",
+                            primaryKeyPath: "id",
+                            indexes: [
+                              {
+                                name: "idx1",
+                                keyPath: "field1",
+                                fullText: true,
+                              },
+                            ],
+                          },
+                        ],
+                      };
+
+                      const requiresFullCopy = await prov.doesUpgradeRequireFullCopy(targetSchema);
+                      assert.equal(requiresFullCopy, true);
+                    } finally {
+                      await prov.close();
+                    }
+                  });
+
+                  it("returns false for regular index when fakeComplicatedKeys is true", async () => {
+                    const prov = await openProvider(
+                      provName,
+                      {
+                        version: 1,
+                        stores: [
+                          {
+                            name: "test",
+                            primaryKeyPath: "id",
+                          },
+                        ],
+                      },
+                      true
+                    );
+
+                    try {
+                      const targetSchema = {
+                        version: 2,
+                        stores: [
+                          {
+                            name: "test",
+                            primaryKeyPath: "id",
+                            indexes: [
+                              {
+                                name: "idx1",
+                                keyPath: "field1",
+                              },
+                            ],
+                          },
+                        ],
+                      };
+
+                      const requiresFullCopy = await prov.doesUpgradeRequireFullCopy(targetSchema);
+                      assert.equal(requiresFullCopy, false);
+                    } finally {
+                      await prov.close();
+                    }
+                  });
+                } else {
+                  it("returns true for fullText index when fakeComplicatedKeys is false", async () => {
+                    const prov = await openProvider(
+                      provName,
+                      {
+                        version: 1,
+                        stores: [
+                          {
+                            name: "test",
+                            primaryKeyPath: "id",
+                          },
+                        ],
+                      },
+                      true
+                    );
+
+                    try {
+                      const targetSchema = {
+                        version: 2,
+                        stores: [
+                          {
+                            name: "test",
+                            primaryKeyPath: "id",
+                            indexes: [
+                              {
+                                name: "idx1",
+                                keyPath: "field1",
+                                fullText: true,
+                              },
+                            ],
+                          },
+                        ],
+                      };
+
+                      const requiresFullCopy = await prov.doesUpgradeRequireFullCopy(targetSchema);
+                      assert.equal(requiresFullCopy, true);
+                    } finally {
+                      await prov.close();
+                    }
+                  });
+
+                  it("returns false for multiEntry index when fakeComplicatedKeys is false", async () => {
+                    const prov = await openProvider(
+                      provName,
+                      {
+                        version: 1,
+                        stores: [
+                          {
+                            name: "test",
+                            primaryKeyPath: "id",
+                          },
+                        ],
+                      },
+                      true
+                    );
+
+                    try {
+                      const targetSchema = {
+                        version: 2,
+                        stores: [
+                          {
+                            name: "test",
+                            primaryKeyPath: "id",
+                            indexes: [
+                              {
+                                name: "idx1",
+                                keyPath: "field1",
+                                multiEntry: true,
+                              },
+                            ],
+                          },
+                        ],
+                      };
+
+                      const requiresFullCopy = await prov.doesUpgradeRequireFullCopy(targetSchema);
+                      assert.equal(requiresFullCopy, false);
+                    } finally {
+                      await prov.close();
+                    }
+                  });
+
+                  it("returns false for regular index when fakeComplicatedKeys is false", async () => {
+                    const prov = await openProvider(
+                      provName,
+                      {
+                        version: 1,
+                        stores: [
+                          {
+                            name: "test",
+                            primaryKeyPath: "id",
+                          },
+                        ],
+                      },
+                      true
+                    );
+
+                    try {
+                      const targetSchema = {
+                        version: 2,
+                        stores: [
+                          {
+                            name: "test",
+                            primaryKeyPath: "id",
+                            indexes: [
+                              {
+                                name: "idx1",
+                                keyPath: "field1",
+                              },
+                            ],
+                          },
+                        ],
+                      };
+
+                      const requiresFullCopy = await prov.doesUpgradeRequireFullCopy(targetSchema);
+                      assert.equal(requiresFullCopy, false);
+                    } finally {
+                      await prov.close();
+                    }
+                  });
+                }
+
+                it("returns false for indexes with doNotBackfill set to true", async () => {
+                  const prov = await openProvider(
+                    provName,
+                    {
+                      version: 1,
+                      stores: [
+                        {
+                          name: "test",
+                          primaryKeyPath: "id",
+                        },
+                      ],
+                    },
+                    true
+                  );
+
+                  try {
+                    const targetSchema = {
+                      version: 2,
+                      stores: [
+                        {
+                          name: "test",
+                          primaryKeyPath: "id",
+                          indexes: [
+                            {
+                              name: "idx1",
+                              keyPath: "field1",
+                              multiEntry: true,
+                              fullText: true,
+                              doNotBackfill: true,
+                            },
+                          ],
+                        },
+                      ],
+                    };
+
+                    const requiresFullCopy = await prov.doesUpgradeRequireFullCopy(targetSchema);
+                    assert.equal(requiresFullCopy, false);
+                  } finally {
+                    await prov.close();
+                  }
+                });
+
+                it("returns false for existing indexes", async () => {
+                  const prov = await openProvider(
+                    provName,
+                    {
+                      version: 1,
+                      stores: [
+                        {
+                          name: "test",
+                          primaryKeyPath: "id",
+                          indexes: [
+                            {
+                              name: "idx1",
+                              keyPath: "field1",
+                              multiEntry: true,
+                            },
+                          ],
+                        },
+                      ],
+                    },
+                    true
+                  );
+
+                  try {
+                    const targetSchema = {
+                      version: 2,
+                      stores: [
+                        {
+                          name: "test",
+                          primaryKeyPath: "id",
+                          indexes: [
+                            {
+                              name: "idx1",
+                              keyPath: "field1",
+                              multiEntry: true,
+                            },
+                          ],
+                        },
+                      ],
+                    };
+
+                    const requiresFullCopy = await prov.doesUpgradeRequireFullCopy(targetSchema);
+                    assert.equal(requiresFullCopy, false);
+                  } finally {
+                    await prov.close();
+                  }
+                });
+
+                it("returns false when stores have no indexes", async () => {
+                  const prov = await openProvider(
+                    provName,
+                    {
+                      version: 1,
+                      stores: [
+                        {
+                          name: "test",
+                          primaryKeyPath: "id",
+                        },
+                      ],
+                    },
+                    true
+                  );
+
+                  try {
+                    const targetSchema = {
+                      version: 2,
+                      stores: [
+                        {
+                          name: "test",
+                          primaryKeyPath: "id",
+                        },
+                      ],
+                    };
+
+                    const requiresFullCopy = await prov.doesUpgradeRequireFullCopy(targetSchema);
+                    assert.equal(requiresFullCopy, false);
+                  } finally {
+                    await prov.close();
+                  }
+                });
+
+                it("processes multiple stores correctly", async () => {
+                  const prov = await openProvider(
+                    provName,
+                    {
+                      version: 1,
+                      stores: [
+                        {
+                          name: "test1",
+                          primaryKeyPath: "id",
+                        },
+                        {
+                          name: "test2",
+                          primaryKeyPath: "id",
+                        },
+                      ],
+                    },
+                    true
+                  );
+
+                  try {
+                    const targetSchema = {
+                      version: 2,
+                      stores: [
+                        {
+                          name: "test1",
+                          primaryKeyPath: "id",
+                          indexes: [
+                            {
+                              name: "idx1",
+                              keyPath: "field1",
+                            },
+                          ],
+                        },
+                        {
+                          name: "test2",
+                          primaryKeyPath: "id",
+                          indexes: [
+                            {
+                              name: "idx2",
+                              keyPath: "field2",
+                              fullText: true,
+                            },
+                          ],
+                        },
+                      ],
+                    };
+
+                    const requiresFullCopy = await prov.doesUpgradeRequireFullCopy(targetSchema);
+                    // Should return true because of the fullText index in test2
+                    assert.equal(requiresFullCopy, true);
+                  } finally {
+                    await prov.close();
+                  }
+                });
+              });
+
+              describe("error scenarios", () => {
+                it("throws error when database is not opened", async () => {
+                  let provider;
+                  switch (provName) {
+                    case "memory-rbtree":
+                      provider = new InMemoryProvider("red-black-tree");
+                      break;
+                    case "memory-btree":
+                      provider = new InMemoryProvider("b+tree");
+                      break;
+                    case "indexeddb":
+                      provider = new IndexedDbProvider();
+                      break;
+                    case "indexeddbfakekeys":
+                      provider = new IndexedDbProvider(undefined, false);
+                      break;
+                    case "indexeddbonclose":
+                      provider = new IndexedDbProvider(undefined, undefined, () => {});
+                      break;
+                    case "indexeddbonupgradehandler":
+                      provider = new IndexedDbProvider(undefined, undefined, () => {}, undefined, () => {});
+                      break;
+                    default:
+                      throw new Error("Provider not found for name: " + provName);
+                  }
+
+                  const targetSchema = {
+                    version: 2,
+                    stores: [
+                      {
+                        name: "test",
+                        primaryKeyPath: "id",
+                      },
+                    ],
+                  };
+
+                  try {
+                    await provider.doesUpgradeRequireFullCopy(targetSchema);
+                    assert.fail("Should have thrown an error");
+                  } catch (error: any) {
+                    assert.equal(error.message, "No current schema available. Database must be opened first.");
+                  }
+                });
+              });
+
+              describe("complex scenarios", () => {
+                it("early returns true on first condition that requires full copy", async () => {
+                  const prov = await openProvider(
+                    provName,
+                    {
+                      version: 1,
+                      stores: [
+                        {
+                          name: "test1",
+                          primaryKeyPath: "id",
+                        },
+                        {
+                          name: "test2",
+                          primaryKeyPath: "id",
+                        },
+                      ],
+                    },
+                    true
+                  );
+
+                  try {
+                    const targetSchema = {
+                      version: 2,
+                      stores: [
+                        {
+                          name: "test1",
+                          primaryKeyPath: "id",
+                          indexes: [
+                            {
+                              name: "idx1",
+                              keyPath: "field1",
+                              fullText: true, // This should trigger return true
+                            },
+                          ],
+                        },
+                        {
+                          name: "test2",
+                          primaryKeyPath: "id",
+                          indexes: [
+                            {
+                              name: "idx2",
+                              keyPath: "field2",
+                              // This regular index shouldn't matter since we return early
+                            },
+                          ],
+                        },
+                      ],
+                    };
+
+                    const requiresFullCopy = await prov.doesUpgradeRequireFullCopy(targetSchema);
+                    assert.equal(requiresFullCopy, true);
+                  } finally {
+                    await prov.close();
+                  }
+                });
+
+                it("handles edge case with empty stores array", async () => {
+                  const prov = await openProvider(
+                    provName,
+                    {
+                      version: 1,
+                      stores: [],
+                    },
+                    true
+                  );
+
+                  try {
+                    const targetSchema = {
+                      version: 2,
+                      stores: [],
+                    };
+
+                    const requiresFullCopy = await prov.doesUpgradeRequireFullCopy(targetSchema);
+                    assert.equal(requiresFullCopy, false);
+                  } finally {
+                    await prov.close();
+                  }
+                });
+
+                it("handles mixed scenarios with some stores requiring full copy", async () => {
+                  const prov = await openProvider(
+                    provName,
+                    {
+                      version: 1,
+                      stores: [
+                        {
+                          name: "test1",
+                          primaryKeyPath: "id",
+                        },
+                        {
+                          name: "test2",
+                          primaryKeyPath: "id",
+                        },
+                      ],
+                    },
+                    true
+                  );
+
+                  try {
+                    const targetSchema = {
+                      version: 2,
+                      stores: [
+                        {
+                          name: "test1",
+                          primaryKeyPath: "id",
+                          indexes: [
+                            {
+                              name: "idx1",
+                              keyPath: "field1",
+                              // Regular index - no full copy needed
+                            },
+                          ],
+                        },
+                        {
+                          name: "test2",
+                          primaryKeyPath: "id",
+                          indexes: [
+                            {
+                              name: "idx2",
+                              keyPath: "field2",
+                              fullText: true, // This should trigger full copy
+                            },
+                          ],
+                        },
+                        {
+                          name: "test3", // New store - should be ignored
+                          primaryKeyPath: "id",
+                          indexes: [
+                            {
+                              name: "idx3",
+                              keyPath: "field3",
+                              fullText: true,
+                            },
+                          ],
+                        },
+                      ],
+                    };
+
+                    const requiresFullCopy = await prov.doesUpgradeRequireFullCopy(targetSchema);
+                    assert.equal(requiresFullCopy, true);
+                  } finally {
+                    await prov.close();
+                  }
+                });
+              });
+          });
           }
         });
       }

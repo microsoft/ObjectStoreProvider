@@ -601,6 +601,27 @@ export class IndexedDbProvider extends DbProvider {
     );
   }
 
+  /**
+   * Analyzes whether applying a target schema would require a full database copy/migration.
+   * This IndexedDB-specific implementation takes into account the _fakeComplicatedKeys setting.
+   *
+   * @param targetSchema - The schema to be applied
+   * @returns Promise that resolves to true if a full copy would be required, false otherwise
+   */
+  doesUpgradeRequireFullCopy(targetSchema: DbSchema): Promise<boolean> {
+    if (!this._schema) {
+      throw new Error(
+        "No current schema available. Database must be opened first."
+      );
+    }
+
+    return DbProvider.doesUpgradeRequireFullCopy(
+      this._schema,
+      targetSchema,
+      this._fakeComplicatedKeys
+    );
+  }
+
   close(): Promise<void> {
     if (!this._db) {
       return Promise.reject("Database already closed");
