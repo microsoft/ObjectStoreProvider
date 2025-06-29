@@ -236,35 +236,29 @@ export abstract class DbProvider {
   /**
    * Analyzes whether applying a target schema would require a full database copy/migration.
    * This method compares the current schema with a target schema to determine migration requirements.
-   * 
+   *
+   * @param currentSchema - The current database schema
    * @param targetSchema - The schema to be applied
-   * @param currentVersion - The current database version (if known)
    * @param fakeComplicatedKeys - Whether the provider uses fake complicated keys (IndexedDB specific)
    * @returns Promise that resolves to true if a full copy would be required, false otherwise
    */
-  wouldRequireFullCopy(
+  static doesUpgradeRequireFullCopy(
+    currentSchema: DbSchema,
     targetSchema: DbSchema,
-    currentVersion?: number,
     fakeComplicatedKeys: boolean = false
   ): Promise<boolean> {
-    if (!this._schema) {
-      // No current schema means this is a new database, no copy needed
-      return Promise.resolve(false);
-    }
-
-    const currentSchema = this._schema;
-    
     // Check if lastUsableVersion would trigger a full wipe
-    if (targetSchema.lastUsableVersion && currentVersion !== undefined) {
-      if (currentVersion < targetSchema.lastUsableVersion) {
-        return Promise.resolve(true);
-      }
+    if (
+      targetSchema.lastUsableVersion &&
+      currentSchema.version < targetSchema.lastUsableVersion
+    ) {
+      return Promise.resolve(true);
     }
 
     // Check each store in the target schema
     for (const targetStoreSchema of targetSchema.stores) {
       const currentStoreSchema = currentSchema.stores.find(
-        store => store.name === targetStoreSchema.name
+        (store) => store.name === targetStoreSchema.name
       );
 
       // If store doesn't exist currently, no migration needed for this store
@@ -276,12 +270,12 @@ export abstract class DbProvider {
       if (targetStoreSchema.indexes) {
         for (const targetIndexSchema of targetStoreSchema.indexes) {
           const currentIndexExists = currentStoreSchema.indexes?.some(
-            idx => idx.name === targetIndexSchema.name
+            (idx) => idx.name === targetIndexSchema.name
           );
 
           // If index doesn't exist currently and would require backfill
           if (!currentIndexExists && !targetIndexSchema.doNotBackfill) {
-            // Check conditions that require full migration
+            // Check conditions that require full migration - matching onupgradeneeded logic
             if (fakeComplicatedKeys) {
               // MultiEntry or fullText indexes require migration when fakeComplicatedKeys is true
               if (targetIndexSchema.multiEntry || targetIndexSchema.fullText) {
@@ -297,6 +291,31 @@ export abstract class DbProvider {
     }
 
     return Promise.resolve(false);
+  }
+
+  /**
+   * Instance method to analyze whether applying a target schema would require a full database copy/migration.
+   * This method compares the current schema with a target schema to determine migration requirements.
+   *
+   * @param targetSchema - The schema to be applied
+   * @param fakeComplicatedKeys - Whether the provider uses fake complicated keys (IndexedDB specific)
+   * @returns Promise that resolves to true if a full copy would be required, false otherwise
+   */
+  doesUpgradeRequireFullCopy(
+    targetSchema: DbSchema,
+    fakeComplicatedKeys: boolean = false
+  ): Promise<boolean> {
+    if (!this._schema) {
+      throw new Error(
+        "No current schema available. Database must be opened first."
+      );
+    }
+
+    return DbProvider.doesUpgradeRequireFullCopy(
+      this._schema,
+      targetSchema,
+      fakeComplicatedKeys
+    );
   }
 
   deleteDatabase(): Promise<void> {
