@@ -29,7 +29,7 @@ extends:
         variables:
           # OPTIONAL: Set this varibale to 'true' to enable signing in a target stage.
           # Remove if signing is not required.
-          Build.ESRP.CodeSign.Enabled: true
+          Build.ESRP.CodeSign.Enabled: false
           # OPTIONAL: To disable required tools not applicable in the pipeline set to false.
           # Supported values: BinSkim, Roslyn, ESLint, PREFast.
           Build.SDL.<Roslyn>.Enabled: false
