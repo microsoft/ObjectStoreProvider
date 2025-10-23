@@ -2,7 +2,7 @@
   "name": "@microsoft/objectstoreprovider",
   "version": "0.8.3",
   "description": "A cross-browser object store library",
-  "author": "Mukundan Kavanur Kidambi <mukav@microsoft.com>",
+  "author": "DataStack Team eleretzk@microsoft.com",
   "scripts": {
     "ci-test": "npm run build && npm run test",
     "test": "npm run test:browser -- --single-run && npm run test:sharedworker -- --single-run && npm run test:webworker -- --single-run && npm run test:btree",
