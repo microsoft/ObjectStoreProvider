@@ -45,7 +45,7 @@ jobs:
       - name: CI BUILD + UT
         run: yarn ci-test
 
-      - name: Publish package
-        run: yarn publish --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      # - name: Publish package
+      #   run: yarn publish --access public
+      #   env:
+      #     NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

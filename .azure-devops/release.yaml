@@ -58,20 +58,20 @@ extends:
                   npm pack --pack-destination $(System.DefaultWorkingDirectory)/packages
                 displayName: "Generate npm package (.tgz)"
 
-              # - task: EsrpRelease@9
-              #   displayName: "ESRP Release to npm"
-              #   inputs:
-              #     connectedservicename: $(Release.ConnectedServiceName)
-              #     usemanagedidentity: true
-              #     keyvaultname: $(Release.KeyVaultName)
-              #     signcertname: $(Release.SignCertName)
-              #     clientid: $(Release.ClientId)
-              #     contenttype: "npm"
-              #     folderlocation: $(System.DefaultWorkingDirectory)/packages
-              #     owners: $(Release.Owners)
-              #     approvers: $(Release.Approvers)
-              #     mainpublisher: ESRPRELPACMAN
-              #     domaintenantid: $(Release.DomainTenantId)
+              - task: EsrpRelease@9
+                displayName: "ESRP Release to npm"
+                inputs:
+                  connectedservicename: $(Release.ConnectedServiceName)
+                  usemanagedidentity: true
+                  keyvaultname: $(Release.KeyVaultName)
+                  signcertname: $(Release.SignCertName)
+                  clientid: $(Release.ClientId)
+                  contenttype: "npm"
+                  folderlocation: $(System.DefaultWorkingDirectory)/packages
+                  owners: $(Release.Owners)
+                  approvers: $(Release.Approvers)
+                  mainpublisher: ESRPRELPACMAN
+                  domaintenantid: $(Release.DomainTenantId)
 
               - task: 1ES.PublishPipelineArtifact@1
                 displayName: 📒 Publish Manifest
