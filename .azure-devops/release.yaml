@@ -40,11 +40,18 @@ extends:
               name: Azure-Pipelines-1ESPT-ExDShared
               image: ubuntu-latest
               os: linux
+            templateContext:
+              type: releaseJob
+              isProduction: true
             steps:
               - checkout: self
+              - task: NodeTool@0
+                displayName: "Installing node"
+                inputs:
+                  versionSpec: "16"
               - script: yarn --frozen-lockfile
                 displayName: yarn
-              - script: yarn ci-test
+              - script: yarn build && yarn test:ci
                 displayName: build and test [test]
 
               - task: 1ES.PublishPipelineArtifact@1
@@ -58,20 +65,20 @@ extends:
                   npm pack --pack-destination $(System.DefaultWorkingDirectory)/packages
                 displayName: "Generate npm package (.tgz)"
 
-              - task: EsrpRelease@9
-                displayName: "ESRP Release to npm"
-                inputs:
-                  connectedservicename: $(Release.ConnectedServiceName)
-                  usemanagedidentity: true
-                  keyvaultname: $(Release.KeyVaultName)
-                  signcertname: $(Release.SignCertName)
-                  clientid: $(Release.ClientId)
-                  contenttype: "npm"
-                  folderlocation: $(System.DefaultWorkingDirectory)/packages
-                  owners: $(Release.Owners)
-                  approvers: $(Release.Approvers)
-                  mainpublisher: ESRPRELPACMAN
-                  domaintenantid: $(Release.DomainTenantId)
+              # - task: EsrpRelease@9
+              #   displayName: "ESRP Release to npm"
+              #   inputs:
+              #     connectedservicename: $(Release.ConnectedServiceName)
+              #     usemanagedidentity: true
+              #     keyvaultname: $(Release.KeyVaultName)
+              #     signcertname: $(Release.SignCertName)
+              #     clientid: $(Release.ClientId)
+              #     contenttype: "npm"
+              #     folderlocation: $(System.DefaultWorkingDirectory)/packages
+              #     owners: $(Release.Owners)
+              #     approvers: $(Release.Approvers)
+              #     mainpublisher: ESRPRELPACMAN
+              #     domaintenantid: $(Release.DomainTenantId)
 
               - task: 1ES.PublishPipelineArtifact@1
                 displayName: 📒 Publish Manifest

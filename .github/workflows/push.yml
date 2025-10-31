@@ -43,7 +43,7 @@ jobs:
         run: echo "CHROME_BIN = $CHROME_BIN  FIREFOX_BIN = $FIREFOX_BIN"
 
       - name: CI BUILD + UT
-        run: yarn ci-test
+        run: yarn build && yarn test
 
       # - name: Publish package
       #   run: yarn publish --access public
