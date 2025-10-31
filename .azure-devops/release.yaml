@@ -35,14 +35,19 @@ extends:
           Build.SDL.<Roslyn>.Enabled: false
           Build.SDL.<ESLint>.Enabled: true
         jobs:
-          - job: Release
+          - job: Build
+            displayName: Build ObjectStoreProvider Package
             pool:
               name: Azure-Pipelines-1ESPT-ExDShared
               image: ubuntu-latest
               os: linux
             templateContext:
-              type: releaseJob
-              isProduction: true
+              - output: pipelineArtifact
+                targetPath: $(System.DefaultWorkingDirectory)/dist
+                artifactName: package-$(Build.BuildId)-$(Build.BuildNumber)
+              - output: pipelineArtifact
+                targetPath: $(System.DefaultWorkingDirectory)/packages
+                artifactName: npm-package-$(Build.BuildId)-$(Build.BuildNumber)
             steps:
               - checkout: self
               - task: NodeTool@0
@@ -54,34 +59,41 @@ extends:
               - script: yarn build && yarn test:ci
                 displayName: build and test [test]
 
-              - task: 1ES.PublishPipelineArtifact@1
-                displayName: "Publish built package"
-                inputs:
-                  artifactName: package-$(Build.BuildNumber)
-                  targetPath: $(System.DefaultWorkingDirectory)/dist
-
               - script: |
                   mkdir -p $(System.DefaultWorkingDirectory)/packages
                   npm pack --pack-destination $(System.DefaultWorkingDirectory)/packages
                 displayName: "Generate npm package (.tgz)"
 
-              # - task: EsrpRelease@9
-              #   displayName: "ESRP Release to npm"
-              #   inputs:
-              #     connectedservicename: $(Release.ConnectedServiceName)
-              #     usemanagedidentity: true
-              #     keyvaultname: $(Release.KeyVaultName)
-              #     signcertname: $(Release.SignCertName)
-              #     clientid: $(Release.ClientId)
-              #     contenttype: "npm"
-              #     folderlocation: $(System.DefaultWorkingDirectory)/packages
-              #     owners: $(Release.Owners)
-              #     approvers: $(Release.Approvers)
-              #     mainpublisher: ESRPRELPACMAN
-              #     domaintenantid: $(Release.DomainTenantId)
+      - job: Release
+        displayName: Globe ObjectStoreProvider Release
+        dependsOn: Build
+        pool:
+          name: Azure-Pipelines-1ESPT-ExDShared
+          image: ubuntu-latest
+          os: linux
+        templateContext:
+          type: releaseJob
+          isProduction: true
+          inputs:
+            - input: pipelineArtifact
+              artifactName: npm-package-$(Build.BuildId)-$(Build.BuildNumber)
+              targetPath: $(Pipeline.Workspace)/packages
+        steps:
+          - script: |
+              echo "Releasing package to npm registry"
+            displayName: "Release Step Placeholder"
 
-              - task: 1ES.PublishPipelineArtifact@1
-                displayName: 📒 Publish Manifest
-                inputs:
-                  artifactName: SBom-$(System.JobAttempt)
-                  targetPath: $(System.DefaultWorkingDirectory)/_manifest
+          # - task: EsrpRelease@9
+          #   displayName: "ESRP Release to npm"
+          #   inputs:
+          #     connectedservicename: $(Release.ConnectedServiceName)
+          #     usemanagedidentity: true
+          #     keyvaultname: $(Release.KeyVaultName)
+          #     signcertname: $(Release.SignCertName)
+          #     clientid: $(Release.ClientId)
+          #     contenttype: "npm"
+          #     folderlocation: $(Pipeline.Workspace)/packages
+          #     owners: $(Release.Owners)
+          #     approvers: $(Release.Approvers)
+          #     mainpublisher: ESRPRELPACMAN
+          #     domaintenantid: $(Release.DomainTenantId)
