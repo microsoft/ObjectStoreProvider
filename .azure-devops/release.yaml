@@ -42,12 +42,13 @@ extends:
               image: ubuntu-latest
               os: linux
             templateContext:
-              - output: pipelineArtifact
-                targetPath: $(System.DefaultWorkingDirectory)/dist
-                artifactName: package-$(Build.BuildId)-$(Build.BuildNumber)
-              - output: pipelineArtifact
-                targetPath: $(System.DefaultWorkingDirectory)/packages
-                artifactName: npm-package-$(Build.BuildId)-$(Build.BuildNumber)
+              outputs:
+                - output: pipelineArtifact
+                  targetPath: $(System.DefaultWorkingDirectory)/dist
+                  artifactName: package-$(Build.BuildId)-$(Build.BuildNumber)
+                - output: pipelineArtifact
+                  targetPath: $(System.DefaultWorkingDirectory)/packages
+                  artifactName: npm-package-$(Build.BuildId)-$(Build.BuildNumber)
             steps:
               - checkout: self
               - task: NodeTool@0
@@ -64,36 +65,36 @@ extends:
                   npm pack --pack-destination $(System.DefaultWorkingDirectory)/packages
                 displayName: "Generate npm package (.tgz)"
 
-      - job: Release
-        displayName: Globe ObjectStoreProvider Release
-        dependsOn: Build
-        pool:
-          name: Azure-Pipelines-1ESPT-ExDShared
-          image: ubuntu-latest
-          os: linux
-        templateContext:
-          type: releaseJob
-          isProduction: true
-          inputs:
-            - input: pipelineArtifact
-              artifactName: npm-package-$(Build.BuildId)-$(Build.BuildNumber)
-              targetPath: $(Pipeline.Workspace)/packages
-        steps:
-          - script: |
-              echo "Releasing package to npm registry"
-            displayName: "Release Step Placeholder"
+          - job: Release
+            displayName: Globe ObjectStoreProvider Release
+            dependsOn: Build
+            pool:
+              name: Azure-Pipelines-1ESPT-ExDShared
+              image: ubuntu-latest
+              os: linux
+            templateContext:
+              type: releaseJob
+              isProduction: true
+              inputs:
+                - input: pipelineArtifact
+                  artifactName: npm-package-$(Build.BuildId)-$(Build.BuildNumber)
+                  targetPath: $(Pipeline.Workspace)/packages
+            steps:
+              - script: |
+                  echo "Releasing package to npm registry"
+                displayName: "Release Step Placeholder"
 
-          # - task: EsrpRelease@9
-          #   displayName: "ESRP Release to npm"
-          #   inputs:
-          #     connectedservicename: $(Release.ConnectedServiceName)
-          #     usemanagedidentity: true
-          #     keyvaultname: $(Release.KeyVaultName)
-          #     signcertname: $(Release.SignCertName)
-          #     clientid: $(Release.ClientId)
-          #     contenttype: "npm"
-          #     folderlocation: $(Pipeline.Workspace)/packages
-          #     owners: $(Release.Owners)
-          #     approvers: $(Release.Approvers)
-          #     mainpublisher: ESRPRELPACMAN
-          #     domaintenantid: $(Release.DomainTenantId)
+              # - task: EsrpRelease@9
+              #   displayName: "ESRP Release to npm"
+              #   inputs:
+              #     connectedservicename: $(Release.ConnectedServiceName)
+              #     usemanagedidentity: true
+              #     keyvaultname: $(Release.KeyVaultName)
+              #     signcertname: $(Release.SignCertName)
+              #     clientid: $(Release.ClientId)
+              #     contenttype: "npm"
+              #     folderlocation: $(Pipeline.Workspace)/packages
+              #     owners: $(Release.Owners)
+              #     approvers: $(Release.Approvers)
+              #     mainpublisher: ESRPRELPACMAN
+              #     domaintenantid: $(Release.DomainTenantId)
