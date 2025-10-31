@@ -66,7 +66,7 @@ extends:
                 displayName: "Generate npm package (.tgz)"
 
           - job: Release
-            displayName: Globe ObjectStoreProvider Release
+            displayName: ObjectStoreProvider Release
             dependsOn: Build
             pool:
               name: Azure-Pipelines-1ESPT-ExDShared
@@ -80,21 +80,17 @@ extends:
                   artifactName: npm-package-$(Build.BuildId)-$(Build.BuildNumber)
                   targetPath: $(Pipeline.Workspace)/packages
             steps:
-              - script: |
-                  echo "Releasing package to npm registry"
-                displayName: "Release Step Placeholder"
-
-              # - task: EsrpRelease@9
-              #   displayName: "ESRP Release to npm"
-              #   inputs:
-              #     connectedservicename: $(Release.ConnectedServiceName)
-              #     usemanagedidentity: true
-              #     keyvaultname: $(Release.KeyVaultName)
-              #     signcertname: $(Release.SignCertName)
-              #     clientid: $(Release.ClientId)
-              #     contenttype: "npm"
-              #     folderlocation: $(Pipeline.Workspace)/packages
-              #     owners: $(Release.Owners)
-              #     approvers: $(Release.Approvers)
-              #     mainpublisher: ESRPRELPACMAN
-              #     domaintenantid: $(Release.DomainTenantId)
+              - task: EsrpRelease@9
+                displayName: "ESRP Release to npm"
+                inputs:
+                  connectedservicename: $(Release.ConnectedServiceName)
+                  usemanagedidentity: true
+                  keyvaultname: $(Release.KeyVaultName)
+                  signcertname: $(Release.SignCertName)
+                  clientid: $(Release.ClientId)
+                  contenttype: "npm"
+                  folderlocation: $(Pipeline.Workspace)/packages
+                  owners: $(Release.Owners)
+                  approvers: $(Release.Approvers)
+                  mainpublisher: ESRPRELPACMAN
+                  domaintenantid: $(Release.DomainTenantId)
