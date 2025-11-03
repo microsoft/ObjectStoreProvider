@@ -1,6 +1,6 @@
 pr: none
 trigger:
-  - main
+  - master
 variables:
   - group: InfoSec-SecurityResults
   - name: tags
