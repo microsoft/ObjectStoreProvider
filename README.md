@@ -71,7 +71,7 @@ Please read [the Contributing guide](./CONTRIBUTING.md).
 NOTE: Commit history in `master` branch has been modifed (to fix a security issue), so if you have an open PR -or- forked and created a branch, please rebase it with latest `master`.
 
 ### Releasing
-We are using [Azure Pipeline](https://dev.azure.com/DomoreexpGithub/Github_Pipelines/_build?definitionId=40) to automate releases. The logs of the latest build are available only to internal Microsoft users who have access to the DomoreexpGithub organization.
+We are using [Azure Pipeline](https://dev.azure.com/DomoreexpGithub/Github_Pipelines/_build?definitionId=40) to automate releases. The logs are available only to internal Microsoft users who have access to the DomoreexpGithub organization.
 
 ## Trademarks
 
