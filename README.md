@@ -44,7 +44,7 @@ yarn build
 
 ```bash
 yarn install
-yarn ci-test
+yarn build && yarn test
 ```
 
 ## Testing

@@ -26,7 +26,7 @@ jobs:
       # Sets up Node and an .npmrc file. This is the official Github supported way to set up node.
       - uses: actions/setup-node@v4
         with:
-          node-version: "12"
+          node-version: "16"
           registry-url: "https://registry.npmjs.org"
           cache: "yarn"
           always-auth: "true"
@@ -44,7 +44,7 @@ jobs:
         run: echo "CHROME_BIN = $CHROME_BIN  FIREFOX_BIN = $FIREFOX_BIN"
 
       - name: CI BUILD + UT
-        run: yarn ci-test
+        run: yarn build && yarn test
 
       - name: Check whether version was bumped in PR
         id: actions_project_version_check
