@@ -1,6 +1,6 @@
 {
   "name": "@microsoft/objectstoreprovider",
-  "version": "0.8.4",
+  "version": "0.8.5",
   "description": "A cross-browser object store library",
   "author": "DataStack Team eleretzk@microsoft.com",
   "scripts": {
@@ -33,7 +33,8 @@
     "sorted-btree": "^1.5.0"
   },
   "sideEffects": [
-    "./src/Promise.extensions.ts"
+    "./src/Promise.extensions.ts",
+    "./dist/src/Promise.extensions.js"
   ],
   "devDependencies": {
     "@types/assert": "^1.5.4",
