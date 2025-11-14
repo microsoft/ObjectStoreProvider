@@ -233,6 +233,91 @@ export abstract class DbProvider {
     writeNeeded: boolean
   ): Promise<DbTransaction>;
 
+  /**
+   * Analyzes whether applying a target schema would require a full database copy/migration.
+   * This method compares the current schema with a target schema to determine migration requirements.
+   *
+   * @param currentSchema - The current database schema
+   * @param targetSchema - The schema to be applied
+   * @param fakeComplicatedKeys - Whether the provider uses fake complicated keys (IndexedDB specific)
+   * @returns Promise that resolves to true if a full copy would be required, false otherwise
+   */
+  static doesUpgradeRequireFullCopy(
+    currentSchema: DbSchema,
+    targetSchema: DbSchema,
+    fakeComplicatedKeys: boolean = false
+  ): Promise<boolean> {
+    // Check if lastUsableVersion would trigger a full wipe
+    if (
+      targetSchema.lastUsableVersion &&
+      currentSchema.version < targetSchema.lastUsableVersion
+    ) {
+      return Promise.resolve(true);
+    }
+
+    // Check each store in the target schema
+    for (const targetStoreSchema of targetSchema.stores) {
+      const currentStoreSchema = currentSchema.stores.find(
+        (store) => store.name === targetStoreSchema.name
+      );
+
+      // If store doesn't exist currently, no migration needed for this store
+      if (!currentStoreSchema) {
+        continue;
+      }
+
+      // Check if any new indexes would require migration
+      if (targetStoreSchema.indexes) {
+        for (const targetIndexSchema of targetStoreSchema.indexes) {
+          const currentIndexExists = currentStoreSchema.indexes?.some(
+            (idx) => idx.name === targetIndexSchema.name
+          );
+
+          // If index doesn't exist currently and would require backfill
+          if (!currentIndexExists && !targetIndexSchema.doNotBackfill) {
+            // Check conditions that require full migration - matching onupgradeneeded logic
+            if (fakeComplicatedKeys) {
+              // MultiEntry or fullText indexes require migration when fakeComplicatedKeys is true
+              if (targetIndexSchema.multiEntry || targetIndexSchema.fullText) {
+                return Promise.resolve(true);
+              }
+            } else if (targetIndexSchema.fullText) {
+              // FullText indexes always require migration
+              return Promise.resolve(true);
+            }
+          }
+        }
+      }
+    }
+
+    return Promise.resolve(false);
+  }
+
+  /**
+   * Instance method to analyze whether applying a target schema would require a full database copy/migration.
+   * This method compares the current schema with a target schema to determine migration requirements.
+   *
+   * @param targetSchema - The schema to be applied
+   * @param fakeComplicatedKeys - Whether the provider uses fake complicated keys (IndexedDB specific)
+   * @returns Promise that resolves to true if a full copy would be required, false otherwise
+   */
+  doesUpgradeRequireFullCopy(
+    targetSchema: DbSchema,
+    fakeComplicatedKeys: boolean = false
+  ): Promise<boolean> {
+    if (!this._schema) {
+      throw new Error(
+        "No current schema available. Database must be opened first."
+      );
+    }
+
+    return DbProvider.doesUpgradeRequireFullCopy(
+      this._schema,
+      targetSchema,
+      fakeComplicatedKeys
+    );
+  }
+
   deleteDatabase(): Promise<void> {
     return this.close().always(() => this._deleteDatabaseInternal());
   }
