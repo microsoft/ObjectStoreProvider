@@ -117,6 +117,7 @@ export type UpgradeDetails = UpgradeMetadata & {
   status: UpgradeStatus;
   upgradeSteps: UpgradeStep[];
   isCopyRequired: boolean;
+  errorName?: string;
   errorMessage?: string;
 };
 

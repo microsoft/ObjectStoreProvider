@@ -559,6 +559,20 @@ export class IndexedDbProvider extends DbProvider {
         });
       },
       (err) => {
+        // Invoke the upgradeCallback with error details
+        if (this._upgradeCallback) {
+          this._upgradeCallback({
+            status: "Error",
+            isCopyRequired: false,
+            upgradeSteps,
+            ...upgradeMetadata,
+            errorName: err?.target?.error?.name || "Unknown",
+            errorMessage: err
+              ? `${err?.message} ${err?.target?.error} ${err?.target?.error?.name}`
+              : "Unknown error occurred during upgrade",
+          });
+        }
+
         if (
           err &&
           err.type === "error" &&
@@ -582,19 +596,6 @@ export class IndexedDbProvider extends DbProvider {
             dbName,
           }
         );
-
-        // Invoke the upgradeCallback with error details
-        if (this._upgradeCallback) {
-          this._upgradeCallback({
-            status: "Error",
-            isCopyRequired: false,
-            upgradeSteps,
-            ...upgradeMetadata,
-            errorMessage: err
-              ? `${err?.message} ${err?.target?.error} ${err?.target?.error?.name}`
-              : "Unknown error occurred during upgrade",
-          });
-        }
 
         return Promise.reject<void>(err);
       }
