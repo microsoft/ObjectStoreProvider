@@ -566,7 +566,7 @@ export class IndexedDbProvider extends DbProvider {
             isCopyRequired: false,
             upgradeSteps,
             ...upgradeMetadata,
-            errorName: err?.target?.error?.name,
+            errorName: err?.target?.error?.name || "Unknown",
             errorMessage: err
               ? `${err?.message} ${err?.target?.error} ${err?.target?.error?.name}`
               : "Unknown error occurred during upgrade",
