@@ -234,6 +234,57 @@ describe("ObjectStoreProvider", function () {
         }
       });
 
+      describe("clearStores and clearAllData", () => {
+        const schema = {
+          version: 1,
+          stores: [
+            {
+              name: "store1",
+              primaryKeyPath: "id",
+            },
+            {
+              name: "store2",
+              primaryKeyPath: "id",
+            },
+          ],
+        };
+        it("should delete the specific store", async () => {
+          if (provName.includes("memory")) return;
+
+          const prov = await openProvider(provName, schema, true);
+          await prov.put("store1", { id: "a", val: "val-store-1" });
+          await prov.put("store2", { id: "a", val: "val-store-2" });
+          await prov.clearStores(["store1"]);
+
+          const data = await prov.get("store1", "a");
+          assert(!data, "store1 should be cleared");
+
+          const data2 = await prov.get("store2", "a");
+          assert.equal((data2 as TestObj)?.val, "val-store-2", "store2 should remain intact");
+          
+          await prov.close();
+        });
+
+        it("should delete all stores", async () => {
+          if (provName.includes("memory")) return;
+
+          const prov = await openProvider(provName, schema, true);
+          await prov.put("store1", { id: "a", val: "val-store-1" });
+          await prov.put("store2", { id: "a", val: "val-store-2" });
+
+          const beforeDeletion = await prov.get("store1", "a");
+          assert.equal((beforeDeletion as TestObj)?.val, "val-store-1", "store1 should contain data put before clearAllData");
+
+          await prov.clearAllData();
+
+          const data = await prov.get("store1", "a");
+          assert(!data, "store1 should be cleared");
+          const data2 = await prov.get("store2", "a");
+          assert(!data2, "store2 should be cleared");
+          await prov.close();
+        });
+      });
+
       describe("Expected database closure", () => {
         if (provName.indexOf("indexeddbonclose") === -1) {
           xit("Skip expected DB closure for in-memory provider", () => {
