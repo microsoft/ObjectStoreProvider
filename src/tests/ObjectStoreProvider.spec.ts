@@ -260,8 +260,12 @@ describe("ObjectStoreProvider", function () {
           assert(!data, "store1 should be cleared");
 
           const data2 = await prov.get("store2", "a");
-          assert.equal((data2 as TestObj)?.val, "val-store-2", "store2 should remain intact");
-          
+          assert.equal(
+            (data2 as TestObj)?.val,
+            "val-store-2",
+            "store2 should remain intact"
+          );
+
           await prov.close();
         });
 
@@ -273,7 +277,11 @@ describe("ObjectStoreProvider", function () {
           await prov.put("store2", { id: "a", val: "val-store-2" });
 
           const beforeDeletion = await prov.get("store1", "a");
-          assert.equal((beforeDeletion as TestObj)?.val, "val-store-1", "store1 should contain data put before clearAllData");
+          assert.equal(
+            (beforeDeletion as TestObj)?.val,
+            "val-store-1",
+            "store1 should contain data put before clearAllData"
+          );
 
           await prov.clearAllData();
 
