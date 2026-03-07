@@ -1,6 +1,6 @@
 {
   "name": "@microsoft/objectstoreprovider",
-  "version": "0.8.7",
+  "version": "0.9.0",
   "description": "A cross-browser object store library",
   "author": "DataStack Team eleretzk@microsoft.com",
   "scripts": {

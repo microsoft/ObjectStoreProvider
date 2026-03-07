@@ -240,7 +240,10 @@ export abstract class DbProvider {
 
   clearAllData(): Promise<void> {
     var storeNames = this._schema!!!.stores.map((store) => store.name);
+    return this.clearStores(storeNames);
+  }
 
+  clearStores(storeNames: string[]): Promise<void> {
     return this.openTransaction(storeNames, true).then((trans) => {
       const clearers = storeNames.map((storeName) => {
         const store = attempt(() => {
