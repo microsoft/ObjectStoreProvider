@@ -1,4 +1,4 @@
-# ObjectStoreProvider [![Build Status](https://travis-ci.org/Microsoft/ObjectStoreProvider.svg?branch=master)](https://travis-ci.org/Microsoft/ObjectStoreProvider)
+# ObjectStoreProvider [![Build Status](https://dev.azure.com/DomoreexpGithub/Github_Pipelines/_apis/build/status%2FDatastack%2FObjectStoreProvider?repoName=microsoft%2FObjectStoreProvider&branchName=master)](https://dev.azure.com/DomoreexpGithub/Github_Pipelines/_build/latest?definitionId=40&repoName=microsoft%2FObjectStoreProvider&branchName=master)
 
 We developed ObjectStoreProvider after needing a simplified interface toobject storage/retrieval that worked not only across all browsers. We also have built a fully in-memory database provider that has no persistence but supports fully transactional semantics, for a fallback in situations where you don't want persistence (ephemeral logins, etc.)
 
@@ -69,6 +69,9 @@ To iterate over tests, instead of the `yarn build` command mentioned above, run 
 Please read [the Contributing guide](./CONTRIBUTING.md).
 
 NOTE: Commit history in `master` branch has been modifed (to fix a security issue), so if you have an open PR -or- forked and created a branch, please rebase it with latest `master`.
+
+### Releasing
+We are using [Azure Pipeline](https://dev.azure.com/DomoreexpGithub/Github_Pipelines/_build?definitionId=40) to automate releases. The logs are available only to internal Microsoft users who have access to the DomoreexpGithub organization.
 
 ## Trademarks
 
