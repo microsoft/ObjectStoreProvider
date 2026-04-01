@@ -159,7 +159,7 @@ export class IndexedDbProvider extends DbProvider {
         resolve(req.result);
       };
       req.onerror = (ev) => {
-        reject(ev);
+        reject((ev.target as IDBRequest)?.error ?? ev);
       };
     });
   }
@@ -566,32 +566,22 @@ export class IndexedDbProvider extends DbProvider {
             isCopyRequired: false,
             upgradeSteps,
             ...upgradeMetadata,
-            errorName: err?.target?.error?.name || "Unknown",
-            errorMessage: err
-              ? `${err?.message} ${err?.target?.error} ${err?.target?.error?.name}`
-              : "Unknown error occurred during upgrade",
+            errorName: err?.name || "Unknown",
+            errorMessage: err?.message || "Unknown error occurred during upgrade",
           });
         }
 
-        if (
-          err &&
-          err.type === "error" &&
-          err.target &&
-          err.target.error &&
-          err.target.error.name === "VersionError"
-        ) {
+        if (err instanceof DOMException && err.name === "VersionError") {
           if (!wipeIfExists) {
             this.logWriter.log(
-              `Database version too new, Wiping: ${
-                err.target.error.message || err.target.error.name
-              }`
+              `Database version too new, Wiping: ${err.message || err.name}`
             );
 
             return this.open(dbName, schema, true, verbose);
           }
         }
         this.logWriter.error(
-          `Error opening db, message: ${err?.message} ${err?.target?.error} ${err?.target?.error?.name}`,
+          `Error opening db, message: ${err?.message}, name: ${err?.name}`,
           {
             dbName,
           }
@@ -759,10 +749,10 @@ class IndexedDbTransaction implements DbTransaction {
 
         lockHelper.transactionFailed(
           this._transToken,
-          "IndexedDbTransaction OnError: " +
-            (this._trans.error ? this._trans.error.message : undefined) +
-            ", History: " +
-            history.join(",")
+          this._trans.error ??
+            new Error(
+              "IndexedDbTransaction OnError, History: " + history.join(",")
+            )
         );
       };
 
@@ -783,10 +773,10 @@ class IndexedDbTransaction implements DbTransaction {
 
         lockHelper.transactionFailed(
           this._transToken,
-          "IndexedDbTransaction Aborted, Error: " +
-            (this._trans.error ? this._trans.error.message : undefined) +
-            ", History: " +
-            history.join(",")
+          this._trans.error ??
+            new Error(
+              "IndexedDbTransaction Aborted, History: " + history.join(",")
+            )
         );
       };
     }

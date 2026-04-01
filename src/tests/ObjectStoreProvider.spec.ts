@@ -5430,4 +5430,112 @@ describe("ObjectStoreProvider", function () {
       }
     });
   });
+
+  describe("IndexedDbProvider WrapRequest error surfacing", () => {
+    it("resolves with req.result on success", (done) => {
+      const mockRequest = {} as IDBRequest<string>;
+      (mockRequest as any).result = "test-value";
+
+      IndexedDbProvider.WrapRequest(mockRequest).then(
+        (result) => {
+          try {
+            assert.equal(result, "test-value");
+            done();
+          } catch (e) {
+            done(e);
+          }
+        },
+        () => done(new Error("Expected promise to resolve"))
+      );
+
+      mockRequest.onsuccess!({} as any);
+    });
+
+    it("rejects with the actual IDBRequest.error DOMException when onerror fires", (done) => {
+      const mockError = new DOMException(
+        "Quota exceeded",
+        "QuotaExceededError"
+      );
+      const mockRequest = {} as IDBRequest<any>;
+
+      IndexedDbProvider.WrapRequest(mockRequest).then(
+        () => done(new Error("Expected promise to reject")),
+        (err) => {
+          try {
+            assert.strictEqual(err, mockError);
+            assert.equal(err.name, "QuotaExceededError");
+            done();
+          } catch (e) {
+            done(e);
+          }
+        }
+      );
+
+      mockRequest.onerror!({ target: { error: mockError } } as any);
+    });
+
+    it("falls back to the raw event when IDBRequest.error is null", (done) => {
+      const mockRequest = {} as IDBRequest<any>;
+      const mockEvent = { target: { error: null } } as any;
+
+      IndexedDbProvider.WrapRequest(mockRequest).then(
+        () => done(new Error("Expected promise to reject")),
+        (err) => {
+          try {
+            assert.strictEqual(err, mockEvent);
+            done();
+          } catch (e) {
+            done(e);
+          }
+        }
+      );
+
+      mockRequest.onerror!(mockEvent);
+    });
+  });
+
+  describe("IndexedDbProvider put DOMException propagation", () => {
+    it("put rejects with the DOMException surfaced from WrapRequest", (done) => {
+      const quotaError = new DOMException(
+        "Quota exceeded",
+        "QuotaExceededError"
+      );
+      const originalWrapRequest =
+        IndexedDbProviderModule.IndexedDbProvider.WrapRequest;
+
+      openProvider(
+        "indexeddb",
+        { version: 1, stores: [{ name: "test", primaryKeyPath: "id" }] },
+        true
+      )
+        .then((prov) => {
+          // Mock only after a successful open so the open itself is unaffected
+          IndexedDbProviderModule.IndexedDbProvider.WrapRequest =
+            function (): Promise<any> {
+              return Promise.reject(quotaError);
+            };
+          return prov.put("test", { id: "abc", val: "hello" }).then(
+            () => {
+              prov.close();
+              done(new Error("Expected put to reject"));
+            },
+            (err) => {
+              prov.close();
+              try {
+                assert.strictEqual(err, quotaError);
+                assert.equal(err.name, "QuotaExceededError");
+                done();
+              } catch (e) {
+                done(e);
+              }
+            }
+          );
+        })
+        .catch((err) => done(err))
+        .finally(() => {
+          IndexedDbProviderModule.IndexedDbProvider.WrapRequest =
+            originalWrapRequest;
+        });
+    });
+  });
 });
