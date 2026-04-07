@@ -16,8 +16,13 @@ import {
 } from "../ObjectStoreProvider";
 
 import { InMemoryProvider } from "../InMemoryProvider";
-import { IndexedDbProvider } from "../IndexedDbProvider";
+import { IndexedDbProvider, IndexedDbTransaction } from "../IndexedDbProvider";
 import * as IndexedDbProviderModule from "../IndexedDbProvider";
+import {
+  TransactionToken,
+  TransactionLockHelper,
+} from "../TransactionLockHelper";
+import { LogWriter } from "../LogWriter";
 
 import { serializeValueToOrderableString } from "../ObjectStoreProviderUtils";
 
@@ -5428,6 +5433,222 @@ describe("ObjectStoreProvider", function () {
           });
         });
       }
+    });
+  });
+
+  describe("IndexedDbProvider WrapRequest error surfacing", () => {
+    it("resolves with req.result on success", (done) => {
+      const mockRequest = {} as IDBRequest<string>;
+      (mockRequest as any).result = "test-value";
+
+      IndexedDbProvider.WrapRequest(mockRequest).then(
+        (result) => {
+          try {
+            assert.equal(result, "test-value");
+            done();
+          } catch (e) {
+            done(e);
+          }
+        },
+        () => done(new Error("Expected promise to resolve"))
+      );
+
+      mockRequest.onsuccess!({} as any);
+    });
+
+    it("rejects with the actual IDBRequest.error DOMException when onerror fires", (done) => {
+      const mockError = new DOMException(
+        "Quota exceeded",
+        "QuotaExceededError"
+      );
+      const mockRequest = {} as IDBRequest<any>;
+
+      IndexedDbProvider.WrapRequest(mockRequest).then(
+        () => done(new Error("Expected promise to reject")),
+        (err) => {
+          try {
+            assert.strictEqual(err, mockError);
+            assert.equal(err.name, "QuotaExceededError");
+            done();
+          } catch (e) {
+            done(e);
+          }
+        }
+      );
+
+      mockRequest.onerror!({ target: { error: mockError } } as any);
+    });
+
+    it("falls back to the raw event when IDBRequest.error is null", (done) => {
+      const mockRequest = {} as IDBRequest<any>;
+      const mockEvent = { target: { error: null } } as any;
+
+      IndexedDbProvider.WrapRequest(mockRequest).then(
+        () => done(new Error("Expected promise to reject")),
+        (err) => {
+          try {
+            assert.strictEqual(err, mockEvent);
+            done();
+          } catch (e) {
+            done(e);
+          }
+        }
+      );
+
+      mockRequest.onerror!(mockEvent);
+    });
+  });
+
+  describe("IndexedDbTransaction after-Resolution warn logging", () => {
+    function makeTransactionFixture() {
+      const warnMessages: string[] = [];
+      const captureLogger = {
+        log: () => {},
+        error: () => {},
+        warn: (msg: string) => warnMessages.push(msg),
+      };
+      const logWriter = new LogWriter(captureLogger);
+
+      const mockTrans = {
+        objectStore: () => ({} as IDBObjectStore),
+        oncomplete: null as ((ev: Event) => any) | null,
+        onerror: null as ((ev: Event) => any) | null,
+        onabort: null as ((ev: Event) => any) | null,
+        error: null as DOMException | null,
+      } as unknown as IDBTransaction;
+
+      const mockToken: TransactionToken = {
+        completionPromise: Promise.resolve(),
+        storeNames: [],
+        exclusive: false,
+      };
+
+      const mockLockHelper = {
+        transactionComplete: () => {},
+        transactionFailed: () => {},
+      } as unknown as TransactionLockHelper;
+
+      new IndexedDbTransaction(
+        mockTrans,
+        mockLockHelper,
+        mockToken,
+        { version: 1, stores: [] },
+        false,
+        logWriter
+      );
+
+      return { mockTrans: mockTrans as any, warnMessages };
+    }
+
+    it("logs ErrorName and message on onerror after oncomplete", () => {
+      const { mockTrans, warnMessages } = makeTransactionFixture();
+      const domError = new DOMException("Disk full", "QuotaExceededError");
+
+      mockTrans.oncomplete();
+      mockTrans.error = domError;
+      mockTrans.onerror();
+
+      assert.equal(warnMessages.length, 1);
+      assert.include(
+        warnMessages[0],
+        "IndexedDbTransaction Errored after Resolution, Swallowing"
+      );
+      assert.include(warnMessages[0], "Error: Disk full");
+      assert.include(warnMessages[0], "ErrorName: QuotaExceededError");
+    });
+
+    it("logs ErrorName and message on onabort after oncomplete", () => {
+      const { mockTrans, warnMessages } = makeTransactionFixture();
+      const domError = new DOMException("Disk full", "QuotaExceededError");
+
+      mockTrans.oncomplete();
+      mockTrans.error = domError;
+      mockTrans.onabort();
+
+      assert.equal(warnMessages.length, 1);
+      assert.include(
+        warnMessages[0],
+        "IndexedDbTransaction Aborted after Resolution, Swallowing"
+      );
+      assert.include(warnMessages[0], "Error: Disk full");
+      assert.include(warnMessages[0], "ErrorName: QuotaExceededError");
+    });
+
+    it("omits ErrorName when trans.error is null on onerror after oncomplete", () => {
+      const { mockTrans, warnMessages } = makeTransactionFixture();
+
+      mockTrans.oncomplete();
+      // error stays null
+      mockTrans.onerror();
+
+      assert.equal(warnMessages.length, 1);
+      assert.include(
+        warnMessages[0],
+        "IndexedDbTransaction Errored after Resolution, Swallowing"
+      );
+      assert.include(warnMessages[0], "Error: undefined");
+      assert.notInclude(warnMessages[0], "ErrorName:");
+    });
+
+    it("omits ErrorName when trans.error is null on onabort after oncomplete", () => {
+      const { mockTrans, warnMessages } = makeTransactionFixture();
+
+      mockTrans.oncomplete();
+      // error stays null
+      mockTrans.onabort();
+
+      assert.equal(warnMessages.length, 1);
+      assert.include(
+        warnMessages[0],
+        "IndexedDbTransaction Aborted after Resolution, Swallowing"
+      );
+      assert.include(warnMessages[0], "Error: undefined");
+      assert.notInclude(warnMessages[0], "ErrorName:");
+    });
+  });
+
+  describe("IndexedDbProvider put DOMException propagation", () => {
+    it("put rejects with the DOMException surfaced from WrapRequest", (done) => {
+      const quotaError = new DOMException(
+        "Quota exceeded",
+        "QuotaExceededError"
+      );
+      const originalWrapRequest =
+        IndexedDbProviderModule.IndexedDbProvider.WrapRequest;
+
+      openProvider(
+        "indexeddb",
+        { version: 1, stores: [{ name: "test", primaryKeyPath: "id" }] },
+        true
+      )
+        .then((prov) => {
+          // Mock only after a successful open so the open itself is unaffected
+          IndexedDbProviderModule.IndexedDbProvider.WrapRequest =
+            function (): Promise<any> {
+              return Promise.reject(quotaError);
+            };
+          return prov.put("test", { id: "abc", val: "hello" }).then(
+            () => {
+              prov.close();
+              done(new Error("Expected put to reject"));
+            },
+            (err) => {
+              prov.close();
+              try {
+                assert.strictEqual(err, quotaError);
+                assert.equal(err.name, "QuotaExceededError");
+                done();
+              } catch (e) {
+                done(e);
+              }
+            }
+          );
+        })
+        .catch((err) => done(err))
+        .finally(() => {
+          IndexedDbProviderModule.IndexedDbProvider.WrapRequest =
+            originalWrapRequest;
+        });
     });
   });
 });
