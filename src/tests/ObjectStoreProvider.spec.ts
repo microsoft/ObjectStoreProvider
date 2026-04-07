@@ -18,7 +18,10 @@ import {
 import { InMemoryProvider } from "../InMemoryProvider";
 import { IndexedDbProvider, IndexedDbTransaction } from "../IndexedDbProvider";
 import * as IndexedDbProviderModule from "../IndexedDbProvider";
-import { TransactionToken, TransactionLockHelper } from "../TransactionLockHelper";
+import {
+  TransactionToken,
+  TransactionLockHelper,
+} from "../TransactionLockHelper";
 import { LogWriter } from "../LogWriter";
 
 import { serializeValueToOrderableString } from "../ObjectStoreProviderUtils";

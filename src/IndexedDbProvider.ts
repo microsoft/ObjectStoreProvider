@@ -567,7 +567,8 @@ export class IndexedDbProvider extends DbProvider {
             upgradeSteps,
             ...upgradeMetadata,
             errorName: err?.name || "Unknown",
-            errorMessage: err?.message || "Unknown error occurred during upgrade",
+            errorMessage:
+              err?.message || "Unknown error occurred during upgrade",
           });
         }
 
@@ -741,7 +742,9 @@ export class IndexedDbTransaction implements DbTransaction {
           this.logWriter.warn(
             "IndexedDbTransaction Errored after Resolution, Swallowing. Error: " +
               (this._trans.error ? this._trans.error.message : undefined) +
-              (this._trans.error?.name !== undefined ? ", ErrorName: " + this._trans.error.name : "") +
+              (this._trans.error?.name !== undefined
+                ? ", ErrorName: " + this._trans.error.name
+                : "") +
               ", History: " +
               history.join(",")
           );
@@ -766,7 +769,9 @@ export class IndexedDbTransaction implements DbTransaction {
           this.logWriter.warn(
             "IndexedDbTransaction Aborted after Resolution, Swallowing. Error: " +
               (this._trans.error ? this._trans.error.message : undefined) +
-              (this._trans.error?.name !== undefined ? ", ErrorName: " + this._trans.error.name : "") +
+              (this._trans.error?.name !== undefined
+                ? ", ErrorName: " + this._trans.error.name
+                : "") +
               ", History: " +
               history.join(",")
           );
