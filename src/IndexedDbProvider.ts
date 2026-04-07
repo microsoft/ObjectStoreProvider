@@ -700,7 +700,7 @@ export class IndexedDbProvider extends DbProvider {
 }
 
 // DbTransaction implementation for the IndexedDB DbProvider.
-class IndexedDbTransaction implements DbTransaction {
+export class IndexedDbTransaction implements DbTransaction {
   private _stores: IDBObjectStore[];
 
   constructor(
@@ -741,6 +741,7 @@ class IndexedDbTransaction implements DbTransaction {
           this.logWriter.warn(
             "IndexedDbTransaction Errored after Resolution, Swallowing. Error: " +
               (this._trans.error ? this._trans.error.message : undefined) +
+              (this._trans.error?.name !== undefined ? ", ErrorName: " + this._trans.error.name : "") +
               ", History: " +
               history.join(",")
           );
@@ -765,6 +766,7 @@ class IndexedDbTransaction implements DbTransaction {
           this.logWriter.warn(
             "IndexedDbTransaction Aborted after Resolution, Swallowing. Error: " +
               (this._trans.error ? this._trans.error.message : undefined) +
+              (this._trans.error?.name !== undefined ? ", ErrorName: " + this._trans.error.name : "") +
               ", History: " +
               history.join(",")
           );

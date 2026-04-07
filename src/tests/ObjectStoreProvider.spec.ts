@@ -16,8 +16,10 @@ import {
 } from "../ObjectStoreProvider";
 
 import { InMemoryProvider } from "../InMemoryProvider";
-import { IndexedDbProvider } from "../IndexedDbProvider";
+import { IndexedDbProvider, IndexedDbTransaction } from "../IndexedDbProvider";
 import * as IndexedDbProviderModule from "../IndexedDbProvider";
+import { TransactionToken, TransactionLockHelper } from "../TransactionLockHelper";
+import { LogWriter } from "../LogWriter";
 
 import { serializeValueToOrderableString } from "../ObjectStoreProviderUtils";
 
@@ -5491,6 +5493,114 @@ describe("ObjectStoreProvider", function () {
       );
 
       mockRequest.onerror!(mockEvent);
+    });
+  });
+
+  describe("IndexedDbTransaction after-Resolution warn logging", () => {
+    function makeTransactionFixture() {
+      const warnMessages: string[] = [];
+      const captureLogger = {
+        log: () => {},
+        error: () => {},
+        warn: (msg: string) => warnMessages.push(msg),
+      };
+      const logWriter = new LogWriter(captureLogger);
+
+      const mockTrans = {
+        objectStore: () => ({} as IDBObjectStore),
+        oncomplete: null as ((ev: Event) => any) | null,
+        onerror: null as ((ev: Event) => any) | null,
+        onabort: null as ((ev: Event) => any) | null,
+        error: null as DOMException | null,
+      } as unknown as IDBTransaction;
+
+      const mockToken: TransactionToken = {
+        completionPromise: Promise.resolve(),
+        storeNames: [],
+        exclusive: false,
+      };
+
+      const mockLockHelper = {
+        transactionComplete: () => {},
+        transactionFailed: () => {},
+      } as unknown as TransactionLockHelper;
+
+      new IndexedDbTransaction(
+        mockTrans,
+        mockLockHelper,
+        mockToken,
+        { version: 1, stores: [] },
+        false,
+        logWriter
+      );
+
+      return { mockTrans: mockTrans as any, warnMessages };
+    }
+
+    it("logs ErrorName and message on onerror after oncomplete", () => {
+      const { mockTrans, warnMessages } = makeTransactionFixture();
+      const domError = new DOMException("Disk full", "QuotaExceededError");
+
+      mockTrans.oncomplete();
+      mockTrans.error = domError;
+      mockTrans.onerror();
+
+      assert.equal(warnMessages.length, 1);
+      assert.include(
+        warnMessages[0],
+        "IndexedDbTransaction Errored after Resolution, Swallowing"
+      );
+      assert.include(warnMessages[0], "Error: Disk full");
+      assert.include(warnMessages[0], "ErrorName: QuotaExceededError");
+    });
+
+    it("logs ErrorName and message on onabort after oncomplete", () => {
+      const { mockTrans, warnMessages } = makeTransactionFixture();
+      const domError = new DOMException("Disk full", "QuotaExceededError");
+
+      mockTrans.oncomplete();
+      mockTrans.error = domError;
+      mockTrans.onabort();
+
+      assert.equal(warnMessages.length, 1);
+      assert.include(
+        warnMessages[0],
+        "IndexedDbTransaction Aborted after Resolution, Swallowing"
+      );
+      assert.include(warnMessages[0], "Error: Disk full");
+      assert.include(warnMessages[0], "ErrorName: QuotaExceededError");
+    });
+
+    it("omits ErrorName when trans.error is null on onerror after oncomplete", () => {
+      const { mockTrans, warnMessages } = makeTransactionFixture();
+
+      mockTrans.oncomplete();
+      // error stays null
+      mockTrans.onerror();
+
+      assert.equal(warnMessages.length, 1);
+      assert.include(
+        warnMessages[0],
+        "IndexedDbTransaction Errored after Resolution, Swallowing"
+      );
+      assert.include(warnMessages[0], "Error: undefined");
+      assert.notInclude(warnMessages[0], "ErrorName:");
+    });
+
+    it("omits ErrorName when trans.error is null on onabort after oncomplete", () => {
+      const { mockTrans, warnMessages } = makeTransactionFixture();
+
+      mockTrans.oncomplete();
+      // error stays null
+      mockTrans.onabort();
+
+      assert.equal(warnMessages.length, 1);
+      assert.include(
+        warnMessages[0],
+        "IndexedDbTransaction Aborted after Resolution, Swallowing"
+      );
+      assert.include(warnMessages[0], "Error: undefined");
+      assert.notInclude(warnMessages[0], "ErrorName:");
     });
   });
 
