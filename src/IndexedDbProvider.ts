@@ -753,10 +753,17 @@ export class IndexedDbTransaction implements DbTransaction {
 
         lockHelper.transactionFailed(
           this._transToken,
-          this._trans.error ??
-            new Error(
-              "IndexedDbTransaction OnError, History: " + history.join(",")
-            )
+          new Error(
+            "IndexedDbTransaction OnError" +
+              (this._trans.error?.name !== undefined
+                ? ", ErrorName: " + this._trans.error.name
+                : "") +
+              (this._trans.error?.message !== undefined
+                ? ", ErrorMessage: " + this._trans.error.message
+                : "") +
+              ", History: " +
+              history.join(",")
+          )
         );
       };
 
@@ -780,10 +787,17 @@ export class IndexedDbTransaction implements DbTransaction {
 
         lockHelper.transactionFailed(
           this._transToken,
-          this._trans.error ??
-            new Error(
-              "IndexedDbTransaction Aborted, History: " + history.join(",")
-            )
+          new Error(
+            "IndexedDbTransaction Aborted" +
+              (this._trans.error?.name !== undefined
+                ? ", ErrorName: " + this._trans.error.name
+                : "") +
+              (this._trans.error?.message !== undefined
+                ? ", ErrorMessage: " + this._trans.error.message
+                : "") +
+              ", History: " +
+              history.join(",")
+          )
         );
       };
     }
