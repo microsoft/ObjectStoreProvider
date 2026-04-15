@@ -52,21 +52,5 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           file-to-check: package.json
-          fail-build-if-not-bumped: false
-          target-branch: master
-
-      - name: "Automated Version Bump"
-        uses: "phips28/gh-action-bump-version@master"
-        if: ${{ steps.actions_project_version_check.outputs.semver == 'no-update' }}
-        with:
-          skip-tag: "true"
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Final check for version bump
-        uses: "thomastay/actions-project-version-check@v2.0.0"
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          file-to-check: package.json
           fail-build-if-not-bumped: true
           target-branch: master
