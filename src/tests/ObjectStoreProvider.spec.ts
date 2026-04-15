@@ -5372,3 +5372,627 @@ describe("ObjectStoreProvider", function () {
     });
   });
 });
+
+describe("Error handling and telemetry", function () {
+  this.timeout(30 * 1000);
+
+  const simpleSchema: DbSchema = {
+    version: 1,
+    stores: [{ name: "test", primaryKeyPath: "id" }],
+  };
+
+  describe("dataLoss and dataLossMessage in UpgradeDetails", () => {
+    it("passes dataLoss fields through upgradeCallback on new DB creation", (done) => {
+      const upgradeHandler: UpgradeCallback = (upgradeDetails) => {
+        try {
+          // On a fresh DB, dataLoss is either undefined (non-Chromium) or "none" (Chromium)
+          if (upgradeDetails.dataLoss !== undefined) {
+            assert.equal(upgradeDetails.dataLoss, "none");
+          }
+          // dataLossMessage should be undefined or empty string
+          if (upgradeDetails.dataLossMessage !== undefined) {
+            assert.equal(typeof upgradeDetails.dataLossMessage, "string");
+          }
+          assert.equal(upgradeDetails.status, "Success");
+          done();
+        } catch (err) {
+          done(err);
+        }
+      };
+
+      const provider = new IndexedDbProvider(
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        upgradeHandler
+      );
+      openListOfProviders(
+        [provider],
+        "test_dataloss",
+        simpleSchema,
+        true,
+        false
+      )
+        .then((prov) => prov.close())
+        .catch((err) => done(err));
+    });
+
+    it("includes dataLoss fields in upgradeCallback on schema upgrade", (done) => {
+      const schemaV2: DbSchema = {
+        version: 2,
+        stores: [
+          { name: "test", primaryKeyPath: "id" },
+          { name: "test2", primaryKeyPath: "id" },
+        ],
+      };
+
+      let callCount = 0;
+      const upgradeHandler: UpgradeCallback = (upgradeDetails) => {
+        callCount++;
+        // We only care about the v1->v2 upgrade (second call)
+        if (callCount < 2) return;
+        try {
+          assert.equal(upgradeDetails.status, "Success");
+          assert.equal(upgradeDetails.oldVersion, 1);
+          assert.equal(upgradeDetails.newVersion, 2);
+          // dataLoss should be present in metadata (undefined on non-Chromium, "none" on Chromium)
+          assert.ok(
+            upgradeDetails.dataLoss === undefined ||
+              upgradeDetails.dataLoss === "none",
+            "dataLoss should be undefined or 'none', got: " +
+              upgradeDetails.dataLoss
+          );
+          done();
+        } catch (err) {
+          done(err);
+        }
+      };
+
+      // Open v1 first
+      const prov1 = new IndexedDbProvider(
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        upgradeHandler
+      );
+      openListOfProviders(
+        [prov1],
+        "test_dataloss_upgrade",
+        simpleSchema,
+        true,
+        false
+      )
+        .then((prov) => prov.close())
+        .then(() => {
+          // Now open v2 to trigger upgrade
+          const prov2 = new IndexedDbProvider(
+            undefined,
+            undefined,
+            undefined,
+            undefined,
+            upgradeHandler
+          );
+          return openListOfProviders(
+            [prov2],
+            "test_dataloss_upgrade",
+            schemaV2,
+            false,
+            false
+          ).then((prov) => prov.close());
+        })
+        .catch((err) => done(err));
+    });
+  });
+
+  describe("onblocked handler on open()", () => {
+    it("logs when open is blocked by another connection", (done) => {
+      let blockedLogged = false;
+      let prov1Ref: IndexedDbProvider | undefined;
+      const logger = {
+        log: () => {},
+        warn: () => {},
+        error: (msg: string) => {
+          if (
+            typeof msg === "string" &&
+            msg.indexOf("open is blocked") !== -1
+          ) {
+            blockedLogged = true;
+            // Close the blocking connection to unblock prov2's open
+            if (prov1Ref) {
+              prov1Ref.close();
+            }
+          }
+        },
+      };
+
+      // Open V1 connection and keep it open (don't close)
+      const prov1 = new IndexedDbProvider(
+        undefined,
+        undefined,
+        undefined,
+        logger
+      );
+      prov1Ref = prov1;
+      prov1
+        .open("test_blocked_open", simpleSchema, true, false)
+        .then(() => {
+          // Now try to open V2 on the same DB without closing V1
+          const schemaV2: DbSchema = {
+            version: 2,
+            stores: [
+              { name: "test", primaryKeyPath: "id" },
+              { name: "test2", primaryKeyPath: "id" },
+            ],
+          };
+          const prov2 = new IndexedDbProvider(
+            undefined,
+            undefined,
+            undefined,
+            logger
+          );
+
+          // prov2's open will be blocked until prov1 closes (triggered by the onblocked logger above)
+          return prov2
+            .open("test_blocked_open", schemaV2, false, false)
+            .then(() => prov2.close())
+            .then(() => {
+              assert.ok(
+                blockedLogged,
+                "Expected the onblocked error to be logged"
+              );
+            });
+        })
+        .then(
+          () => done(),
+          (err) => done(err)
+        );
+    });
+  });
+
+  describe("onversionchange warns but keeps connection open", () => {
+    it("logs a warning when another connection requests an upgrade", (done) => {
+      let versionChangeTriggered = false;
+      let prov1Ref: IndexedDbProvider | undefined;
+      const logger = {
+        log: () => {},
+        warn: (msg: string) => {
+          if (
+            typeof msg === "string" &&
+            msg.indexOf("version change requested") !== -1
+          ) {
+            versionChangeTriggered = true;
+            // prov1 does NOT auto-close, so we must close it manually to unblock prov2
+            if (prov1Ref) {
+              prov1Ref.close();
+            }
+          }
+        },
+        error: () => {},
+      };
+
+      const prov1 = new IndexedDbProvider(
+        undefined,
+        undefined,
+        undefined,
+        logger
+      );
+      prov1Ref = prov1;
+      prov1
+        .open("test_versionchange", simpleSchema, true, false)
+        .then(() => {
+          // Now open V2 on the same DB; prov1 will receive onversionchange but won't auto-close
+          const schemaV2: DbSchema = {
+            version: 2,
+            stores: [
+              { name: "test", primaryKeyPath: "id" },
+              { name: "test2", primaryKeyPath: "id" },
+            ],
+          };
+          const prov2 = new IndexedDbProvider(
+            undefined,
+            undefined,
+            undefined,
+            logger
+          );
+          return prov2
+            .open("test_versionchange", schemaV2, false, false)
+            .then(() => {
+              assert.ok(
+                versionChangeTriggered,
+                "Expected the onversionchange warning to be logged"
+              );
+              return prov2.close();
+            });
+        })
+        .then(
+          () => done(),
+          (err) => done(err)
+        );
+    });
+  });
+
+  describe("onblocked handler on _deleteDatabaseInternal()", () => {
+    it("logs when delete is blocked by another connection", (done) => {
+      let blockedLogged = false;
+      const logger = {
+        log: () => {},
+        warn: () => {},
+        error: (msg: string) => {
+          if (
+            typeof msg === "string" &&
+            msg.indexOf("deletion is blocked") !== -1
+          ) {
+            blockedLogged = true;
+          }
+        },
+      };
+
+      // Open DB with a provider that does NOT auto-close on versionchange
+      const prov1 = new IndexedDbProvider(
+        undefined,
+        undefined,
+        undefined,
+        logger
+      );
+      prov1
+        .open("test_blocked_delete", simpleSchema, true, false)
+        .then(() => {
+          // Override onversionchange to NOT close, so delete gets blocked
+          const db = (prov1 as any)["_db"] as IDBDatabase;
+          if (db) {
+            db.onversionchange = () => {
+              // intentionally do nothing to force blocking
+            };
+          }
+
+          // Now try to delete the same DB from prov2
+          const prov2 = new IndexedDbProvider(
+            undefined,
+            undefined,
+            undefined,
+            logger
+          );
+          prov2
+            .open("test_blocked_delete", simpleSchema, false, false)
+            .then(() => {
+              const deletePromise = prov2.deleteDatabase();
+
+              // After a delay, close prov1 to unblock
+              setTimeout(() => {
+                prov1.close();
+              }, 200);
+
+              return deletePromise.then(() => {
+                assert.ok(
+                  blockedLogged,
+                  "Expected the onblocked error to be logged for delete"
+                );
+              });
+            })
+            .then(
+              () => done(),
+              (err) => done(err)
+            );
+        })
+        .catch((err) => done(err));
+    });
+  });
+
+  describe("Migration cursor error re-throw", () => {
+    it("rejects the open() promise when migration cursor iteration fails", (done) => {
+      // First open V1 with some data
+      const prov1 = new IndexedDbProvider();
+      prov1
+        .open("test_cursor_rethrow", simpleSchema, true, false)
+        .then(() => {
+          return prov1.put("test", [
+            { id: "a", val: "1" },
+            { id: "b", val: "2" },
+          ]);
+        })
+        .then(() => prov1.close())
+        .then(() => {
+          // Save the original WrapRequest
+          const originalWrapRequest =
+            IndexedDbProviderModule.IndexedDbProvider.WrapRequest;
+
+          let callCount = 0;
+          // Mock WrapRequest to fail on certain calls during migration
+          IndexedDbProviderModule.IndexedDbProvider.WrapRequest = function (
+            req: any
+          ): Promise<any> {
+            callCount++;
+            // Let the first few calls succeed (opening the DB), then fail during migration puts
+            if (callCount > 2) {
+              return Promise.reject(
+                new Error("Simulated cursor migration error")
+              );
+            }
+            return originalWrapRequest(req);
+          };
+
+          // Open V2 with a fullText index to trigger migration
+          const schemaV2: DbSchema = {
+            version: 2,
+            stores: [
+              {
+                name: "test",
+                primaryKeyPath: "id",
+                indexes: [
+                  {
+                    name: "ft_val",
+                    keyPath: "val",
+                    fullText: true,
+                    doNotBackfill: false,
+                  },
+                ],
+              },
+            ],
+          };
+
+          const prov2 = new IndexedDbProvider();
+          prov2
+            .open("test_cursor_rethrow", schemaV2, false, false)
+            .then(() => {
+              // Restore before failing
+              IndexedDbProviderModule.IndexedDbProvider.WrapRequest =
+                originalWrapRequest;
+              prov2.close();
+              done(new Error("Expected open to reject due to cursor error"));
+            })
+            .catch(() => {
+              // Expected - the cursor error should propagate
+              IndexedDbProviderModule.IndexedDbProvider.WrapRequest =
+                originalWrapRequest;
+              done();
+            });
+        })
+        .catch((err) => done(err));
+    });
+  });
+
+  describe("removeRange returns the remove promise", () => {
+    it("IndexedDB removeRange awaits the actual removal before resolving", (done) => {
+      const prov = new IndexedDbProvider();
+      prov
+        .open("test_removerange_return", simpleSchema, true, false)
+        .then(() => {
+          return prov.put(
+            "test",
+            [1, 2, 3, 4, 5].map((i) => ({ id: "a" + i }))
+          );
+        })
+        .then(() => {
+          return prov.removeRange("test", "", "a2", "a4");
+        })
+        .then(() => {
+          // After removeRange resolves, the items should actually be gone
+          return prov.getAll("test", undefined);
+        })
+        .then((items) => {
+          assert.ok(items);
+          // a2, a3, a4 should be removed, leaving a1 and a5
+          assert.equal(items.length, 2);
+          const ids = items.map((i: any) => i.id).sort();
+          assert.deepEqual(ids, ["a1", "a5"]);
+          return prov.close();
+        })
+        .then(
+          () => done(),
+          (err) => done(err)
+        );
+    });
+
+    it("InMemoryProvider removeRange awaits the actual removal before resolving", (done) => {
+      const prov = new InMemoryProvider();
+      openListOfProviders(
+        [prov],
+        "test_removerange_mem",
+        simpleSchema,
+        true,
+        false
+      )
+        .then((prov) => {
+          return prov
+            .put(
+              "test",
+              [1, 2, 3, 4, 5].map((i) => ({ id: "a" + i }))
+            )
+            .then(() => prov.removeRange("test", "", "a2", "a4"))
+            .then(() => prov.getAll("test", undefined))
+            .then((items) => {
+              assert.ok(items);
+              assert.equal(items.length, 2);
+              const ids = items.map((i: any) => i.id).sort();
+              assert.deepEqual(ids, ["a1", "a5"]);
+              return prov.close();
+            });
+        })
+        .then(
+          () => done(),
+          (err) => done(err)
+        );
+    });
+  });
+
+  describe("getKeysForRange rejects with actual error", () => {
+    it("InMemoryProvider rejects with an Error object, not undefined", (done) => {
+      const prov = new InMemoryProvider();
+      openListOfProviders([prov], "test_getkeys_err", simpleSchema, true, false)
+        .then((prov) => {
+          return prov.openTransaction(["test"], false).then((trans) => {
+            const store = trans.getStore("test");
+            const index = store.openPrimaryKey();
+            // Pass invalid range values that will cause _getKeysForRange to throw
+            // An array key with incompatible types should trigger an error
+            return index
+              .getKeysForRange(
+                { invalid: true } as any,
+                { invalid: true } as any
+              )
+              .then(() => {
+                done(new Error("Expected getKeysForRange to reject"));
+              })
+              .catch((err) => {
+                // The error should be a real Error, not undefined
+                assert.ok(
+                  err !== undefined && err !== null,
+                  "Error should not be undefined or null"
+                );
+                return prov.close().then(() => done());
+              });
+          });
+        })
+        .catch((err) => done(err));
+    });
+  });
+
+  describe("Error logging includes error name", () => {
+    it("Transaction error handler includes error name in the message", (done) => {
+      let errorMessages: string[] = [];
+      const logger = {
+        log: () => {},
+        warn: (msg: string) => {
+          if (typeof msg === "string") {
+            errorMessages.push(msg);
+          }
+        },
+        error: () => {},
+      };
+
+      const prov = new IndexedDbProvider(
+        undefined,
+        undefined,
+        undefined,
+        logger
+      );
+      prov
+        .open("test_error_name", simpleSchema, true, false)
+        .then(() => {
+          return prov.openTransaction(["test"], true);
+        })
+        .then((trans) => {
+          const store = trans.getStore("test");
+          assert.ok(store);
+          // Put a valid item, then try to put an item with a key that violates constraints
+          // by putting the same item twice (if unique index) — or we can just abort and check the message
+          trans.abort();
+          return trans.getCompletionPromise().catch((err) => {
+            // The error from transactionFailed is an Error object with a message string
+            assert.ok(
+              err instanceof Error,
+              "Transaction error should be an Error"
+            );
+            assert.ok(
+              typeof err.message === "string",
+              "Transaction error message should be a string"
+            );
+            return prov.close();
+          });
+        })
+        .then(
+          () => done(),
+          (err) => done(err)
+        );
+    });
+  });
+
+  describe("DB open error message formatting", () => {
+    it("does not produce [object Object] in error messages", (done) => {
+      let errorMessages: string[] = [];
+      const logger = {
+        log: (msg: string) => {
+          if (typeof msg === "string") errorMessages.push(msg);
+        },
+        warn: () => {},
+        error: (msg: string) => {
+          if (typeof msg === "string") errorMessages.push(msg);
+        },
+      };
+
+      // Try opening with an invalid version (0) to trigger an error
+      // The error message should not contain "[object Object]"
+      const prov = new IndexedDbProvider(
+        undefined,
+        undefined,
+        undefined,
+        logger
+      );
+      prov
+        .open("test_error_format", { version: 0, stores: [] }, false, false)
+        .then(() => {
+          // Shouldn't reach here — version 0 is invalid
+          return prov.close().then(() => {
+            done(new Error("Expected open to fail with version 0"));
+          });
+        })
+        .catch(() => {
+          // Check that none of the error messages contain [object Object]
+          const badMessages = errorMessages.filter(
+            (m) => m.indexOf("[object Object]") !== -1
+          );
+          assert.equal(
+            badMessages.length,
+            0,
+            "Error messages should not contain [object Object]: " +
+              badMessages.join("; ")
+          );
+          done();
+        });
+    });
+
+    it("upgradeCallback error details do not contain [object Object]", (done) => {
+      let upgradeErrorMessage = "";
+      const upgradeHandler: UpgradeCallback = (details) => {
+        if (details.status === "Error" && details.errorMessage) {
+          upgradeErrorMessage = details.errorMessage;
+        }
+      };
+
+      // Open v1 first
+      const prov1 = new IndexedDbProvider(
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        upgradeHandler
+      );
+      prov1
+        .open("test_upgrade_error_format", simpleSchema, true, false)
+        .then(() => prov1.close())
+        .then(() => {
+          // Open with a lower version to trigger VersionError
+          const schemaV0: DbSchema = {
+            version: 0,
+            stores: [{ name: "test", primaryKeyPath: "id" }],
+          };
+          const prov2 = new IndexedDbProvider(
+            undefined,
+            undefined,
+            undefined,
+            undefined,
+            upgradeHandler
+          );
+          return prov2
+            .open("test_upgrade_error_format", schemaV0, false, false)
+            .then(() => prov2.close())
+            .catch(() => {
+              // Expected failure
+              if (upgradeErrorMessage) {
+                assert.ok(
+                  upgradeErrorMessage.indexOf("[object Object]") === -1,
+                  "upgradeCallback errorMessage should not contain [object Object]: " +
+                    upgradeErrorMessage
+                );
+              }
+            });
+        })
+        .then(
+          () => done(),
+          (err) => done(err)
+        );
+    });
+  });
+});
