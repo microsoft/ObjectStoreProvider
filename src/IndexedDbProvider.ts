@@ -192,7 +192,7 @@ export class IndexedDbProvider extends DbProvider {
           { dbName }
         );
       }
-      this.logWriter.log(`Wiping db success`, { dbName });
+      this.logWriter.log(`Wiping db completed`, { dbName });
     }
 
     this._lockHelper = new TransactionLockHelper(schema, true);
@@ -208,12 +208,34 @@ export class IndexedDbProvider extends DbProvider {
       upgradeScenarioStartTime: 0,
     };
 
+    dbOpen.onblocked = () => {
+      this.logWriter.error(
+        `Database open is blocked by an existing connection that hasn't closed. ` +
+          `The open request will not proceed until all other connections are closed.`,
+        { dbName }
+      );
+    };
+
     dbOpen.onupgradeneeded = (event) => {
+      const dataLoss = event.dataLoss;
+      const dataLossMessage = event.dataLossMessage;
+
+      if (dataLoss === "total") {
+        this.logWriter.error(
+          `IndexedDB reported total data loss during upgrade: ${
+            dataLossMessage || "(no message)"
+          }`,
+          { dbName }
+        );
+      }
+
       upgradeMetadata = {
         oldVersion: event.oldVersion,
         newVersion: schema.version,
         upgradeScenarioStartTime: Date.now(),
         upgradeStartTimePerformanceMarker: performance.now(),
+        dataLoss: dataLoss,
+        dataLossMessage: dataLossMessage,
       };
 
       const db: IDBDatabase = dbOpen.result;
@@ -490,6 +512,7 @@ export class IndexedDbProvider extends DbProvider {
                   `Error when iterating over cursor on idb index, message: ${err?.message}`,
                   { storeName: storeSchema.name }
                 );
+                throw err;
               }
             )
           );
@@ -528,6 +551,14 @@ export class IndexedDbProvider extends DbProvider {
           }
 
           this._db = db;
+          this._db.onversionchange = (event: IDBVersionChangeEvent) => {
+            this.logWriter.warn(
+              `Database version change requested by another connection ` +
+                `(oldVersion: ${event.oldVersion}, newVersion: ${event.newVersion}). ` +
+                `Keeping this connection open; the requesting connection will be blocked.`,
+              { dbName }
+            );
+          };
           this._db.onclose = (event: Event) => {
             if (this._handleOnClose) {
               // instantiate payload
@@ -566,9 +597,12 @@ export class IndexedDbProvider extends DbProvider {
             isCopyRequired: false,
             upgradeSteps,
             ...upgradeMetadata,
-            errorName: err?.name || "Unknown",
-            errorMessage:
-              err?.message || "Unknown error occurred during upgrade",
+            errorName: err?.target?.error?.name || err?.name || "Unknown",
+            errorMessage: err
+              ? `${
+                  err?.target?.error?.message || err?.message || "Unknown error"
+                } (name: ${err?.target?.error?.name || err?.name || "Unknown"})`
+              : "Unknown error occurred during upgrade",
           });
         }
 
@@ -582,7 +616,9 @@ export class IndexedDbProvider extends DbProvider {
           }
         }
         this.logWriter.error(
-          `Error opening db, message: ${err?.message}, name: ${err?.name}`,
+          `Error opening db, message: ${
+            err?.target?.error?.message || err?.message || "Unknown error"
+          }, name: ${err?.target?.error?.name || err?.name || "Unknown"}`,
           {
             dbName,
           }
@@ -623,6 +659,13 @@ export class IndexedDbProvider extends DbProvider {
     }
 
     return new Promise((resolve, reject) => {
+      trans.onblocked = () => {
+        this.logWriter.error(
+          `Database deletion is blocked by an existing connection that hasn't closed. ` +
+            `The delete request will not proceed until all other connections are closed.`,
+          { dbName: this._dbName }
+        );
+      };
       trans.onsuccess = () => {
         resolve(void 0);
       };
@@ -734,9 +777,10 @@ export class IndexedDbTransaction implements DbTransaction {
       };
 
       this._trans.onerror = () => {
-        history.push(
-          "error-" + (this._trans.error ? this._trans.error.message : "")
-        );
+        const errorDetail = this._trans.error
+          ? `${this._trans.error.name}: ${this._trans.error.message}`
+          : "Unknown error";
+        history.push("error-" + errorDetail);
 
         if (history.length > 1) {
           this.logWriter.warn(
@@ -754,13 +798,8 @@ export class IndexedDbTransaction implements DbTransaction {
         lockHelper.transactionFailed(
           this._transToken,
           new Error(
-            "IndexedDbTransaction OnError" +
-              (this._trans.error?.name !== undefined
-                ? ", ErrorName: " + this._trans.error.name
-                : "") +
-              (this._trans.error?.message !== undefined
-                ? ", ErrorMessage: " + this._trans.error.message
-                : "") +
+            "IndexedDbTransaction OnError: " +
+              errorDetail +
               ", History: " +
               history.join(",")
           )
@@ -768,9 +807,10 @@ export class IndexedDbTransaction implements DbTransaction {
       };
 
       this._trans.onabort = () => {
-        history.push(
-          "abort-" + (this._trans.error ? this._trans.error.message : "")
-        );
+        const errorDetail = this._trans.error
+          ? `${this._trans.error.name}: ${this._trans.error.message}`
+          : "Unknown error";
+        history.push("abort-" + errorDetail);
 
         if (history.length > 1) {
           this.logWriter.warn(
@@ -788,13 +828,8 @@ export class IndexedDbTransaction implements DbTransaction {
         lockHelper.transactionFailed(
           this._transToken,
           new Error(
-            "IndexedDbTransaction Aborted" +
-              (this._trans.error?.name !== undefined
-                ? ", ErrorName: " + this._trans.error.name
-                : "") +
-              (this._trans.error?.message !== undefined
-                ? ", ErrorMessage: " + this._trans.error.message
-                : "") +
+            "IndexedDbTransaction Aborted, Error: " +
+              errorDetail +
               ", History: " +
               history.join(",")
           )
@@ -1161,7 +1196,7 @@ class IndexedDbStore implements DbStore {
         highRangeExclusive
       )
       .then((keys) => {
-        this.remove(keys);
+        return this.remove(keys);
       });
   }
 

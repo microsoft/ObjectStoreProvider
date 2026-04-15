@@ -111,6 +111,10 @@ export type UpgradeMetadata = {
   newVersion: number;
   upgradeScenarioStartTime: number;
   upgradeStartTimePerformanceMarker: number;
+  /** Non-standard Chromium extension: "none" or "total". Indicates whether data was lost during upgrade. */
+  dataLoss?: "none" | "total";
+  /** Non-standard Chromium extension: message describing the data loss, if any. */
+  dataLossMessage?: string;
 };
 
 export type UpgradeDetails = UpgradeMetadata & {
