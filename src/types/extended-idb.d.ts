@@ -1,5 +1,16 @@
 export {};
 
+// Chromium extension: dataLoss/dataLossMessage on IDBVersionChangeEvent
+// See https://source.chromium.org/chromium/chromium/src/+/main:third_party/blink/renderer/modules/indexeddb/idb_version_change_event.idl
+declare global {
+  interface IDBVersionChangeEvent {
+    /** Non-standard Chromium extension. Indicates whether data was lost during upgrade. */
+    readonly dataLoss?: "none" | "total";
+    /** Non-standard Chromium extension. Message describing the data loss. */
+    readonly dataLossMessage?: string;
+  }
+}
+
 export type IDBGetAllRecordsOptions = {
   // The maximum number of records to retrieve.
   count: number;
