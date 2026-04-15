@@ -863,7 +863,7 @@ class InMemoryIndex extends DbIndexFTSFromRangeQueries {
       );
     });
     if (isError(keys)) {
-      return Promise.reject(void 0);
+      return Promise.reject(keys);
     }
     return Promise.resolve(keys);
   }
