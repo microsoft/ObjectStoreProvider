@@ -5896,6 +5896,7 @@ describe("Error handling and telemetry", function () {
   describe("onblocked handler on _deleteDatabaseInternal()", () => {
     it("logs when delete is blocked by another connection", (done) => {
       let blockedLogged = false;
+      let prov1Ref: IndexedDbProvider | undefined;
       const logger = {
         log: () => {},
         warn: () => {},
@@ -5905,6 +5906,10 @@ describe("Error handling and telemetry", function () {
             msg.indexOf("deletion is blocked") !== -1
           ) {
             blockedLogged = true;
+            // Close the blocking connection to unblock the delete
+            if (prov1Ref) {
+              prov1Ref.close();
+            }
           }
         },
       };
@@ -5916,6 +5921,7 @@ describe("Error handling and telemetry", function () {
         undefined,
         logger
       );
+      prov1Ref = prov1;
       prov1
         .open("test_blocked_delete", simpleSchema, true, false)
         .then(() => {
@@ -5937,14 +5943,8 @@ describe("Error handling and telemetry", function () {
           prov2
             .open("test_blocked_delete", simpleSchema, false, false)
             .then(() => {
-              const deletePromise = prov2.deleteDatabase();
-
-              // After a delay, close prov1 to unblock
-              setTimeout(() => {
-                prov1.close();
-              }, 200);
-
-              return deletePromise.then(() => {
+              // prov1 will be closed reactively when the onblocked logger fires
+              return prov2.deleteDatabase().then(() => {
                 assert.ok(
                   blockedLogged,
                   "Expected the onblocked error to be logged for delete"

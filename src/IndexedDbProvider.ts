@@ -551,9 +551,10 @@ export class IndexedDbProvider extends DbProvider {
           }
 
           this._db = db;
-          this._db.onversionchange = () => {
+          this._db.onversionchange = (event: IDBVersionChangeEvent) => {
             this.logWriter.warn(
-              `Database version change requested by another connection. ` +
+              `Database version change requested by another connection ` +
+                `(oldVersion: ${event.oldVersion}, newVersion: ${event.newVersion}). ` +
                 `Keeping this connection open; the requesting connection will be blocked.`,
               { dbName }
             );
