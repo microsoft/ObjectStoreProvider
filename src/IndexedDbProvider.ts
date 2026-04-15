@@ -784,7 +784,10 @@ export class IndexedDbTransaction implements DbTransaction {
         if (history.length > 1) {
           this.logWriter.warn(
             "IndexedDbTransaction Errored after Resolution, Swallowing. Error: " +
-              errorDetail +
+              (this._trans.error ? this._trans.error.message : undefined) +
+              (this._trans.error?.name !== undefined
+                ? ", ErrorName: " + this._trans.error.name
+                : "") +
               ", History: " +
               history.join(",")
           );
@@ -811,7 +814,10 @@ export class IndexedDbTransaction implements DbTransaction {
         if (history.length > 1) {
           this.logWriter.warn(
             "IndexedDbTransaction Aborted after Resolution, Swallowing. Error: " +
-              errorDetail +
+              (this._trans.error ? this._trans.error.message : undefined) +
+              (this._trans.error?.name !== undefined
+                ? ", ErrorName: " + this._trans.error.name
+                : "") +
               ", History: " +
               history.join(",")
           );
