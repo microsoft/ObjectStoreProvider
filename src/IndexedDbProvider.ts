@@ -159,7 +159,7 @@ export class IndexedDbProvider extends DbProvider {
         resolve(req.result);
       };
       req.onerror = (ev) => {
-        reject(ev);
+        reject((ev.target as IDBRequest)?.error ?? ev);
       };
     });
   }
@@ -596,27 +596,19 @@ export class IndexedDbProvider extends DbProvider {
             isCopyRequired: false,
             upgradeSteps,
             ...upgradeMetadata,
-            errorName: err?.target?.error?.name || "Unknown",
+            errorName: err?.target?.error?.name || err?.name || "Unknown",
             errorMessage: err
               ? `${
                   err?.target?.error?.message || err?.message || "Unknown error"
-                } (name: ${err?.target?.error?.name || "Unknown"})`
+                } (name: ${err?.target?.error?.name || err?.name || "Unknown"})`
               : "Unknown error occurred during upgrade",
           });
         }
 
-        if (
-          err &&
-          err.type === "error" &&
-          err.target &&
-          err.target.error &&
-          err.target.error.name === "VersionError"
-        ) {
+        if (err instanceof DOMException && err.name === "VersionError") {
           if (!wipeIfExists) {
             this.logWriter.log(
-              `Database version too new, Wiping: ${
-                err.target.error.message || err.target.error.name
-              }`
+              `Database version too new, Wiping: ${err.message || err.name}`
             );
 
             return this.open(dbName, schema, true, verbose);
@@ -625,7 +617,7 @@ export class IndexedDbProvider extends DbProvider {
         this.logWriter.error(
           `Error opening db, message: ${
             err?.target?.error?.message || err?.message || "Unknown error"
-          }, name: ${err?.target?.error?.name || "Unknown"}`,
+          }, name: ${err?.target?.error?.name || err?.name || "Unknown"}`,
           {
             dbName,
           }
@@ -751,7 +743,7 @@ export class IndexedDbProvider extends DbProvider {
 }
 
 // DbTransaction implementation for the IndexedDB DbProvider.
-class IndexedDbTransaction implements DbTransaction {
+export class IndexedDbTransaction implements DbTransaction {
   private _stores: IDBObjectStore[];
 
   constructor(
@@ -801,10 +793,12 @@ class IndexedDbTransaction implements DbTransaction {
 
         lockHelper.transactionFailed(
           this._transToken,
-          "IndexedDbTransaction OnError: " +
-            errorDetail +
-            ", History: " +
-            history.join(",")
+          new Error(
+            "IndexedDbTransaction OnError: " +
+              errorDetail +
+              ", History: " +
+              history.join(",")
+          )
         );
       };
 
@@ -826,10 +820,12 @@ class IndexedDbTransaction implements DbTransaction {
 
         lockHelper.transactionFailed(
           this._transToken,
-          "IndexedDbTransaction Aborted, Error: " +
-            errorDetail +
-            ", History: " +
-            history.join(",")
+          new Error(
+            "IndexedDbTransaction Aborted, Error: " +
+              errorDetail +
+              ", History: " +
+              history.join(",")
+          )
         );
       };
     }

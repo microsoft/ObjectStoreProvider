@@ -170,7 +170,7 @@ export class TransactionLockHelper {
     this._cleanTransaction(token);
   }
 
-  transactionFailed(token: TransactionToken, message: string) {
+  transactionFailed(token: TransactionToken, message: string | Error) {
     const pendingTransIndex = findIndex(
       this._pendingTransactions,
       (trans) => trans.token === token
@@ -183,7 +183,9 @@ export class TransactionLockHelper {
         const toResolve = pendingTrans.completionDefer;
         this._pendingTransactions.splice(pendingTransIndex, 1);
         pendingTrans.completionDefer = undefined;
-        toResolve.reject(new Error(message));
+        toResolve.reject(
+          message instanceof Error ? message : new Error(message)
+        );
       } else {
         throw new Error(
           "Failing a transaction that has already been completed. Stores: " +
