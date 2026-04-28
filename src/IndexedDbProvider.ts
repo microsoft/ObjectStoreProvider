@@ -825,7 +825,7 @@ export class IndexedDbTransaction implements DbTransaction {
               errorDetail +
               ", History: " +
               history.join(",")
-          ) 
+          )
         );
       };
 
@@ -878,7 +878,9 @@ export class IndexedDbTransaction implements DbTransaction {
           const indexStoreName = storeSchema.name + "_" + indexSchema.name;
           const indexStore = this._indexStoreMap.get(indexStoreName);
           if (!indexStore) {
-            throw new Error("Index store not found in transaction: " + indexStoreName);
+            throw new Error(
+              "Index store not found in transaction: " + indexStoreName
+            );
           }
           indexStores.push(indexStore);
         }
