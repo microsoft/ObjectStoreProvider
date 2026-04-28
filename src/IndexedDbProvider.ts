@@ -746,6 +746,7 @@ export class IndexedDbProvider extends DbProvider {
 // DbTransaction implementation for the IndexedDB DbProvider.
 export class IndexedDbTransaction implements DbTransaction {
   private _stores: IDBObjectStore[];
+  private _indexStoreMap: Map<string, IDBObjectStore>;
 
   constructor(
     private _trans: IDBTransaction,
@@ -759,6 +760,28 @@ export class IndexedDbTransaction implements DbTransaction {
     this._stores = map(this._transToken.storeNames, (storeName) =>
       this._trans.objectStore(storeName)
     );
+
+    // Eagerly capture multi-entry/fullText index object stores while the transaction is still
+    // in "active" state. Deferring this to getStore() risks an InvalidStateError if the event
+    // loop runs between openTransaction() and the first getStore() call, causing the IDB
+    // transaction to auto-commit before the objectStore() call.
+    this._indexStoreMap = new Map<string, IDBObjectStore>();
+    if (_fakeComplicatedKeys) {
+      each(this._transToken.storeNames, (storeName) => {
+        const storeSchema = find(_schema.stores, (s) => s.name === storeName);
+        if (storeSchema?.indexes) {
+          each(storeSchema.indexes, (indexSchema) => {
+            if (indexSchema.multiEntry || indexSchema.fullText) {
+              const indexStoreName = storeSchema.name + "_" + indexSchema.name;
+              this._indexStoreMap.set(
+                indexStoreName,
+                this._trans.objectStore(indexStoreName)
+              );
+            }
+          });
+        }
+      });
+    }
 
     if (lockHelper) {
       // Chromium seems to have a bug in their indexeddb implementation that lets it start a timeout
@@ -847,12 +870,19 @@ export class IndexedDbTransaction implements DbTransaction {
 
     const indexStores: IDBObjectStore[] = [];
     if (this._fakeComplicatedKeys && storeSchema.indexes) {
-      // Pull the alternate multientry stores in as well
+      // Pull the alternate multientry stores in as well, using the map populated eagerly in the
+      // constructor to avoid calling objectStore() after an async yield (which would throw
+      // InvalidStateError if the transaction has already auto-committed).
       each(storeSchema.indexes, (indexSchema) => {
         if (indexSchema.multiEntry || indexSchema.fullText) {
-          indexStores.push(
-            this._trans.objectStore(storeSchema.name + "_" + indexSchema.name)
-          );
+          const indexStoreName = storeSchema.name + "_" + indexSchema.name;
+          const indexStore = this._indexStoreMap.get(indexStoreName);
+          if (!indexStore) {
+            throw new Error(
+              "Index store not found in transaction: " + indexStoreName
+            );
+          }
+          indexStores.push(indexStore);
         }
       });
     }
