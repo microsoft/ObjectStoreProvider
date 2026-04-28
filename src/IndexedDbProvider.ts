@@ -825,7 +825,7 @@ export class IndexedDbTransaction implements DbTransaction {
               errorDetail +
               ", History: " +
               history.join(",")
-          )
+          ) 
         );
       };
 
