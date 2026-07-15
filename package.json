@@ -66,7 +66,7 @@
     "ts-loader": "^9.2.3",
     "ts-node": "^10.0.0",
     "typescript": "^4.3.4",
-    "webpack": "^5.39.1",
+    "webpack": "^5.108.4",
     "webpack-cli": "^4.7.2"
   },
   "repository": {
@@ -89,5 +89,6 @@
     "react native"
   ],
   "license": "MIT",
-  "homepage": "https://github.com/microsoft/objectstoreprovider#readme"
+  "homepage": "https://github.com/microsoft/objectstoreprovider#readme",
+  "packageManager": "yarn@4.17.0"
 }

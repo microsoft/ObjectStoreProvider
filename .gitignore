@@ -5,3 +5,6 @@
 *.user
 /ObjectStoreProviderTestsPack.js
 /dist
+
+# Yarn Berry install state cache
+.yarn/install-state.gz
