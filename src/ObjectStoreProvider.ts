@@ -177,7 +177,12 @@ export interface DbIndex {
 export interface DbStore {
   get(key: KeyType): Promise<ItemType | undefined>;
   getMultiple(keyOrKeys: KeyType | KeyType[]): Promise<ItemType[]>;
-  put(itemOrItems: ItemType | ItemType[]): Promise<void>;
+  // indexNames is an optional scoping hint honored by providers (currently InMemoryProvider) that would
+  // otherwise write brand-new items into every index on the store: when provided, only the primary key and
+  // the listed index(es) are populated for items that aren't already present in the store. Providers that
+  // don't support scoping (e.g. IndexedDbProvider, which relies on the browser's native index maintenance)
+  // may ignore this parameter.
+  put(itemOrItems: ItemType | ItemType[], indexNames?: string[]): Promise<void>;
   remove(keyOrKeys: KeyType | KeyType[]): Promise<void>;
   removeRange(
     indexName: string,
@@ -298,9 +303,13 @@ export abstract class DbProvider {
     );
   }
 
-  put(storeName: string, itemOrItems: ItemType | ItemType[]): Promise<void> {
+  put(
+    storeName: string,
+    itemOrItems: ItemType | ItemType[],
+    indexNames?: string[]
+  ): Promise<void> {
     return this._getStoreTransaction(storeName, true).then((store) => {
-      return store.put(itemOrItems);
+      return store.put(itemOrItems, indexNames);
     });
   }
 

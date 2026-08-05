@@ -2100,6 +2100,101 @@ describe("ObjectStoreProvider", function () {
             );
         });
 
+        it("put with indexNames only populates the specified index(es) for new items", (done) => {
+          // indexNames scoping is an InMemoryProvider-only optimization -- other providers either maintain
+          // indexes natively (indexeddb) or ignore the extra parameter entirely.
+          if (provName.indexOf("memory") === -1) {
+            done();
+            return;
+          }
+
+          openProvider(
+            provName,
+            {
+              version: 1,
+              stores: [
+                {
+                  name: "test",
+                  primaryKeyPath: "id",
+                  indexes: [
+                    { name: "indexA", keyPath: "a" },
+                    { name: "indexB", keyPath: "b" },
+                  ],
+                },
+              ],
+            },
+            true
+          )
+            .then((prov) => {
+              return prov
+                .put("test", { id: "item1", a: "valA1", b: "valB1" }, [
+                  "indexA",
+                ])
+                .then(() => {
+                  return Promise.all([
+                    prov.get("test", "item1"),
+                    prov.getAll("test", "indexA"),
+                    prov.getAll("test", "indexB"),
+                  ]).then(([byPk, byIndexA, byIndexB]) => {
+                    // The primary key always reflects the latest put, regardless of indexNames scoping.
+                    assert(!!byPk);
+                    assert.equal((byPk as TestObj).id, "item1");
+
+                    // The item shows up in the index it was scoped to...
+                    assert.equal(byIndexA.length, 1);
+                    assert.equal((byIndexA[0] as TestObj).id, "item1");
+
+                    // ...but not in an index it was never fetched/loaded through, avoiding the
+                    // "memory island" problem of seeding unrelated indexes with unloaded data.
+                    assert.equal(byIndexB.length, 0);
+                  });
+                })
+                .then(() => {
+                  // Once the item is already tracked in memory, subsequent scoped puts (e.g. an update
+                  // fetched again via indexA) must keep it in sync across every index it's already part
+                  // of, rather than leaving stale/missing entries in indexes that were skipped this time.
+                  return prov
+                    .put(
+                      "test",
+                      { id: "item1", a: "valA1-updated", b: "valB1-updated" },
+                      ["indexA"]
+                    )
+                    .then(() => {
+                      return Promise.all([
+                        prov.getAll("test", "indexA"),
+                        prov.getAll("test", "indexB"),
+                      ]).then(([byIndexA, byIndexB]) => {
+                        assert.equal(byIndexA.length, 1);
+                        assert.equal((byIndexA[0] as any).a, "valA1-updated");
+
+                        assert.equal(byIndexB.length, 1);
+                        assert.equal((byIndexB[0] as any).b, "valB1-updated");
+                      });
+                    });
+                })
+                .then(() => {
+                  // Backward compatibility: omitting indexNames still populates every index for new items.
+                  return prov
+                    .put("test", { id: "item2", a: "valA2", b: "valB2" })
+                    .then(() => {
+                      return Promise.all([
+                        prov.getAll("test", "indexA"),
+                        prov.getAll("test", "indexB"),
+                      ]).then(([byIndexA, byIndexB]) => {
+                        assert.equal(byIndexA.length, 2);
+                        assert.equal(byIndexB.length, 2);
+                      });
+                    });
+                })
+                .then(() => prov.close())
+                .catch((e) => prov.close().then(() => Promise.reject(e)));
+            })
+            .then(
+              () => done(),
+              (err) => done(err)
+            );
+        });
+
         it("Invalid Key Type", (done) => {
           openProvider(
             provName,
