@@ -2126,7 +2126,11 @@ describe("ObjectStoreProvider", function () {
             true
           )
             .then((prov) => {
-              return prov
+              // indexNames scoping is only reachable via a reference typed as InMemoryProvider -- it's
+              // intentionally not part of the shared DbStore/DbProvider interfaces so it's a compile error
+              // to use it against any other provider (e.g. the real IndexedDbProvider/db path).
+              const memoryProv = prov as InMemoryProvider;
+              return memoryProv
                 .put("test", { id: "item1", a: "valA1", b: "valB1" }, [
                   "indexA",
                 ])
@@ -2153,7 +2157,7 @@ describe("ObjectStoreProvider", function () {
                   // Once the item is already tracked in memory, subsequent scoped puts (e.g. an update
                   // fetched again via indexA) must keep it in sync across every index it's already part
                   // of, rather than leaving stale/missing entries in indexes that were skipped this time.
-                  return prov
+                  return memoryProv
                     .put(
                       "test",
                       { id: "item1", a: "valA1-updated", b: "valB1-updated" },

@@ -149,6 +149,23 @@ export class InMemoryProvider extends DbProvider {
   internal_getStore(name: string): StoreData {
     return this._stores.get(name)!!!;
   }
+
+  // Overrides the base DbProvider.put() shortcut to expose InMemoryStore's indexNames scoping (see
+  // InMemoryStore.put() for the full rationale). This is intentionally NOT part of the shared DbStore/
+  // DbProvider interfaces: scoping which index(es) get populated only makes sense for an in-memory cache
+  // that's re-derived from a real database, never for the database itself, which must always keep every
+  // index consistent with the data it stores. Keeping it off the shared interfaces makes it a compile error
+  // to pass indexNames to any other provider (e.g. IndexedDbProvider) -- callers must have a reference typed
+  // as InMemoryProvider (not the generic DbProvider) to use this parameter at all.
+  put(
+    storeName: string,
+    itemOrItems: ItemType | ItemType[],
+    indexNames?: string[]
+  ): Promise<void> {
+    return this._getStoreTransaction(storeName, true).then((store) => {
+      return (store as InMemoryStore).put(itemOrItems, indexNames);
+    });
+  }
 }
 
 // Notes: Doesn't limit the stores it can fetch to those in the stores it was "created" with, nor does it handle read-only transactions
@@ -335,6 +352,8 @@ class InMemoryStore implements DbStore {
   // index) cache the results without seeding "islands" of items into unrelated indexes that were never
   // actually queried/loaded for those items. Items that already exist in the store keep being kept in sync
   // across every index they were previously tracked by, so already-cached data never goes stale.
+  // NOTE: this parameter is intentionally NOT part of the shared DbStore interface -- it's only reachable
+  // via InMemoryProvider.put() (see there), so it's a compile error to use it against any other provider.
   put(
     itemOrItems: ItemType | ItemType[],
     indexNames?: string[]
