@@ -15,7 +15,7 @@ import {
   UpgradeCallback,
 } from "../ObjectStoreProvider";
 
-import { InMemoryProvider } from "../InMemoryProvider";
+import { InMemoryProvider, asScopedIndexPutProvider } from "../InMemoryProvider";
 import { IndexedDbProvider, IndexedDbTransaction } from "../IndexedDbProvider";
 import * as IndexedDbProviderModule from "../IndexedDbProvider";
 import {
@@ -2126,14 +2126,20 @@ describe("ObjectStoreProvider", function () {
             true
           )
             .then((prov) => {
-              // indexNames scoping is only reachable via a reference typed as InMemoryProvider -- it's
-              // intentionally not part of the shared DbStore/DbProvider interfaces so it's a compile error
-              // to use it against any other provider (e.g. the real IndexedDbProvider/db path).
-              const memoryProv = prov as InMemoryProvider;
-              return memoryProv
-                .put("test", { id: "item1", a: "valA1", b: "valB1" }, [
-                  "indexA",
-                ])
+              // indexNames scoping is only reachable via asScopedIndexPutProvider() -- it's
+              // intentionally not part of the shared DbStore/DbProvider interfaces (nor of
+              // InMemoryProvider's public put()), so this returns undefined for any provider that
+              // doesn't support it, and it'd be a compile error to call
+              // putInIndexAfterGet_DoNotUse() directly against a plain DbProvider reference.
+              const maybeScopedPutProv = asScopedIndexPutProvider(prov);
+              assert(!!maybeScopedPutProv);
+              const scopedPutProv = maybeScopedPutProv!!!;
+              return scopedPutProv
+                .putInIndexAfterGet_DoNotUse(
+                  "test",
+                  { id: "item1", a: "valA1", b: "valB1" },
+                  ["indexA"]
+                )
                 .then(() => {
                   return Promise.all([
                     prov.get("test", "item1"),
@@ -2157,8 +2163,8 @@ describe("ObjectStoreProvider", function () {
                   // Once the item is already tracked in memory, subsequent scoped puts (e.g. an update
                   // fetched again via indexA) must keep it in sync across every index it's already part
                   // of, rather than leaving stale/missing entries in indexes that were skipped this time.
-                  return memoryProv
-                    .put(
+                  return scopedPutProv
+                    .putInIndexAfterGet_DoNotUse(
                       "test",
                       { id: "item1", a: "valA1-updated", b: "valB1-updated" },
                       ["indexA"]

@@ -266,8 +266,8 @@ export abstract class DbProvider {
 
   /**
    * Protected (rather than private) so that subclasses which need extra, provider-specific put() semantics
-   * (e.g. InMemoryProvider's indexNames scoping -- see its put() override) can reuse this instead of
-   * re-implementing store-transaction resolution.
+   * (e.g. InMemoryProvider's `putInIndexAfterGet_DoNotUse()` indexNames scoping -- see there) can reuse
+   * this instead of re-implementing store-transaction resolution.
    */
   protected _getStoreTransaction(
     storeName: string,

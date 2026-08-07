@@ -151,23 +151,67 @@ export class InMemoryProvider extends DbProvider {
   }
 
   /**
-   * Overrides the base DbProvider.put() shortcut to expose InMemoryStore's indexNames scoping (see
-   * InMemoryStore.put() for the full rationale). This is intentionally NOT part of the shared DbStore/
-   * DbProvider interfaces: scoping which index(es) get populated only makes sense for an in-memory cache
-   * that's re-derived from a real database, never for the database itself, which must always keep every
-   * index consistent with the data it stores. Keeping it off the shared interfaces makes it a compile error
-   * to pass indexNames to any other provider (e.g. IndexedDbProvider) -- callers must have a reference typed
-   * as InMemoryProvider (not the generic DbProvider) to use this parameter at all.
+   * Deliberately NOT named/overloaded as `put()`, and deliberately not reachable except through
+   * `asScopedIndexPutProvider()` below -- see there for the full rationale. Exposes InMemoryStore's
+   * indexNames scoping (see InMemoryStore.putInIndexAfterGet_DoNotUse() for the full rationale).
+   * This is intentionally NOT part of the shared DbStore/DbProvider interfaces: scoping which
+   * index(es) get populated only makes sense for an in-memory cache that's re-derived from a real
+   * database, never for the database itself, which must always keep every index consistent with
+   * the data it stores.
+   *
+   * DO NOT USE unless you're re-populating an in-memory cache from a ranged read that only ever
+   * touched the listed index(es) -- e.g. right after a `getRange()`/`getMultiple()` served by a
+   * single index. Using this for any other kind of write will leave the *other* indexes on this
+   * store permanently missing the item(s), silently diverging from the normal guarantee (shared by
+   * every other DbProvider, including this same InMemoryProvider's own `put()`) that every index on
+   * a store always reflects every item in that store.
    */
-  put(
+  putInIndexAfterGet_DoNotUse(
     storeName: string,
     itemOrItems: ItemType | ItemType[],
-    indexNames?: string[]
+    indexNames: string[]
   ): Promise<void> {
     return this._getStoreTransaction(storeName, true).then((store) => {
-      return (store as InMemoryStore).put(itemOrItems, indexNames);
+      return (store as InMemoryStore).putInIndexAfterGet_DoNotUse(
+        itemOrItems,
+        indexNames
+      );
     });
   }
+}
+
+/**
+ * Specialized capability for providers that can scope in-memory index writes to only the
+ * index(es) that were actually queried, instead of populating every index on the store (see
+ * `InMemoryProvider.putInIndexAfterGet_DoNotUse()` for the full rationale and warnings).
+ *
+ * This is intentionally kept off the public `InMemoryProvider` class surface -- and off the
+ * shared `DbStore`/`DbProvider` interfaces entirely -- so that reaching for it always requires
+ * going through `asScopedIndexPutProvider()` below rather than casting/typing a `DbProvider`
+ * reference as `InMemoryProvider` and calling it directly.
+ */
+export interface IScopedIndexPutProvider {
+  putInIndexAfterGet_DoNotUse(
+    storeName: string,
+    itemOrItems: ItemType | ItemType[],
+    indexNames: string[]
+  ): Promise<void>;
+}
+
+/**
+ * The only supported way to reach the `IScopedIndexPutProvider` capability described above.
+ *
+ * Returns `provider` narrowed to `IScopedIndexPutProvider` when it actually supports scoped index
+ * puts (currently: any `InMemoryProvider` instance), or `undefined` otherwise. Routing through this
+ * helper -- instead of casting a `DbProvider` to `InMemoryProvider` -- makes every call site that
+ * opts into breaking the normal "every index stays in sync" guarantee explicit and easy to find/audit.
+ */
+export function asScopedIndexPutProvider(
+  provider: DbProvider
+): IScopedIndexPutProvider | undefined {
+  return provider instanceof InMemoryProvider
+    ? (provider as unknown as IScopedIndexPutProvider)
+    : undefined;
 }
 
 // Notes: Doesn't limit the stores it can fetch to those in the stores it was "created" with, nor does it handle read-only transactions
@@ -348,18 +392,33 @@ class InMemoryStore implements DbStore {
     );
   }
 
+  put(itemOrItems: ItemType | ItemType[]): Promise<void> {
+    return this._putInternal(itemOrItems);
+  }
+
   /**
-   * @param indexNames Optional scoping hint: when provided, brand-new items (not already present in the
-   * store) are only written into the primary key plus the listed index(es), instead of every index on the
-   * store. This lets callers who fetched data through a single index (e.g. a ranged read served from that
-   * index) cache the results without seeding "islands" of items into unrelated indexes that were never
-   * actually queried/loaded for those items. Items that already exist in the store keep being kept in sync
-   * across every index they were previously tracked by, so already-cached data never goes stale.
+   * DO NOT USE unless you're re-populating an in-memory cache from a ranged read that only ever
+   * touched the listed index(es) -- see `InMemoryProvider.putInIndexAfterGet_DoNotUse()` for the
+   * full rationale and warnings. Deliberately named/kept separate from `put()` above (rather than
+   * an optional 3rd parameter on it) so that the normal, always-safe `put()` required by the shared
+   * `DbStore` interface can never accidentally be called with scoping semantics.
    *
-   * NOTE: this parameter is intentionally NOT part of the shared DbStore interface -- it's only reachable
-   * via InMemoryProvider.put() (see there), so it's a compile error to use it against any other provider.
+   * @param indexNames Scoping hint: brand-new items (not already present in the store) are only
+   * written into the primary key plus the listed index(es), instead of every index on the store.
+   * This lets callers who fetched data through a single index (e.g. a ranged read served from that
+   * index) cache the results without seeding "islands" of items into unrelated indexes that were
+   * never actually queried/loaded for those items. Items that already exist in the store keep being
+   * kept in sync across every index they were previously tracked by, so already-cached data never
+   * goes stale.
    */
-  put(
+  putInIndexAfterGet_DoNotUse(
+    itemOrItems: ItemType | ItemType[],
+    indexNames: string[]
+  ): Promise<void> {
+    return this._putInternal(itemOrItems, indexNames);
+  }
+
+  private _putInternal(
     itemOrItems: ItemType | ItemType[],
     indexNames?: string[]
   ): Promise<void> {
