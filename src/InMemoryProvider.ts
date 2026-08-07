@@ -346,14 +346,17 @@ class InMemoryStore implements DbStore {
     );
   }
 
-  // indexNames is an optional scoping hint: when provided, brand-new items (not already present in the
-  // store) are only written into the primary key plus the listed index(es), instead of every index on the
-  // store. This lets callers who fetched data through a single index (e.g. a ranged read served from that
-  // index) cache the results without seeding "islands" of items into unrelated indexes that were never
-  // actually queried/loaded for those items. Items that already exist in the store keep being kept in sync
-  // across every index they were previously tracked by, so already-cached data never goes stale.
-  // NOTE: this parameter is intentionally NOT part of the shared DbStore interface -- it's only reachable
-  // via InMemoryProvider.put() (see there), so it's a compile error to use it against any other provider.
+  /**
+   * @param indexNames Optional scoping hint: when provided, brand-new items (not already present in the
+   * store) are only written into the primary key plus the listed index(es), instead of every index on the
+   * store. This lets callers who fetched data through a single index (e.g. a ranged read served from that
+   * index) cache the results without seeding "islands" of items into unrelated indexes that were never
+   * actually queried/loaded for those items. Items that already exist in the store keep being kept in sync
+   * across every index they were previously tracked by, so already-cached data never goes stale.
+   *
+   * NOTE: this parameter is intentionally NOT part of the shared DbStore interface -- it's only reachable
+   * via InMemoryProvider.put() (see there), so it's a compile error to use it against any other provider.
+   */
   put(
     itemOrItems: ItemType | ItemType[],
     indexNames?: string[]

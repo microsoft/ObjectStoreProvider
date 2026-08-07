@@ -264,9 +264,11 @@ export abstract class DbProvider {
 
   protected abstract _deleteDatabaseInternal(): Promise<void>;
 
-  // Protected (rather than private) so that subclasses which need extra, provider-specific put() semantics
-  // (e.g. InMemoryProvider's indexNames scoping -- see its put() override) can reuse this instead of
-  // re-implementing store-transaction resolution.
+  /**
+   * Protected (rather than private) so that subclasses which need extra, provider-specific put() semantics
+   * (e.g. InMemoryProvider's indexNames scoping -- see its put() override) can reuse this instead of
+   * re-implementing store-transaction resolution.
+   */
   protected _getStoreTransaction(
     storeName: string,
     readWrite: boolean
