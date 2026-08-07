@@ -150,13 +150,15 @@ export class InMemoryProvider extends DbProvider {
     return this._stores.get(name)!!!;
   }
 
-  // Overrides the base DbProvider.put() shortcut to expose InMemoryStore's indexNames scoping (see
-  // InMemoryStore.put() for the full rationale). This is intentionally NOT part of the shared DbStore/
-  // DbProvider interfaces: scoping which index(es) get populated only makes sense for an in-memory cache
-  // that's re-derived from a real database, never for the database itself, which must always keep every
-  // index consistent with the data it stores. Keeping it off the shared interfaces makes it a compile error
-  // to pass indexNames to any other provider (e.g. IndexedDbProvider) -- callers must have a reference typed
-  // as InMemoryProvider (not the generic DbProvider) to use this parameter at all.
+  /**
+   * Overrides the base DbProvider.put() shortcut to expose InMemoryStore's indexNames scoping (see
+   * InMemoryStore.put() for the full rationale). This is intentionally NOT part of the shared DbStore/
+   * DbProvider interfaces: scoping which index(es) get populated only makes sense for an in-memory cache
+   * that's re-derived from a real database, never for the database itself, which must always keep every
+   * index consistent with the data it stores. Keeping it off the shared interfaces makes it a compile error
+   * to pass indexNames to any other provider (e.g. IndexedDbProvider) -- callers must have a reference typed
+   * as InMemoryProvider (not the generic DbProvider) to use this parameter at all.
+   */
   put(
     storeName: string,
     itemOrItems: ItemType | ItemType[],
