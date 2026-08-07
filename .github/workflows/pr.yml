@@ -26,13 +26,13 @@ jobs:
       # Sets up Node and an .npmrc file. This is the official Github supported way to set up node.
       - uses: actions/setup-node@v4
         with:
-          node-version: "16"
+          node-version: "18"
           registry-url: "https://registry.npmjs.org"
           cache: "yarn"
           always-auth: "true"
 
       - name: Install packages
-        run: yarn --frozen-lockfile
+        run: yarn install --immutable
 
       - name: Set Firefox Env Variable
         run: export FIREFOX_BIN=$(which firefox)

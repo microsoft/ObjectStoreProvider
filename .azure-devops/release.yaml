@@ -7,6 +7,8 @@ variables:
     value: production,externalfacing
   - name: serviceTreeID
     value: 21f0b890-e3a8-4c0b-b9e7-2f764f8b799c
+  - name: adoMirrorNpmFeedBaseUrl
+    value: https://pkgs.dev.azure.com/DomoreexpGithub/Github_Pipelines/_packaging/github-npm-mirror/npm/registry/
 
 resources:
   repositories:
@@ -54,11 +56,34 @@ extends:
               - task: NodeTool@0
                 displayName: "Installing node"
                 inputs:
-                  versionSpec: "16"
-              - script: yarn --frozen-lockfile
+                  versionSpec: "18"
+              - script: |
+                  cat <<'EOF' > "$(Agent.TempDirectory)/npm-mirror.npmrc"
+                  always-auth=true
+                  registry=$(adoMirrorNpmFeedBaseUrl)
+                  EOF
+                displayName: Create temporary .npmrc for mirror feed
+              - task: npmAuthenticate@0
+                inputs:
+                  workingFile: "$(Agent.TempDirectory)/npm-mirror.npmrc"
+              - script: |
+                  TOKEN=$(grep '_authToken' "$(Agent.TempDirectory)/npm-mirror.npmrc" | head -1 | cut -d'=' -f2)
+                  echo "##vso[task.setvariable variable=NPM_TOKEN;issecret=true]$TOKEN"
+                displayName: Extract token from .npmrc
+              - script: |
+                  yarn config set npmAlwaysAuth true
+                  yarn config set npmRegistryServer $(adoMirrorNpmFeedBaseUrl)
+                displayName: Configure yarn for ADO npm feed
+              - script: yarn install --immutable
                 displayName: yarn
+                env:
+                  YARN_NPM_AUTH_TOKEN: $(NPM_TOKEN)
+                  NPM_CONFIG_USERCONFIG: $(Agent.TempDirectory)/npm-mirror.npmrc
               - script: yarn build && yarn test:ci
                 displayName: build and test [test]
+                env:
+                  YARN_NPM_AUTH_TOKEN: $(NPM_TOKEN)
+                  NPM_CONFIG_USERCONFIG: $(Agent.TempDirectory)/npm-mirror.npmrc
 
               - script: |
                   mkdir -p $(System.DefaultWorkingDirectory)/packages
