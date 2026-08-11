@@ -15,7 +15,10 @@ import {
   UpgradeCallback,
 } from "../ObjectStoreProvider";
 
-import { InMemoryProvider, asScopedIndexPutProvider } from "../InMemoryProvider";
+import {
+  InMemoryProvider,
+  asScopedIndexPutProvider,
+} from "../InMemoryProvider";
 import { IndexedDbProvider, IndexedDbTransaction } from "../IndexedDbProvider";
 import * as IndexedDbProviderModule from "../IndexedDbProvider";
 import {
@@ -2161,8 +2164,10 @@ describe("ObjectStoreProvider", function () {
                 })
                 .then(() => {
                   // Once the item is already tracked in memory, subsequent scoped puts (e.g. an update
-                  // fetched again via indexA) must keep it in sync across every index it's already part
-                  // of, rather than leaving stale/missing entries in indexes that were skipped this time.
+                  // fetched again via indexA) are removed from and re-added to that SAME scoped index
+                  // list only -- an index that was never populated for this item (indexB) stays
+                  // untouched, rather than being seeded with data that was never actually loaded
+                  // through it (the "memory island" bug this scoping exists to avoid).
                   return scopedPutProv
                     .putInIndexAfterGet_DoNotUse(
                       "test",
@@ -2177,8 +2182,39 @@ describe("ObjectStoreProvider", function () {
                         assert.equal(byIndexA.length, 1);
                         assert.equal((byIndexA[0] as any).a, "valA1-updated");
 
+                        // Still untouched: indexB was never scoped in for item1.
+                        assert.equal(byIndexB.length, 0);
+                      });
+                    });
+                })
+                .then(() => {
+                  // A later scoped put through the OTHER index (indexB) populates indexB for item1
+                  // without disturbing indexA, since removal/re-add is scoped per-call.
+                  return scopedPutProv
+                    .putInIndexAfterGet_DoNotUse(
+                      "test",
+                      {
+                        id: "item1",
+                        a: "valA1-updated",
+                        b: "valB1-updated-again",
+                      },
+                      ["indexB"]
+                    )
+                    .then(() => {
+                      return Promise.all([
+                        prov.getAll("test", "indexA"),
+                        prov.getAll("test", "indexB"),
+                      ]).then(([byIndexA, byIndexB]) => {
+                        // indexA keeps its previous entry untouched by this indexB-scoped call.
+                        assert.equal(byIndexA.length, 1);
+                        assert.equal((byIndexA[0] as any).a, "valA1-updated");
+
+                        // indexB is now populated for item1 for the first time.
                         assert.equal(byIndexB.length, 1);
-                        assert.equal((byIndexB[0] as any).b, "valB1-updated");
+                        assert.equal(
+                          (byIndexB[0] as any).b,
+                          "valB1-updated-again"
+                        );
                       });
                     });
                 })
@@ -2194,6 +2230,44 @@ describe("ObjectStoreProvider", function () {
                         assert.equal(byIndexA.length, 2);
                         assert.equal(byIndexB.length, 2);
                       });
+                    });
+                })
+                .then(() => {
+                  // A real (unscoped) put on an item that only exists in a subset of indexes -- e.g.
+                  // one previously cached as an "island" via a single scoped get -- resyncs it into
+                  // every index, since real writes never pass indexNames.
+                  return scopedPutProv
+                    .putInIndexAfterGet_DoNotUse(
+                      "test",
+                      { id: "item3", a: "valA3", b: "valB3" },
+                      ["indexA"]
+                    )
+                    .then(() =>
+                      Promise.all([
+                        prov.getAll("test", "indexA"),
+                        prov.getAll("test", "indexB"),
+                      ])
+                    )
+                    .then(([byIndexA, byIndexB]) => {
+                      assert.equal(byIndexA.length, 3);
+                      assert.equal(byIndexB.length, 2); // item3 not yet in indexB
+                    })
+                    .then(() =>
+                      prov.put("test", {
+                        id: "item3",
+                        a: "valA3-real-write",
+                        b: "valB3-real-write",
+                      })
+                    )
+                    .then(() =>
+                      Promise.all([
+                        prov.getAll("test", "indexA"),
+                        prov.getAll("test", "indexB"),
+                      ])
+                    )
+                    .then(([byIndexA, byIndexB]) => {
+                      assert.equal(byIndexA.length, 3);
+                      assert.equal(byIndexB.length, 3); // healed by the unscoped write
                     });
                 })
                 .then(() => prov.close())

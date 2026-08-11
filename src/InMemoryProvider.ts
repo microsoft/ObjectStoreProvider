@@ -403,13 +403,14 @@ class InMemoryStore implements DbStore {
    * an optional 3rd parameter on it) so that the normal, always-safe `put()` required by the shared
    * `DbStore` interface can never accidentally be called with scoping semantics.
    *
-   * @param indexNames Scoping hint: brand-new items (not already present in the store) are only
-   * written into the primary key plus the listed index(es), instead of every index on the store.
-   * This lets callers who fetched data through a single index (e.g. a ranged read served from that
+   * @param indexNames Scoping hint: items are only removed from / re-written into the primary key
+   * plus the listed index(es) -- every other index on the store is left completely untouched. This
+   * lets callers who fetched data through a single index (e.g. a ranged read served from that
    * index) cache the results without seeding "islands" of items into unrelated indexes that were
-   * never actually queried/loaded for those items. Items that already exist in the store keep being
-   * kept in sync across every index they were previously tracked by, so already-cached data never
-   * goes stale.
+   * never actually queried/loaded for those items, and without evicting an already-cached item from
+   * indexes this call didn't touch. Note that an index left untouched here can only go stale in
+   * content if the item's data changes without ever going through the real (unscoped) `put()` path --
+   * real writes always resync every index.
    */
   putInIndexAfterGet_DoNotUse(
     itemOrItems: ItemType | ItemType[],
@@ -432,26 +433,29 @@ class InMemoryStore implements DbStore {
           this._storeSchema.primaryKeyPath
         )!!!;
         const existingItem = this._mergedData.get(pk);
+
+        // Scope both the removal (of the stale copy) and the re-add (of the new copy) to the
+        // same index list, so an index this call didn't ask for is never touched either way.
+        const indexesToTouch = indexNames
+          ? filter(this._storeSchema.indexes, (index) =>
+              includes(indexNames, index.name)
+            )
+          : this._storeSchema.indexes;
+
         if (existingItem) {
           // We're going to overwrite the PK anyways - don't remove PK
           this._removeFromIndices(
             pk,
             existingItem,
-            /** RemovePrimaryKey */ false
+            /** RemovePrimaryKey */ false,
+            indexesToTouch
           );
         }
         this._mergedData.set(pk, item);
         (this.openPrimaryKey() as InMemoryIndex).put(item);
 
-        const indexesToPopulate =
-          indexNames && !existingItem
-            ? filter(this._storeSchema.indexes, (index) =>
-                includes(indexNames, index.name)
-              )
-            : this._storeSchema.indexes;
-
-        if (indexesToPopulate) {
-          for (const index of indexesToPopulate) {
+        if (indexesToTouch) {
+          for (const index of indexesToTouch) {
             (this.openIndex(index.name) as InMemoryIndex).put(item);
           }
         }
@@ -599,7 +603,8 @@ class InMemoryStore implements DbStore {
   private _removeFromIndices(
     key: string,
     item: ItemType,
-    removePrimaryKey: boolean
+    removePrimaryKey: boolean,
+    indexesToRemoveFrom: IndexSchema[] = this._storeSchema.indexes ?? []
   ) {
     // Don't need to remove from primary key on Puts because set is enough
     // 1. If it's an existing key then it will get overwritten
@@ -608,7 +613,7 @@ class InMemoryStore implements DbStore {
       (this.openPrimaryKey() as InMemoryIndex).remove(key);
     }
 
-    each(this._storeSchema.indexes, (index: IndexSchema) => {
+    each(indexesToRemoveFrom, (index: IndexSchema) => {
       const ind = this.openIndex(index.name) as InMemoryIndex;
       const indexKeys = ind.internal_getKeysFromItem(item);
 
