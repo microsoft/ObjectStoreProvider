@@ -21,6 +21,7 @@ import {
   takeRight,
   drop,
   take,
+  unionBy,
 } from "lodash";
 import {
   DbIndexFTSFromRangeQueries,
@@ -403,14 +404,17 @@ class InMemoryStore implements DbStore {
    * an optional 3rd parameter on it) so that the normal, always-safe `put()` required by the shared
    * `DbStore` interface can never accidentally be called with scoping semantics.
    *
-   * @param indexNames Scoping hint: items are only removed from / re-written into the primary key
-   * plus the listed index(es) -- every other index on the store is left completely untouched. This
-   * lets callers who fetched data through a single index (e.g. a ranged read served from that
-   * index) cache the results without seeding "islands" of items into unrelated indexes that were
-   * never actually queried/loaded for those items, and without evicting an already-cached item from
-   * indexes this call didn't touch. Note that an index left untouched here can only go stale in
-   * content if the item's data changes without ever going through the real (unscoped) `put()` path --
-   * real writes always resync every index.
+   * @param indexNames Scoping hint for *newly seen* items only: an item this store has never
+   * cached before is only written into the primary key plus the listed index(es) -- every other
+   * index on the store is left untouched, so callers who fetched data through a single index (e.g.
+   * a ranged read served from that index) can cache the results without seeding "islands" of items
+   * into unrelated indexes that were never actually queried/loaded for those items.
+   *
+   * If the item was already cached, the stale copy is removed from -- and the fresh copy is
+   * re-written into -- every index it was actually present in (not just the listed one(s)), so an
+   * index this call didn't ask for can never end up holding stale content. The listed index(es) are
+   * additionally guaranteed to receive the fresh copy even if the item wasn't previously tracked by
+   * them, so the ranged read that triggered this call still gets a correctly populated cache there.
    */
   putInIndexAfterGet_DoNotUse(
     itemOrItems: ItemType | ItemType[],
@@ -434,28 +438,43 @@ class InMemoryStore implements DbStore {
         )!!!;
         const existingItem = this._mergedData.get(pk);
 
-        // Scope both the removal (of the stale copy) and the re-add (of the new copy) to the
-        // same index list, so an index this call didn't ask for is never touched either way.
-        const indexesToTouch = indexNames
+        // Scoping hint from the caller: for a brand-new item (never cached before) this is where
+        // the fresh copy is written. Left undefined (i.e. every index) for the normal, unscoped
+        // put() path.
+        const requestedIndexes = indexNames
           ? filter(this._storeSchema.indexes, (index) =>
               includes(indexNames, index.name)
             )
           : this._storeSchema.indexes;
 
+        let indexesToPopulate = requestedIndexes;
+
         if (existingItem) {
-          // We're going to overwrite the PK anyways - don't remove PK
-          this._removeFromIndices(
+          // Always remove the stale copy from every index it's actually present in -- each index
+          // holds its own copy of the item, so scoping the removal to just the requested index(es)
+          // would leave an un-refreshed, stale copy behind in any other index the item was already
+          // tracked by (see PR #87 discussion).
+          const indexesThatHadItem = this._removeFromIndices(
             pk,
             existingItem,
             /** RemovePrimaryKey */ false,
-            indexesToTouch
+            this._storeSchema.indexes ?? []
           );
+
+          // Re-populate every index the item was actually already cached by (so it's refreshed,
+          // never left stale) plus whichever index(es) this call is scoped to (so a ranged read
+          // still gets a correctly populated cache there, even for an index the item wasn't
+          // previously tracked by).
+          indexesToPopulate = indexNames
+            ? unionBy(indexesThatHadItem, requestedIndexes ?? [], "name")
+            : this._storeSchema.indexes;
         }
+
         this._mergedData.set(pk, item);
         (this.openPrimaryKey() as InMemoryIndex).put(item);
 
-        if (indexesToTouch) {
-          for (const index of indexesToTouch) {
+        if (indexesToPopulate) {
+          for (const index of indexesToPopulate) {
             (this.openIndex(index.name) as InMemoryIndex).put(item);
           }
         }
@@ -605,13 +624,15 @@ class InMemoryStore implements DbStore {
     item: ItemType,
     removePrimaryKey: boolean,
     indexesToRemoveFrom: IndexSchema[] = this._storeSchema.indexes ?? []
-  ) {
+  ): IndexSchema[] {
     // Don't need to remove from primary key on Puts because set is enough
     // 1. If it's an existing key then it will get overwritten
     // 2. If it's a new key then we need to add it
     if (removePrimaryKey) {
       (this.openPrimaryKey() as InMemoryIndex).remove(key);
     }
+
+    const indexesThatHadItem: IndexSchema[] = [];
 
     each(indexesToRemoveFrom, (index: IndexSchema) => {
       const ind = this.openIndex(index.name) as InMemoryIndex;
@@ -620,14 +641,27 @@ class InMemoryStore implements DbStore {
       // when it's a unique index, value is the item.
       // in case of a non-unique index, value is an array of items,
       // and we want to only remove items that have the same primary key
+      let removedFromThisIndex = false;
       if (ind.isUniqueIndex()) {
-        each(indexKeys, (indexKey: string) => ind.remove(indexKey));
+        each(indexKeys, (indexKey: string) => {
+          if (ind.remove(indexKey)) {
+            removedFromThisIndex = true;
+          }
+        });
       } else {
-        each(indexKeys, (idxKey: string) =>
-          ind.remove({ idxKey, primaryKey: key })
-        );
+        each(indexKeys, (idxKey: string) => {
+          if (ind.remove({ idxKey, primaryKey: key })) {
+            removedFromThisIndex = true;
+          }
+        });
+      }
+
+      if (removedFromThisIndex) {
+        indexesThatHadItem.push(index);
       }
     });
+
+    return indexesThatHadItem;
   }
 }
 
@@ -739,22 +773,24 @@ class InMemoryIndex extends DbIndexFTSFromRangeQueries {
    * Removes item from index. For non-unique indices, a pair of index value and a primary key is required.
    * @param key a string, if it's a unique index, a pair of key value and a primary key, if it's a non-unique index
    * @param skipTransactionOnCreation
-   * @returns
+   * @returns Whether an entry was actually found and removed.
    */
   public remove(
     key: string | { primaryKey: string; idxKey: string },
     skipTransactionOnCreation?: boolean
-  ) {
+  ): boolean {
     if (!skipTransactionOnCreation && !this._trans!.internal_isOpen()) {
       throw new Error("InMemoryTransaction already closed");
     }
 
     if (typeof key === "string") {
+      const hadKey = this._indexTree.has(key);
       this._indexTree.delete(key);
+      return hadKey;
     } else {
       const idxItems = this._indexTree.get(key.idxKey);
       if (!idxItems) {
-        return;
+        return false;
       }
 
       const idxItemsWithoutItem = idxItems.filter((idxItem) => {
@@ -765,6 +801,11 @@ class InMemoryIndex extends DbIndexFTSFromRangeQueries {
         return idxItemPrimaryKeyVal !== key.primaryKey;
       });
 
+      if (idxItemsWithoutItem.length === idxItems.length) {
+        // Nothing matched key.primaryKey -- no-op.
+        return false;
+      }
+
       // if we removed all items, remove the index tree node.
       // otherwise, update the index value with the new array
       // sans the primary key item
@@ -773,6 +814,7 @@ class InMemoryIndex extends DbIndexFTSFromRangeQueries {
       } else {
         this._indexTree.set(key.idxKey, idxItemsWithoutItem);
       }
+      return true;
     }
   }
 
