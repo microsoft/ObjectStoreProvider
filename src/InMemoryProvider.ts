@@ -13,6 +13,7 @@ import {
   includes,
   compact,
   map,
+  filter,
   find,
   values,
   flatten,
@@ -20,6 +21,7 @@ import {
   takeRight,
   drop,
   take,
+  unionBy,
 } from "lodash";
 import {
   DbIndexFTSFromRangeQueries,
@@ -148,6 +150,69 @@ export class InMemoryProvider extends DbProvider {
   internal_getStore(name: string): StoreData {
     return this._stores.get(name)!!!;
   }
+
+  /**
+   * Deliberately NOT named/overloaded as `put()`, and deliberately not reachable except through
+   * `asScopedIndexPutProvider()` below -- see there for the full rationale. Exposes InMemoryStore's
+   * indexNames scoping (see InMemoryStore.putInIndexAfterGet_DoNotUse() for the full rationale).
+   * This is intentionally NOT part of the shared DbStore/DbProvider interfaces: scoping which
+   * index(es) get populated only makes sense for an in-memory cache that's re-derived from a real
+   * database, never for the database itself, which must always keep every index consistent with
+   * the data it stores.
+   *
+   * DO NOT USE unless you're re-populating an in-memory cache from a ranged read that only ever
+   * touched the listed index(es) -- e.g. right after a `getRange()`/`getMultiple()` served by a
+   * single index. Using this for any other kind of write will leave the *other* indexes on this
+   * store permanently missing the item(s), silently diverging from the normal guarantee (shared by
+   * every other DbProvider, including this same InMemoryProvider's own `put()`) that every index on
+   * a store always reflects every item in that store.
+   */
+  putInIndexAfterGet_DoNotUse(
+    storeName: string,
+    itemOrItems: ItemType | ItemType[],
+    indexNames: string[]
+  ): Promise<void> {
+    return this._getStoreTransaction(storeName, true).then((store) => {
+      return (store as InMemoryStore).putInIndexAfterGet_DoNotUse(
+        itemOrItems,
+        indexNames
+      );
+    });
+  }
+}
+
+/**
+ * Specialized capability for providers that can scope in-memory index writes to only the
+ * index(es) that were actually queried, instead of populating every index on the store (see
+ * `InMemoryProvider.putInIndexAfterGet_DoNotUse()` for the full rationale and warnings).
+ *
+ * This is intentionally kept off the public `InMemoryProvider` class surface -- and off the
+ * shared `DbStore`/`DbProvider` interfaces entirely -- so that reaching for it always requires
+ * going through `asScopedIndexPutProvider()` below rather than casting/typing a `DbProvider`
+ * reference as `InMemoryProvider` and calling it directly.
+ */
+export interface IScopedIndexPutProvider {
+  putInIndexAfterGet_DoNotUse(
+    storeName: string,
+    itemOrItems: ItemType | ItemType[],
+    indexNames: string[]
+  ): Promise<void>;
+}
+
+/**
+ * The only supported way to reach the `IScopedIndexPutProvider` capability described above.
+ *
+ * Returns `provider` narrowed to `IScopedIndexPutProvider` when it actually supports scoped index
+ * puts (currently: any `InMemoryProvider` instance), or `undefined` otherwise. Routing through this
+ * helper -- instead of casting a `DbProvider` to `InMemoryProvider` -- makes every call site that
+ * opts into breaking the normal "every index stays in sync" guarantee explicit and easy to find/audit.
+ */
+export function asScopedIndexPutProvider(
+  provider: DbProvider
+): IScopedIndexPutProvider | undefined {
+  return provider instanceof InMemoryProvider
+    ? (provider as unknown as IScopedIndexPutProvider)
+    : undefined;
 }
 
 // Notes: Doesn't limit the stores it can fetch to those in the stores it was "created" with, nor does it handle read-only transactions
@@ -329,6 +394,39 @@ class InMemoryStore implements DbStore {
   }
 
   put(itemOrItems: ItemType | ItemType[]): Promise<void> {
+    return this._putInternal(itemOrItems);
+  }
+
+  /**
+   * DO NOT USE unless you're re-populating an in-memory cache from a ranged read that only ever
+   * touched the listed index(es) -- see `InMemoryProvider.putInIndexAfterGet_DoNotUse()` for the
+   * full rationale and warnings. Deliberately named/kept separate from `put()` above (rather than
+   * an optional 3rd parameter on it) so that the normal, always-safe `put()` required by the shared
+   * `DbStore` interface can never accidentally be called with scoping semantics.
+   *
+   * @param indexNames Scoping hint for *newly seen* items only: an item this store has never
+   * cached before is only written into the primary key plus the listed index(es) -- every other
+   * index on the store is left untouched, so callers who fetched data through a single index (e.g.
+   * a ranged read served from that index) can cache the results without seeding "islands" of items
+   * into unrelated indexes that were never actually queried/loaded for those items.
+   *
+   * If the item was already cached, the stale copy is removed from -- and the fresh copy is
+   * re-written into -- every index it was actually present in (not just the listed one(s)), so an
+   * index this call didn't ask for can never end up holding stale content. The listed index(es) are
+   * additionally guaranteed to receive the fresh copy even if the item wasn't previously tracked by
+   * them, so the ranged read that triggered this call still gets a correctly populated cache there.
+   */
+  putInIndexAfterGet_DoNotUse(
+    itemOrItems: ItemType | ItemType[],
+    indexNames: string[]
+  ): Promise<void> {
+    return this._putInternal(itemOrItems, indexNames);
+  }
+
+  private _putInternal(
+    itemOrItems: ItemType | ItemType[],
+    indexNames?: string[]
+  ): Promise<void> {
     if (!this._trans.internal_isOpen()) {
       return Promise.reject<void>("InMemoryTransaction already closed");
     }
@@ -339,18 +437,44 @@ class InMemoryStore implements DbStore {
           this._storeSchema.primaryKeyPath
         )!!!;
         const existingItem = this._mergedData.get(pk);
+
+        // Scoping hint from the caller: for a brand-new item (never cached before) this is where
+        // the fresh copy is written. Left undefined (i.e. every index) for the normal, unscoped
+        // put() path.
+        const requestedIndexes = indexNames
+          ? filter(this._storeSchema.indexes, (index) =>
+              includes(indexNames, index.name)
+            )
+          : this._storeSchema.indexes;
+
+        let indexesToPopulate = requestedIndexes;
+
         if (existingItem) {
-          // We're going to overwrite the PK anyways - don't remove PK
-          this._removeFromIndices(
+          // Always remove the stale copy from every index it's actually present in -- each index
+          // holds its own copy of the item, so scoping the removal to just the requested index(es)
+          // would leave an un-refreshed, stale copy behind in any other index the item was already
+          // tracked by (see PR #87 discussion).
+          const indexesThatHadItem = this._removeFromIndices(
             pk,
             existingItem,
-            /** RemovePrimaryKey */ false
+            /** RemovePrimaryKey */ false,
+            this._storeSchema.indexes ?? []
           );
+
+          // Re-populate every index the item was actually already cached by (so it's refreshed,
+          // never left stale) plus whichever index(es) this call is scoped to (so a ranged read
+          // still gets a correctly populated cache there, even for an index the item wasn't
+          // previously tracked by).
+          indexesToPopulate = indexNames
+            ? unionBy(indexesThatHadItem, requestedIndexes ?? [], "name")
+            : this._storeSchema.indexes;
         }
+
         this._mergedData.set(pk, item);
         (this.openPrimaryKey() as InMemoryIndex).put(item);
-        if (this._storeSchema.indexes) {
-          for (const index of this._storeSchema.indexes) {
+
+        if (indexesToPopulate) {
+          for (const index of indexesToPopulate) {
             (this.openIndex(index.name) as InMemoryIndex).put(item);
           }
         }
@@ -498,8 +622,9 @@ class InMemoryStore implements DbStore {
   private _removeFromIndices(
     key: string,
     item: ItemType,
-    removePrimaryKey: boolean
-  ) {
+    removePrimaryKey: boolean,
+    indexesToRemoveFrom: IndexSchema[] = this._storeSchema.indexes ?? []
+  ): IndexSchema[] {
     // Don't need to remove from primary key on Puts because set is enough
     // 1. If it's an existing key then it will get overwritten
     // 2. If it's a new key then we need to add it
@@ -507,21 +632,36 @@ class InMemoryStore implements DbStore {
       (this.openPrimaryKey() as InMemoryIndex).remove(key);
     }
 
-    each(this._storeSchema.indexes, (index: IndexSchema) => {
+    const indexesThatHadItem: IndexSchema[] = [];
+
+    each(indexesToRemoveFrom, (index: IndexSchema) => {
       const ind = this.openIndex(index.name) as InMemoryIndex;
       const indexKeys = ind.internal_getKeysFromItem(item);
 
       // when it's a unique index, value is the item.
       // in case of a non-unique index, value is an array of items,
       // and we want to only remove items that have the same primary key
+      let removedFromThisIndex = false;
       if (ind.isUniqueIndex()) {
-        each(indexKeys, (indexKey: string) => ind.remove(indexKey));
+        each(indexKeys, (indexKey: string) => {
+          if (ind.remove(indexKey)) {
+            removedFromThisIndex = true;
+          }
+        });
       } else {
-        each(indexKeys, (idxKey: string) =>
-          ind.remove({ idxKey, primaryKey: key })
-        );
+        each(indexKeys, (idxKey: string) => {
+          if (ind.remove({ idxKey, primaryKey: key })) {
+            removedFromThisIndex = true;
+          }
+        });
+      }
+
+      if (removedFromThisIndex) {
+        indexesThatHadItem.push(index);
       }
     });
+
+    return indexesThatHadItem;
   }
 }
 
@@ -633,22 +773,24 @@ class InMemoryIndex extends DbIndexFTSFromRangeQueries {
    * Removes item from index. For non-unique indices, a pair of index value and a primary key is required.
    * @param key a string, if it's a unique index, a pair of key value and a primary key, if it's a non-unique index
    * @param skipTransactionOnCreation
-   * @returns
+   * @returns Whether an entry was actually found and removed.
    */
   public remove(
     key: string | { primaryKey: string; idxKey: string },
     skipTransactionOnCreation?: boolean
-  ) {
+  ): boolean {
     if (!skipTransactionOnCreation && !this._trans!.internal_isOpen()) {
       throw new Error("InMemoryTransaction already closed");
     }
 
     if (typeof key === "string") {
+      const hadKey = this._indexTree.has(key);
       this._indexTree.delete(key);
+      return hadKey;
     } else {
       const idxItems = this._indexTree.get(key.idxKey);
       if (!idxItems) {
-        return;
+        return false;
       }
 
       const idxItemsWithoutItem = idxItems.filter((idxItem) => {
@@ -659,6 +801,11 @@ class InMemoryIndex extends DbIndexFTSFromRangeQueries {
         return idxItemPrimaryKeyVal !== key.primaryKey;
       });
 
+      if (idxItemsWithoutItem.length === idxItems.length) {
+        // Nothing matched key.primaryKey -- no-op.
+        return false;
+      }
+
       // if we removed all items, remove the index tree node.
       // otherwise, update the index value with the new array
       // sans the primary key item
@@ -667,6 +814,7 @@ class InMemoryIndex extends DbIndexFTSFromRangeQueries {
       } else {
         this._indexTree.set(key.idxKey, idxItemsWithoutItem);
       }
+      return true;
     }
   }
 
