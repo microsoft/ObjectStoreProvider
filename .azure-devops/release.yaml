@@ -99,11 +99,13 @@ extends:
               name: Azure-Pipelines-1ESPT-ExDShared
               image: ubuntu-latest
               os: linux
+            templateContext:
+              type: releaseJob
+              inputs:
+                - input: pipelineArtifact
+                  artifactName: npm-package-$(Build.BuildId)-$(Build.BuildNumber)
+                  targetPath: $(Pipeline.Workspace)/packages
             steps:
-              - download: current
-                artifact: npm-package-$(Build.BuildId)-$(Build.BuildNumber)
-                displayName: Download npm package
-
               - script: |
                   cat <<'EOF' > "$(Agent.TempDirectory)/npm-private-feed.npmrc"
                   always-auth=true
@@ -117,7 +119,7 @@ extends:
                   workingFile: "$(Agent.TempDirectory)/npm-private-feed.npmrc"
 
               - script: |
-                  npm publish "$(Pipeline.Workspace)/npm-package-$(Build.BuildId)-$(Build.BuildNumber)"/*.tgz --registry "$(adoNpmFeedBaseUrl)"
+                  npm publish "$(Pipeline.Workspace)/packages"/*.tgz --registry "$(adoNpmFeedBaseUrl)"
                 displayName: Publish to private ADO feed
                 env:
                   NPM_CONFIG_USERCONFIG: $(Agent.TempDirectory)/npm-private-feed.npmrc
