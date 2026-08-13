@@ -9,6 +9,8 @@ variables:
     value: 21f0b890-e3a8-4c0b-b9e7-2f764f8b799c
   - name: adoMirrorNpmFeedBaseUrl
     value: https://pkgs.dev.azure.com/DomoreexpGithub/Github_Pipelines/_packaging/github-npm-mirror/npm/registry/
+  - name: adoNpmFeedBaseUrl
+    value: https://pkgs.dev.azure.com/DomoreexpGithub/_packaging/GraphQL/npm/registry/
 
 resources:
   repositories:
@@ -90,9 +92,42 @@ extends:
                   npm pack --pack-destination $(System.DefaultWorkingDirectory)/packages
                 displayName: "Generate npm package (.tgz)"
 
+          - job: PrivateAdoRelease
+            displayName: Release to ADO npm feed
+            dependsOn: Build
+            pool:
+              name: Azure-Pipelines-1ESPT-ExDShared
+              image: ubuntu-latest
+              os: linux
+            templateContext:
+              type: releaseJob
+              isProduction: true
+              inputs:
+                - input: pipelineArtifact
+                  artifactName: npm-package-$(Build.BuildId)-$(Build.BuildNumber)
+                  targetPath: $(Pipeline.Workspace)/packages
+            steps:
+              - script: |
+                  cat <<'EOF' > "$(Agent.TempDirectory)/npm-private-feed.npmrc"
+                  always-auth=true
+                  registry=$(adoNpmFeedBaseUrl)
+                  EOF
+                displayName: Create temporary .npmrc for private ADO feed
+
+              - task: npmAuthenticate@0
+                displayName: Authenticate to private ADO feed
+                inputs:
+                  workingFile: "$(Agent.TempDirectory)/npm-private-feed.npmrc"
+
+              - script: |
+                  npm publish "$(Pipeline.Workspace)/packages"/*.tgz --registry "$(adoNpmFeedBaseUrl)"
+                displayName: Publish to private ADO feed
+                env:
+                  NPM_CONFIG_USERCONFIG: $(Agent.TempDirectory)/npm-private-feed.npmrc
+
           - job: Release
             displayName: ObjectStoreProvider Release
-            dependsOn: Build
+            dependsOn: PrivateAdoRelease
             pool:
               name: Azure-Pipelines-1ESPT-ExDShared
               image: ubuntu-latest
