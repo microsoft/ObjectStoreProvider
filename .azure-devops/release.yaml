@@ -101,6 +101,7 @@ extends:
               os: linux
             templateContext:
               type: releaseJob
+              isProduction: true
               inputs:
                 - input: pipelineArtifact
                   artifactName: npm-package-$(Build.BuildId)-$(Build.BuildNumber)
