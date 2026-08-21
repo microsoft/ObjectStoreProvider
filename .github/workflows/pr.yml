@@ -21,10 +21,10 @@ jobs:
     steps:
       # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@0717577d45739eb3c851188b29f50ed6c0b2194e # v2.8.0
 
       # Sets up Node and an .npmrc file. This is the official Github supported way to set up node.
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: "18"
           registry-url: "https://registry.npmjs.org"
@@ -48,7 +48,7 @@ jobs:
 
       - name: Check whether version was bumped in PR
         id: actions_project_version_check
-        uses: "thomastay/actions-project-version-check@v2.0.0"
+        uses: "thomastay/actions-project-version-check@64236a4a27a9f75e576ba956d0399d4fbafce381" # v2.0.0
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           file-to-check: package.json
