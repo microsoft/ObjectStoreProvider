@@ -31,6 +31,23 @@ Other support: NodeJS
 
 Coming soon.
 
+## Error behavior
+
+For failures originating from native IndexedDB requests or transactions,
+`IndexedDbProvider` rejects with the original native `DOMException` or `Error`.
+This includes database open, delete, request, cursor, count, and transaction
+completion failures. Callers can therefore reliably inspect native error fields
+such as `name`, `message`, `code`, and `cause`; library validation and
+configuration errors retain their existing behavior.
+
+The provider retains two established recovery paths: a failed
+`wipeIfExists` deletion is logged and ignored so opening continues, and a
+native `VersionError` triggers the existing wipe-and-reopen attempt. Cursor
+callback exceptions remain caller-code failures with their existing behavior.
+Raw native errors are retained only for request, cursor, count, direct delete,
+and transaction terminal failures that already reject the calling operation;
+this does not alter successful recovery, retry, wipe, or fallback behavior.
+
 ## Compiling
 
 ### Source
