@@ -54,14 +54,12 @@ import {
   TransactionToken,
   TransactionLockHelper,
 } from "./TransactionLockHelper";
-
-import { createOrderedMap, IOrderedMap, OrderedMapType } from "./ordered-map";
+import { BTreeOrderedMap, IOrderedMap } from "./ordered-map";
 
 export interface StoreData {
   data: Map<string, ItemType>;
   indices: Map<string, InMemoryIndex>;
   schema: StoreSchema;
-  mapType?: OrderedMapType;
 }
 
 export interface ILiveConsumerConfigs {
@@ -80,18 +78,15 @@ export class InMemoryProvider extends DbProvider {
   private _stores: Map<string, StoreData> = new Map();
 
   private _lockHelper: TransactionLockHelper | undefined;
-  private readonly _mapType?: OrderedMapType;
   private readonly _supportsRollback?: boolean;
   private logger: IObjectStoreProviderLogger;
 
   constructor(
-    mapType?: OrderedMapType,
     supportsRollback = false,
     logger?: IObjectStoreProviderLogger,
     private getLiveConfigs?: GetLiveConsumerConfigsFn
   ) {
     super();
-    this._mapType = mapType;
     this._supportsRollback = supportsRollback;
 
     this.logger = logger ? logger : console;
@@ -110,7 +105,6 @@ export class InMemoryProvider extends DbProvider {
         schema: storeSchema,
         data: new Map(),
         indices: new Map(),
-        mapType: this._mapType,
       });
     });
 
@@ -315,7 +309,6 @@ class InMemoryStore implements DbStore {
   private _mergedData: Map<string, ItemType>;
   private _storeSchema: StoreSchema;
   private _indices: Map<string, InMemoryIndex>;
-  private _mapType?: OrderedMapType;
   constructor(
     private _trans: InMemoryTransaction,
     storeInfo: StoreData,
@@ -329,7 +322,6 @@ class InMemoryStore implements DbStore {
     }
     this._indices = storeInfo.indices;
     this._mergedData = storeInfo.data;
-    this._mapType = storeInfo.mapType;
   }
 
   internal_commitPendingData(): void {
@@ -359,7 +351,6 @@ class InMemoryStore implements DbStore {
           this._storeSchema.primaryKeyPath,
           this._storeSchema.name,
           this.logger,
-          this._mapType,
           this.getLiveConfigs
         )
       );
@@ -542,7 +533,6 @@ class InMemoryStore implements DbStore {
           this._storeSchema.primaryKeyPath,
           this._storeSchema.name,
           this.logger,
-          this._mapType,
           this.getLiveConfigs
         )
       );
@@ -570,7 +560,6 @@ class InMemoryStore implements DbStore {
           this._storeSchema.primaryKeyPath,
           this._storeSchema.name,
           this.logger,
-          this._mapType,
           this.getLiveConfigs
         )
       );
@@ -595,7 +584,6 @@ class InMemoryStore implements DbStore {
           this._storeSchema.primaryKeyPath,
           this._storeSchema.name,
           this.logger,
-          this._mapType,
           this.getLiveConfigs
         )
       );
@@ -676,11 +664,10 @@ class InMemoryIndex extends DbIndexFTSFromRangeQueries {
     primaryKeyPath: KeyPathType,
     private tableName: string,
     private logger: IObjectStoreProviderLogger,
-    mapType?: OrderedMapType,
     getLiveConfigs?: GetLiveConsumerConfigsFn
   ) {
     super(indexSchema, primaryKeyPath);
-    this._indexTree = createOrderedMap(mapType);
+    this._indexTree = new BTreeOrderedMap();
     this.put(values(_mergedData), true);
     this.getLiveConfigs = getLiveConfigs ?? (() => defaultLiveConsumerConfigs);
   }

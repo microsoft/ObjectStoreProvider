@@ -32,25 +32,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@collectable/core@npm:^5.0.1":
-  version: 5.0.1
-  resolution: "@collectable/core@npm:5.0.1"
-  dependencies:
-    "@frptools/corelib": "npm:^1.1.0"
-    "@frptools/structural": "npm:^1.0.0"
-  checksum: 10c0/7bc8f3dea60758fd51410c65c6e4d910197bad599ab9792ebd045c2bd31c175c09fdaa317b391416e1a8ba8ec8358ccae144689440bb9c15a8bec04a0da5c9c3
-  languageName: node
-  linkType: hard
-
-"@collectable/red-black-tree@npm:^5.1.1":
-  version: 5.1.1
-  resolution: "@collectable/red-black-tree@npm:5.1.1"
-  dependencies:
-    "@collectable/core": "npm:^5.0.1"
-  checksum: 10c0/63d52d6f73379d05a6ce7494334059cc1e3bcec60574d7030dff25304a652cb97d340ed6f52ae4661de2d4df783b94e50726c225b7fb44608082835f1ae11cc0
-  languageName: node
-  linkType: hard
-
 "@discoveryjs/json-ext@npm:^0.5.0":
   version: 0.5.3
   resolution: "@discoveryjs/json-ext@npm:0.5.3"
@@ -72,26 +53,6 @@ __metadata:
     minimatch: "npm:^3.0.4"
     strip-json-comments: "npm:^3.1.1"
   checksum: 10c0/d525584ea3c01d2e33ba3fdb41229c89cf95f53038e38fe55d055d66db089b4335f8600c937075c76b8f16dada5ebd834f747a72b2e38fd3e8f502218738269b
-  languageName: node
-  linkType: hard
-
-"@frptools/corelib@npm:^1.1.0, @frptools/corelib@npm:^1.1.1":
-  version: 1.1.1
-  resolution: "@frptools/corelib@npm:1.1.1"
-  dependencies:
-    date-fns: "npm:^1.28.5"
-    glob: "npm:^7.1.2"
-    uuid: "npm:^3.1.0"
-  checksum: 10c0/ea11dd3dbf3c68b37d505acab6acb1c444f4efbdcc742705b2d5bf9bb3efef6716c1be1249bf91ae7406b006760c9bc4c55cce7be332829b0008caea4f072f55
-  languageName: node
-  linkType: hard
-
-"@frptools/structural@npm:^1.0.0":
-  version: 1.0.2
-  resolution: "@frptools/structural@npm:1.0.2"
-  dependencies:
-    "@frptools/corelib": "npm:^1.1.1"
-  checksum: 10c0/3c1640030b5d8f4cf5c2cf12e224e02b49baba89879b301f99904f36c1716340b111914eebd82a09dcf13cd40d0f343e2d4cd2b18d0f8de0d942ba67adedae89
   languageName: node
   linkType: hard
 
@@ -152,8 +113,6 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@microsoft/objectstoreprovider@workspace:."
   dependencies:
-    "@collectable/core": "npm:^5.0.1"
-    "@collectable/red-black-tree": "npm:^5.1.1"
     "@types/assert": "npm:^1.5.4"
     "@types/chai": "npm:^4.2.18"
     "@types/lodash": "npm:^4.14.170"
@@ -1538,13 +1497,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"date-fns@npm:^1.28.5":
-  version: 1.30.1
-  resolution: "date-fns@npm:1.30.1"
-  checksum: 10c0/bad6ad7c15180121e15d61ad62a4a214c108d66f35b35f5eeb6ade837a3c29aa4444b9528a93a5374b95ba11231c142276351bf52f4d168676f9a1e17ce3726a
-  languageName: node
-  linkType: hard
-
 "date-format@npm:^2.1.0":
   version: 2.1.0
   resolution: "date-format@npm:2.1.0"
@@ -2419,7 +2371,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"glob@npm:7.1.7, glob@npm:^7.1.2, glob@npm:^7.1.3, glob@npm:^7.1.7":
+"glob@npm:7.1.7, glob@npm:^7.1.3, glob@npm:^7.1.7":
   version: 7.1.7
   resolution: "glob@npm:7.1.7"
   dependencies:
@@ -4930,15 +4882,6 @@ __metadata:
   version: 1.0.1
   resolution: "utils-merge@npm:1.0.1"
   checksum: 10c0/02ba649de1b7ca8854bfe20a82f1dfbdda3fb57a22ab4a8972a63a34553cf7aa51bc9081cf7e001b035b88186d23689d69e71b510e610a09a4c66f68aa95b672
-  languageName: node
-  linkType: hard
-
-"uuid@npm:^3.1.0":
-  version: 3.4.0
-  resolution: "uuid@npm:3.4.0"
-  bin:
-    uuid: ./bin/uuid
-  checksum: 10c0/1c13950df865c4f506ebfe0a24023571fa80edf2e62364297a537c80af09c618299797bbf2dbac6b1f8ae5ad182ba474b89db61e0e85839683991f7e08795347
   languageName: node
   linkType: hard
 
