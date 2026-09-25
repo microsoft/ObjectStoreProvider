@@ -621,9 +621,7 @@ export class IndexedDbProvider extends DbProvider {
                   openError?.message ||
                   "Unknown error"
                 } (name: ${
-                  openError?.target?.error?.name ||
-                  openError?.name ||
-                  "Unknown"
+                  openError?.target?.error?.name || openError?.name || "Unknown"
                 })`
               : "Unknown error occurred during upgrade",
           });

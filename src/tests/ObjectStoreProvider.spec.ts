@@ -6126,7 +6126,9 @@ describe("Error handling and telemetry", function () {
             },
           },
           onerror: null as ((event: Event) => any) | null,
-          onupgradeneeded: null as ((event: IDBVersionChangeEvent) => any) | null,
+          onupgradeneeded: null as
+            | ((event: IDBVersionChangeEvent) => any)
+            | null,
         } as unknown as IDBOpenDBRequest;
         const factory = {
           open: () => {
@@ -6162,7 +6164,10 @@ describe("Error handling and telemetry", function () {
       });
 
       it("open retains the VersionError wipe-and-reopen recovery", (done) => {
-        const error = new DOMException("The version is too old", "VersionError");
+        const error = new DOMException(
+          "The version is too old",
+          "VersionError"
+        );
         let openCallCount = 0;
         let deleteCalled = false;
         const factory = {
