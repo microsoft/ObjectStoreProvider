@@ -5975,6 +5975,315 @@ describe("Error handling and telemetry", function () {
         .catch((err) => done(err));
     });
 
+    describe("IndexedDbProvider native error propagation", () => {
+      const schema: DbSchema = {
+        version: 1,
+        stores: [{ name: "test", primaryKeyPath: "id" }],
+      };
+
+      function failRequest<T>(error: DOMException): IDBRequest<T> {
+        const request = {
+          error,
+          onerror: null as ((event: Event) => any) | null,
+        } as unknown as IDBRequest<T>;
+
+        setTimeout(() => request.onerror!({ target: request } as Event), 0);
+        return request;
+      }
+
+      function succeedRequest<T>(result: T): IDBRequest<T> {
+        const request = {
+          result,
+          onsuccess: null as ((event: Event) => any) | null,
+        } as unknown as IDBRequest<T>;
+
+        setTimeout(() => request.onsuccess!({ target: request } as Event), 0);
+        return request;
+      }
+
+      function mockDatabase(): IDBDatabase {
+        return {
+          close: () => {},
+          name: "native-error-test",
+          objectStoreNames: [],
+        } as IDBDatabase;
+      }
+
+      function getMockedPrimaryKeyIndex(store: Partial<IDBObjectStore>) {
+        const provider = new IndexedDbProvider({} as IDBFactory, true);
+        const transaction = {
+          objectStore: () => ({ name: "test", ...store } as IDBObjectStore),
+        } as IDBTransaction;
+        (provider as any)._db = {
+          transaction: () => transaction,
+        } as IDBDatabase;
+        (provider as any)._schema = schema;
+        (provider as any)._lockHelper = new TransactionLockHelper(schema, true);
+
+        return provider
+          .openTransaction(["test"], false)
+          .then((dbTransaction) =>
+            dbTransaction.getStore("test").openPrimaryKey()
+          );
+      }
+
+      it("countAll preserves the native count request error", (done) => {
+        const error = new DOMException("The count failed", "UnknownError");
+
+        getMockedPrimaryKeyIndex({
+          count: () => failRequest<number>(error),
+        })
+          .then((index) => index.countAll())
+          .then(
+            () => done(new Error("Expected countAll to reject")),
+            (actualError) => {
+              try {
+                assert.strictEqual(actualError, error);
+                done();
+              } catch (assertionError) {
+                done(assertionError);
+              }
+            }
+          );
+      });
+
+      it("getAll preserves the native cursor request error", (done) => {
+        const error = new DOMException("The cursor failed", "UnknownError");
+
+        getMockedPrimaryKeyIndex({
+          openCursor: () => failRequest<IDBCursorWithValue | null>(error),
+        })
+          .then((index) => index.getAll())
+          .then(
+            () => done(new Error("Expected getAll to reject")),
+            (actualError) => {
+              try {
+                assert.strictEqual(actualError, error);
+                done();
+              } catch (assertionError) {
+                done(assertionError);
+              }
+            }
+          );
+      });
+
+      it("open preserves the native open error", (done) => {
+        const error = new DOMException(
+          "The database cannot be opened",
+          "UnknownError"
+        );
+        const factory = {
+          open: () => failRequest<IDBDatabase>(error),
+        } as unknown as IDBFactory;
+
+        new IndexedDbProvider(factory, true)
+          .open("native-open-error", schema, false, false)
+          .then(
+            () => done(new Error("Expected open to reject")),
+            (actualError) => {
+              try {
+                assert.strictEqual(actualError, error);
+                assert.equal(actualError.name, "UnknownError");
+                done();
+              } catch (assertionError) {
+                done(assertionError);
+              }
+            }
+          );
+      });
+
+      it("open preserves a native schema-upgrade error", (done) => {
+        const schemaError = new DOMException(
+          "The object store cannot be created",
+          "ConstraintError"
+        );
+        const abortError = new DOMException(
+          "The upgrade transaction was aborted",
+          "AbortError"
+        );
+        const request = {
+          error: abortError,
+          result: {
+            objectStoreNames: [],
+            createObjectStore: () => {
+              throw schemaError;
+            },
+          },
+          onerror: null as ((event: Event) => any) | null,
+          onupgradeneeded: null as
+            | ((event: IDBVersionChangeEvent) => any)
+            | null,
+        } as unknown as IDBOpenDBRequest;
+        const factory = {
+          open: () => {
+            setTimeout(() => {
+              try {
+                request.onupgradeneeded!({
+                  oldVersion: 0,
+                  target: { transaction: {} },
+                } as unknown as IDBVersionChangeEvent);
+              } catch {
+                // IndexedDB aborts the transaction after an upgrade handler throws.
+              }
+              request.onerror!({ target: request } as Event);
+            }, 0);
+            return request;
+          },
+        } as unknown as IDBFactory;
+
+        new IndexedDbProvider(factory, true)
+          .open("native-upgrade-error", schema, false, false)
+          .then(
+            () => done(new Error("Expected open to reject")),
+            (actualError) => {
+              try {
+                assert.strictEqual(actualError, schemaError);
+                assert.equal(actualError.name, "ConstraintError");
+                done();
+              } catch (assertionError) {
+                done(assertionError);
+              }
+            }
+          );
+      });
+
+      it("open retains the VersionError wipe-and-reopen recovery", (done) => {
+        const error = new DOMException(
+          "The version is too old",
+          "VersionError"
+        );
+        let openCallCount = 0;
+        let deleteCalled = false;
+        const factory = {
+          open: () => {
+            openCallCount++;
+            return openCallCount === 1
+              ? failRequest<IDBDatabase>(error)
+              : succeedRequest(mockDatabase());
+          },
+          deleteDatabase: () => {
+            deleteCalled = true;
+            return succeedRequest<void>(undefined) as IDBOpenDBRequest;
+          },
+        } as unknown as IDBFactory;
+
+        new IndexedDbProvider(factory, true)
+          .open("native-version-error", schema, false, false)
+          .then(
+            () => {
+              assert.equal(openCallCount, 2);
+              assert.equal(deleteCalled, true);
+              done();
+            },
+            (actualError) => done(actualError)
+          );
+      });
+
+      it("open with wipeIfExists logs delete errors and continues opening", (done) => {
+        const error = new DOMException(
+          "The existing database cannot be deleted",
+          "UnknownError"
+        );
+        const errors: string[] = [];
+        const factory = {
+          deleteDatabase: () => failRequest<void>(error),
+          open: () => succeedRequest(mockDatabase()),
+        } as unknown as IDBFactory;
+        const logger = {
+          log: () => {},
+          warn: () => {},
+          error: (message: string) => errors.push(message),
+        };
+
+        new IndexedDbProvider(factory, true, undefined, logger)
+          .open("native-wipe-error", schema, true, false)
+          .then(
+            () => {
+              try {
+                assert.equal(errors.length, 1);
+                assert.include(errors[0], error.message);
+                done();
+              } catch (assertionError) {
+                done(assertionError);
+              }
+            },
+            (actualError) => done(actualError)
+          );
+      });
+
+      it("deleteDatabase preserves the native delete error", (done) => {
+        const error = new DOMException(
+          "The database cannot be deleted",
+          "UnknownError"
+        );
+        const factory = {
+          deleteDatabase: () => failRequest<void>(error),
+        } as unknown as IDBFactory;
+        const provider = new IndexedDbProvider(factory, true);
+        (provider as any)._db = {
+          close: () => {},
+          name: "native-delete-error",
+          objectStoreNames: [],
+        } as IDBDatabase;
+
+        provider.deleteDatabase().then(
+          () => done(new Error("Expected deleteDatabase to reject")),
+          (actualError) => {
+            try {
+              assert.strictEqual(actualError, error);
+              assert.equal(actualError.name, "UnknownError");
+              done();
+            } catch (assertionError) {
+              done(assertionError);
+            }
+          }
+        );
+      });
+
+      it("transaction completion preserves the native transaction error", (done) => {
+        const lockHelper = new TransactionLockHelper(schema, true);
+        const transaction = {
+          objectStore: () => ({ name: "test" } as IDBObjectStore),
+          oncomplete: null as ((event: Event) => any) | null,
+          onerror: null as ((event: Event) => any) | null,
+          onabort: null as ((event: Event) => any) | null,
+          error: null as DOMException | null,
+        } as unknown as IDBTransaction;
+        const error = new DOMException(
+          "The transaction was aborted",
+          "AbortError"
+        );
+
+        lockHelper
+          .openTransaction(["test"], true)
+          .then((token) => {
+            new IndexedDbTransaction(
+              transaction,
+              lockHelper,
+              token,
+              schema,
+              false,
+              new LogWriter(console)
+            );
+            (transaction as any).error = error;
+            transaction.onerror!({ target: transaction } as Event);
+            return token.completionPromise;
+          })
+          .then(
+            () => done(new Error("Expected transaction completion to reject")),
+            (actualError) => {
+              try {
+                assert.strictEqual(actualError, error);
+                assert.equal(actualError.name, "AbortError");
+                done();
+              } catch (assertionError) {
+                done(assertionError);
+              }
+            }
+          );
+      });
+    });
+
     it("includes dataLoss fields in upgradeCallback on schema upgrade", (done) => {
       const schemaV2: DbSchema = {
         version: 2,
