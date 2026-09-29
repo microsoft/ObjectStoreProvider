@@ -42,27 +42,11 @@ function openProvider(
   let provider: DbProvider;
 
   switch (providerName) {
-    case "memory-rbtree":
-      provider = new InMemoryProvider(
-        "red-black-tree",
-        supportsRollback,
-        undefined,
-        () => ({
-          usePushForGetRange: false,
-          usePrimaryKeyForGetKeysForRange: true,
-        })
-      );
-      break;
     case "memory-btree":
-      provider = new InMemoryProvider(
-        "b+tree",
-        supportsRollback,
-        undefined,
-        () => ({
-          usePushForGetRange: false,
-          usePrimaryKeyForGetKeysForRange: true,
-        })
-      );
+      provider = new InMemoryProvider(supportsRollback, undefined, () => ({
+        usePushForGetRange: false,
+        usePrimaryKeyForGetKeysForRange: true,
+      }));
       break;
     case "indexeddb":
       provider = new IndexedDbProvider();
@@ -102,7 +86,7 @@ describe("ObjectStoreProvider", function () {
   this.timeout(5 * 60 * 1000);
 
   let provsToTest: string[];
-  provsToTest = ["memory-rbtree", "memory-btree"];
+  provsToTest = ["memory-btree"];
   provsToTest.push(
     "indexeddb",
     "indexeddbfakekeys",
