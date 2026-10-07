@@ -5776,6 +5776,111 @@ describe("ObjectStoreProvider", function () {
     });
   });
 
+  describe("IndexedDbProvider transaction startup cleanup", () => {
+    const schema: DbSchema = {
+      version: 1,
+      stores: [{ name: "test", primaryKeyPath: "id" }],
+    };
+
+    function makeNativeTransaction(
+      objectStore: (storeName: string) => IDBObjectStore
+    ): IDBTransaction {
+      return {
+        objectStore,
+        oncomplete: null,
+        onerror: null,
+        onabort: null,
+        error: null,
+      } as unknown as IDBTransaction;
+    }
+
+    function makeProvider(transaction: () => IDBTransaction): {
+      provider: IndexedDbProvider;
+      lockHelper: TransactionLockHelper;
+    } {
+      const provider = new IndexedDbProvider();
+      const lockHelper = new TransactionLockHelper(schema, true);
+
+      (provider as any)["_db"] = { transaction } as unknown as IDBDatabase;
+      (provider as any)["_schema"] = schema;
+      (provider as any)["_lockHelper"] = lockHelper;
+      (provider as any)["_fakeComplicatedKeys"] = false;
+
+      return { provider, lockHelper };
+    }
+
+    it("releases the lock when IDBDatabase.transaction throws", async () => {
+      const startupError = new DOMException(
+        "Transaction could not start",
+        "InvalidStateError"
+      );
+      const successfulTransaction = makeNativeTransaction(
+        () => ({ name: "test" } as IDBObjectStore)
+      );
+      let transactionCalls = 0;
+      const { provider, lockHelper } = makeProvider(() => {
+        transactionCalls++;
+        if (transactionCalls === 1) {
+          throw startupError;
+        }
+        return successfulTransaction;
+      });
+
+      let rejectedError: unknown;
+      try {
+        await provider.openTransaction(["test"], true);
+      } catch (error) {
+        rejectedError = error;
+      }
+
+      assert.strictEqual(rejectedError, startupError);
+      assert.isFalse(lockHelper.hasTransaction());
+
+      const nextTransaction = await provider.openTransaction(["test"], true);
+      successfulTransaction.oncomplete!({} as Event);
+      await nextTransaction.getCompletionPromise();
+      assert.isFalse(lockHelper.hasTransaction());
+    });
+
+    it("releases the lock when objectStore initialization throws", async () => {
+      const startupError = new DOMException(
+        "Object store is unavailable",
+        "NotFoundError"
+      );
+      const failedTransaction = makeNativeTransaction(() => {
+        throw startupError;
+      });
+      const successfulTransaction = makeNativeTransaction(
+        () => ({ name: "test" } as IDBObjectStore)
+      );
+      let transactionCalls = 0;
+      const { provider, lockHelper } = makeProvider(() => {
+        transactionCalls++;
+        return transactionCalls === 1
+          ? failedTransaction
+          : successfulTransaction;
+      });
+
+      let rejectedError: unknown;
+      try {
+        await provider.openTransaction(["test"], true);
+      } catch (error) {
+        rejectedError = error;
+      }
+
+      assert.strictEqual(rejectedError, startupError);
+      assert.isNull(failedTransaction.oncomplete);
+      assert.isNull(failedTransaction.onerror);
+      assert.isNull(failedTransaction.onabort);
+      assert.isFalse(lockHelper.hasTransaction());
+
+      const nextTransaction = await provider.openTransaction(["test"], true);
+      successfulTransaction.oncomplete!({} as Event);
+      await nextTransaction.getCompletionPromise();
+      assert.isFalse(lockHelper.hasTransaction());
+    });
+  });
+
   describe("IndexedDbTransaction after-Resolution warn logging", () => {
     function makeTransactionFixture() {
       const warnMessages: string[] = [];
