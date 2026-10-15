@@ -14,5 +14,6 @@ karma.*.conf.js
 index.ts
 *.spec.js
 /.github
+/tools/actions/version-check
 /dist/src/tests
 *.log

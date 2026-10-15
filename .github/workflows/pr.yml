@@ -46,11 +46,9 @@ jobs:
       - name: CI BUILD + UT
         run: yarn build && yarn test
 
+      - name: Test local version check
+        run: node --test tools/actions/version-check/test/*.test.js
+
       - name: Check whether version was bumped in PR
         id: actions_project_version_check
-        uses: "thomastay/actions-project-version-check@v2.0.0"
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          file-to-check: package.json
-          fail-build-if-not-bumped: true
-          target-branch: master
+        uses: ./tools/actions/version-check
