@@ -27,6 +27,12 @@ Desktop Frameworks: WebView2, Electron
 
 Other support: NodeJS
 
+### IndexedDB query limits
+
+Finite limits above `2^32 - 1` are capped at that value when passed to native
+IndexedDB bulk-read APIs. This avoids a count-range error in `getAll`, `getOnly`,
+and `getRange` when using a large upper bound. Cursor-based reads are unchanged.
+
 # Usage
 
 Coming soon.
