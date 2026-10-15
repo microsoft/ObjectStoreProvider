@@ -55,6 +55,7 @@ import {
   formListOfKeys,
   getValueForSingleKeypath,
   getSerializedKeyForKeypath,
+  MAX_COUNT,
 } from "./ObjectStoreProviderUtils";
 import {
   TransactionToken,
@@ -64,6 +65,13 @@ import { LogWriter } from "./LogWriter";
 import { IDBGetAllRecordsOptions } from "./types/extended-idb";
 
 const IndexPrefix = "nsp_i_";
+
+function getNativeCount(limit?: number): number | undefined {
+  // Bulk reads use an unsigned long count, unlike the cursor fallback.
+  return limit !== undefined && Number.isFinite(limit)
+    ? Math.min(limit, MAX_COUNT)
+    : limit;
+}
 
 // Extending interfaces that should be in lib.d.ts but aren't for some reason.
 declare global {
@@ -1327,7 +1335,7 @@ class IndexedDbIndex extends DbIndexFTSFromRangeQueries {
       !this._fakeComplicatedKeys
     ) {
       return IndexedDbProvider.WrapRequest(
-        this._store.getAll(undefined, limit)
+        this._store.getAll(undefined, getNativeCount(limit))
       );
     }
     // ************************* Don't change this null to undefined, IE chokes on it... *****************************
@@ -1358,7 +1366,9 @@ class IndexedDbIndex extends DbIndexFTSFromRangeQueries {
       !offset &&
       !this._fakeComplicatedKeys
     ) {
-      return IndexedDbProvider.WrapRequest(this._store.getAll(keyRange, limit));
+      return IndexedDbProvider.WrapRequest(
+        this._store.getAll(keyRange, getNativeCount(limit))
+      );
     }
     const req = this._store.openCursor(keyRange, reverse ? "prev" : "next");
     return this._resolveCursorResult(req, limit, offset);
@@ -1418,7 +1428,9 @@ class IndexedDbIndex extends DbIndexFTSFromRangeQueries {
       !offset &&
       !this._fakeComplicatedKeys
     ) {
-      return IndexedDbProvider.WrapRequest(this._store.getAll(keyRange, limit));
+      return IndexedDbProvider.WrapRequest(
+        this._store.getAll(keyRange, getNativeCount(limit))
+      );
     }
 
     // use getAllRecords if it is allowed by config during init, and caller does not want to disable it
@@ -1437,7 +1449,7 @@ class IndexedDbIndex extends DbIndexFTSFromRangeQueries {
       // It does not support offset currently.
       const query_options = {
         direction: "prev",
-        count: limit,
+        count: getNativeCount(limit),
         query: keyRange,
       } as IDBGetAllRecordsOptions;
 

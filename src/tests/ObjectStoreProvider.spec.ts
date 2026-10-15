@@ -82,6 +82,148 @@ function sleep(timeMs: number): Promise<void> {
   });
 }
 
+describe("IndexedDB query limits", () => {
+  [-1, NaN, Infinity].forEach((limit) => {
+    it(`preserves native validation for limit ${limit}`, async () => {
+      const provider = await openProvider(
+        "indexeddb",
+        {
+          version: 1,
+          stores: [{ name: "test", primaryKeyPath: "id" }],
+        },
+        true
+      );
+      try {
+        let error: unknown;
+        try {
+          await provider.getAll("test", undefined, false, limit);
+        } catch (e) {
+          error = e;
+        }
+        assert.instanceOf(error, TypeError);
+      } finally {
+        await provider.close();
+      }
+    });
+  });
+
+  [undefined, "byValue"].forEach((indexName) => {
+    [undefined, 0, 1, 4294967295, 4294967296, Number.MAX_SAFE_INTEGER].forEach(
+      (limit) => {
+        ["getAll", "getOnly", "getRange"].forEach((method) => {
+          it(`${method} on ${
+            indexName || "primary key"
+          } with limit ${limit}`, async () => {
+            const provider = await openProvider(
+              "indexeddb",
+              {
+                version: 1,
+                stores: [
+                  {
+                    name: "test",
+                    primaryKeyPath: "id",
+                    indexes: [{ name: "byValue", keyPath: "val" }],
+                  },
+                ],
+              },
+              true
+            );
+            try {
+              await provider.put("test", [
+                { id: "a", val: "group" },
+                { id: "b", val: "group" },
+              ]);
+              const results =
+                method === "getAll"
+                  ? await provider.getAll("test", indexName, false, limit)
+                  : method === "getOnly"
+                  ? await provider.getOnly(
+                      "test",
+                      indexName,
+                      indexName ? "group" : "a",
+                      false,
+                      limit
+                    )
+                  : await provider.getRange(
+                      "test",
+                      indexName,
+                      "a",
+                      "z",
+                      false,
+                      false,
+                      false,
+                      limit
+                    );
+              assert.deepEqual(
+                (results as TestObj[]).map((item) => item.id),
+                limit === 1 || (method === "getOnly" && !indexName)
+                  ? ["a"]
+                  : ["a", "b"]
+              );
+            } finally {
+              await provider.close();
+            }
+          });
+        });
+      }
+    );
+  });
+
+  [undefined, "byValue"].forEach((indexName) => {
+    [4294967295, 4294967296, Number.MAX_SAFE_INTEGER].forEach((limit) => {
+      it(`getAllRecords on ${
+        indexName || "primary key"
+      } with limit ${limit}`, async function () {
+        const prototype = indexName
+          ? IDBIndex.prototype
+          : IDBObjectStore.prototype;
+        if (!prototype.getAllRecords) {
+          this.skip();
+        }
+        const provider = new IndexedDbProvider(
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+          { useGetAllRecordsForGetRange: true }
+        );
+        await provider.open(
+          "test_native_query_limits",
+          {
+            version: 1,
+            stores: [
+              {
+                name: "test",
+                primaryKeyPath: "id",
+                indexes: [{ name: "byValue", keyPath: "val" }],
+              },
+            ],
+          },
+          true,
+          false
+        );
+        try {
+          const results = await provider.getRange(
+            "test",
+            indexName,
+            "a",
+            "z",
+            false,
+            false,
+            true,
+            limit
+          );
+          assert.lengthOf(results, 0);
+          assert.isTrue(results.isFromNewGetAllReverseMethod);
+        } finally {
+          await provider.close();
+        }
+      });
+    });
+  });
+});
+
 describe("ObjectStoreProvider", function () {
   this.timeout(5 * 60 * 1000);
 
