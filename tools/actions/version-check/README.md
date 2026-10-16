@@ -26,4 +26,5 @@ node --test tools/actions/version-check/test/*.test.js
 
 This action is a dependency-free rewrite of the version-check behavior inspired
 by [actions-project-version-check](https://github.com/thomastay/actions-project-version-check).
-See the accompanying `LICENSE` for the upstream MIT notice.
+Upstream MIT notice: Copyright (c) 2020 AVIDES Media AG. See the repository
+[LICENSE](../../../LICENSE).
