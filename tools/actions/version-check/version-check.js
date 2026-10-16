@@ -1,3 +1,5 @@
+// Inspired by https://github.com/thomastay/actions-project-version-check.
+// Copyright (c) 2020 AVIDES Media AG. Licensed under MIT; see ../../../LICENSE.
 "use strict";
 
 const SEMVER_PATTERN =
