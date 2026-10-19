@@ -1,0 +1,10 @@
+name: Check package version increase
+description: Require the root package.json version to be greater than the target version.
+outputs:
+  semver:
+    description: The kind of version increase (major, minor, patch, or prerelease variant).
+  version:
+    description: The new package version.
+runs:
+  using: node24
+  main: index.js
