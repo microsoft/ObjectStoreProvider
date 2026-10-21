@@ -717,27 +717,30 @@ export class IndexedDbProvider extends DbProvider {
 
     return this._lockHelper!!!.openTransaction(storeNames, writeNeeded).then(
       (transToken) => {
-        const trans = attempt(() => {
-          return this._db!!!.transaction(
+        try {
+          const trans = this._db!!!.transaction(
             intStoreNames,
             writeNeeded ? "readwrite" : "readonly"
           );
-        });
-        if (isError(trans)) {
-          return Promise.reject(trans);
-        }
 
-        return Promise.resolve(
-          new IndexedDbTransaction(
-            trans,
-            this._lockHelper,
-            transToken,
-            this._schema!!!,
-            this._fakeComplicatedKeys,
-            this.logWriter,
-            this.idbConfigs
-          )
-        );
+          return Promise.resolve(
+            new IndexedDbTransaction(
+              trans,
+              this._lockHelper,
+              transToken,
+              this._schema!!!,
+              this._fakeComplicatedKeys,
+              this.logWriter,
+              this.idbConfigs
+            )
+          );
+        } catch (error) {
+          const transactionError =
+            error instanceof Error ? error : new Error(String(error));
+          transToken.completionPromise.catch(() => void 0);
+          this._lockHelper!!!.transactionFailed(transToken, transactionError);
+          return Promise.reject(error);
+        }
       }
     );
   }
@@ -745,7 +748,7 @@ export class IndexedDbProvider extends DbProvider {
 
 // DbTransaction implementation for the IndexedDB DbProvider.
 export class IndexedDbTransaction implements DbTransaction {
-  private _stores: IDBObjectStore[];
+  private _stores: IDBObjectStore[] = [];
 
   constructor(
     private _trans: IDBTransaction,
@@ -756,10 +759,6 @@ export class IndexedDbTransaction implements DbTransaction {
     private logWriter: LogWriter,
     private idbConfigs?: IDBConfigs
   ) {
-    this._stores = map(this._transToken.storeNames, (storeName) =>
-      this._trans.objectStore(storeName)
-    );
-
     if (lockHelper) {
       // Chromium seems to have a bug in their indexeddb implementation that lets it start a timeout
       // while the app is in the middle of a commit (it does a two-phase commit).  It can then finish
@@ -835,6 +834,19 @@ export class IndexedDbTransaction implements DbTransaction {
           )
         );
       };
+    }
+
+    try {
+      this._stores = map(this._transToken.storeNames, (storeName) =>
+        this._trans.objectStore(storeName)
+      );
+    } catch (error) {
+      if (lockHelper) {
+        this._trans.oncomplete = null;
+        this._trans.onerror = null;
+        this._trans.onabort = null;
+      }
+      throw error;
     }
   }
 
