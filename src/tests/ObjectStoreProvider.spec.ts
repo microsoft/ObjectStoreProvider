@@ -5715,11 +5715,21 @@ describe("ObjectStoreProvider", function () {
   });
 
   describe("InMemoryProvider bounded range traversal", () => {
+    const storeName = "replychains";
+    const indexName = "latestDeliveryTimeByConversationId";
+    const baseTime = Date.UTC(2026, 0, 1, 9);
+    const deliveryTime = (minute: number) => baseTime + minute * 60000;
+
     [true, false].forEach((unique) => {
       [true, false].forEach((usePushForGetRange) => {
         describe(`unique=${unique}, push=${usePushForGetRange}`, () => {
           let provider: InMemoryProvider;
-          let items: { id: string; conversation: string; timestamp: number }[];
+          let items: {
+            conversationId: string;
+            replyChainId: string;
+            latestDeliveryTime: number;
+            messageSearchKeys: string[];
+          }[];
 
           beforeEach(async () => {
             provider = new InMemoryProvider(true, undefined, () => ({
@@ -5732,13 +5742,19 @@ describe("ObjectStoreProvider", function () {
                 version: 1,
                 stores: [
                   {
-                    name: "test",
-                    primaryKeyPath: "id",
+                    name: storeName,
+                    primaryKeyPath: ["conversationId", "replyChainId"],
                     indexes: [
                       {
-                        name: "messages",
-                        keyPath: ["conversation", "timestamp"],
+                        name: indexName,
+                        keyPath: ["conversationId", "latestDeliveryTime"],
                         unique,
+                      },
+                      {
+                        name: "byMessageSearchKeys",
+                        keyPath: "messageSearchKeys",
+                        unique: false,
+                        multiEntry: true,
                       },
                     ],
                   },
@@ -5748,23 +5764,30 @@ describe("ObjectStoreProvider", function () {
               false
             );
             items = [];
-            ["A", "B", "C"].forEach((conversation) => {
-              for (let timestamp = 0; timestamp < 40; timestamp++) {
+            ["chat-010", "chat-020", "chat-030"].forEach((conversationId) => {
+              for (let minute = 0; minute < 40; minute++) {
                 for (
                   let duplicate = 0;
                   duplicate < (unique ? 1 : 2);
                   duplicate++
                 ) {
                   items.push({
-                    id: `${conversation}-${timestamp}-${duplicate}`,
-                    conversation,
-                    timestamp,
+                    conversationId,
+                    replyChainId: `reply-${String(minute).padStart(
+                      2,
+                      "0"
+                    )}-${duplicate}`,
+                    latestDeliveryTime: deliveryTime(minute),
+                    messageSearchKeys: [`synthetic-${minute}-${duplicate}`],
                   });
                 }
               }
             });
-            const transaction = await provider.openTransaction(["test"], true);
-            await transaction.getStore("test").put(items);
+            const transaction = await provider.openTransaction(
+              [storeName],
+              true
+            );
+            await transaction.getStore(storeName).put(items);
             await transaction.getCompletionPromise();
           });
 
@@ -5791,10 +5814,10 @@ describe("ObjectStoreProvider", function () {
             };
             try {
               const actual = await provider.getRange(
-                "test",
-                "messages",
-                ["B", low],
-                ["B", high],
+                storeName,
+                indexName,
+                ["chat-020", deliveryTime(low)],
+                ["chat-020", deliveryTime(high)],
                 lowExclusive,
                 highExclusive,
                 reverse ? QuerySortOrder.Reverse : QuerySortOrder.Forward,
@@ -5803,11 +5826,13 @@ describe("ObjectStoreProvider", function () {
               );
               let expected = items.filter(
                 (item) =>
-                  item.conversation === "B" &&
-                  (item.timestamp > low ||
-                    (item.timestamp === low && !lowExclusive)) &&
-                  (item.timestamp < high ||
-                    (item.timestamp === high && !highExclusive))
+                  item.conversationId === "chat-020" &&
+                  (item.latestDeliveryTime > deliveryTime(low) ||
+                    (item.latestDeliveryTime === deliveryTime(low) &&
+                      !lowExclusive)) &&
+                  (item.latestDeliveryTime < deliveryTime(high) ||
+                    (item.latestDeliveryTime === deliveryTime(high) &&
+                      !highExclusive))
               );
               if (reverse) {
                 expected.reverse();
@@ -5846,28 +5871,64 @@ describe("ObjectStoreProvider", function () {
             });
           });
 
+          it("seeks to an older page within a single chat", async () => {
+            const write = await provider.openTransaction([storeName], true);
+            await write
+              .getStore(storeName)
+              .remove(
+                items.map((item) => [item.conversationId, item.replyChainId])
+              );
+            items = items.filter(
+              (item) =>
+                item.conversationId === "chat-020" &&
+                item.replyChainId.endsWith("-0") &&
+                [0, 5, 10, 15, 20, 25].some(
+                  (minute) => item.latestDeliveryTime === deliveryTime(minute)
+                )
+            );
+            await write.getStore(storeName).put(items);
+            await write.getCompletionPromise();
+            await checkRange(0, 15, true, 3, 2, 0, false, true);
+          });
+
           it("preserves ranges after updates and removal", async () => {
             const changed = {
-              ...items.find((item) => item.id === "B-10-0")!,
-              timestamp: 15.5,
+              ...items.find(
+                (item) =>
+                  item.conversationId === "chat-020" &&
+                  item.replyChainId === "reply-10-0"
+              )!,
+              latestDeliveryTime: deliveryTime(15.5),
             };
-            const write = await provider.openTransaction(["test"], true);
-            await write.getStore("test").put(changed);
+            const write = await provider.openTransaction([storeName], true);
+            await write.getStore(storeName).put(changed);
             items = items.map((item) =>
-              item.id === changed.id ? changed : item
+              item.conversationId === changed.conversationId &&
+              item.replyChainId === changed.replyChainId
+                ? changed
+                : item
             );
-            await write.getStore("test").remove("B-11-0");
+            await write.getStore(storeName).remove(["chat-020", "reply-11-0"]);
             await write.getCompletionPromise();
-            items = items.filter((item) => item.id !== "B-11-0");
+            items = items.filter(
+              (item) =>
+                item.conversationId !== "chat-020" ||
+                item.replyChainId !== "reply-11-0"
+            );
             await checkRange(10, 12, false, 4);
             await checkRange(10, 12, true, 4);
           });
 
           it("handles empty indexes without yielding entries", async () => {
-            const transaction = await provider.openTransaction(["test"], true);
+            const transaction = await provider.openTransaction(
+              [storeName],
+              true
+            );
             await transaction
-              .getStore("test")
-              .remove(items.map((item) => item.id));
+              .getStore(storeName)
+              .remove(
+                items.map((item) => [item.conversationId, item.replyChainId])
+              );
             await transaction.getCompletionPromise();
             items = [];
             await checkRange(10, 12, false, 0);
