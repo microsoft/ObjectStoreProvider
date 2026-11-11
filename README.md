@@ -31,6 +31,19 @@ Other support: NodeJS
 
 Coming soon.
 
+## In-memory range queries
+
+`InMemoryProvider.getRange()` seeks to the serialized lower bound for
+forward queries, or the upper bound for reverse queries. Traversal stops at
+the opposite bound or immediately when the requested limit is satisfied.
+It does not scan unrelated keys before or after the requested range.
+
+Range inclusivity, offsets, duplicate-key ordering, and the existing
+unlimited behavior for an omitted or zero limit are unchanged. Seeking is
+logarithmic in index size; traversal still depends on the matching index
+buckets and any offset that must be skipped. This is not an end-to-end
+latency guarantee.
+
 ## Compiling
 
 ### Source

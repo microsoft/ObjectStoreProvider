@@ -916,9 +916,10 @@ class InMemoryIndex extends DbIndexFTSFromRangeQueries {
       offset = offset ? offset : 0;
       const keyLow = serializeKeyToString(keyLowRange, this._keyPath);
       const keyHigh = serializeKeyToString(keyHighRange, this._keyPath);
+      // Seek to the requested bound instead of scanning unrelated index keys.
       const iterator = reverse
-        ? this._indexTree.entriesReversed()
-        : this._indexTree.entries();
+        ? this._indexTree.entriesReversed(keyHigh)
+        : this._indexTree.entries(keyLow);
       let values = [] as ItemType[];
       const { usePushForGetRange } = this.getLiveConfigs();
       const pushValues = (values: ItemType[], newValues: ItemType[]) => {
@@ -933,6 +934,14 @@ class InMemoryIndex extends DbIndexFTSFromRangeQueries {
         const key = entry.key;
         if (key === undefined) {
           continue;
+        }
+        // Ordered traversal cannot re-enter the range after crossing this bound.
+        if (
+          reverse
+            ? key < keyLow || (key === keyLow && lowRangeExclusive)
+            : key > keyHigh || (key === keyHigh && highRangeExclusive)
+        ) {
+          break;
         }
         if (
           (key > keyLow || (key === keyLow && !lowRangeExclusive)) &&
@@ -971,6 +980,10 @@ class InMemoryIndex extends DbIndexFTSFromRangeQueries {
             if (offset < 0) {
               offset = 0;
             }
+          }
+          // Avoid advancing the iterator once the requested page is complete.
+          if (values.length >= limit) {
+            break;
           }
         }
       }

@@ -26,6 +26,7 @@ import {
   TransactionLockHelper,
 } from "../TransactionLockHelper";
 import { LogWriter } from "../LogWriter";
+import { BTreeOrderedMap } from "../ordered-map";
 
 import { serializeValueToOrderableString } from "../ObjectStoreProviderUtils";
 
@@ -5710,6 +5711,231 @@ describe("ObjectStoreProvider", function () {
           });
         });
       }
+    });
+  });
+
+  describe("InMemoryProvider bounded range traversal", () => {
+    const storeName = "replychains";
+    const indexName = "latestDeliveryTimeByConversationId";
+    const baseTime = Date.UTC(2026, 0, 1, 9);
+    const deliveryTime = (minute: number) => baseTime + minute * 60000;
+
+    [true, false].forEach((unique) => {
+      [true, false].forEach((usePushForGetRange) => {
+        describe(`unique=${unique}, push=${usePushForGetRange}`, () => {
+          let provider: InMemoryProvider;
+          let items: {
+            conversationId: string;
+            replyChainId: string;
+            latestDeliveryTime: number;
+            messageSearchKeys: string[];
+          }[];
+
+          beforeEach(async () => {
+            provider = new InMemoryProvider(true, undefined, () => ({
+              usePushForGetRange,
+              usePrimaryKeyForGetKeysForRange: false,
+            }));
+            await provider.open(
+              "bounded_range",
+              {
+                version: 1,
+                stores: [
+                  {
+                    name: storeName,
+                    primaryKeyPath: ["conversationId", "replyChainId"],
+                    indexes: [
+                      {
+                        name: indexName,
+                        keyPath: ["conversationId", "latestDeliveryTime"],
+                        unique,
+                      },
+                      {
+                        name: "byMessageSearchKeys",
+                        keyPath: "messageSearchKeys",
+                        unique: false,
+                        multiEntry: true,
+                      },
+                    ],
+                  },
+                ],
+              },
+              true,
+              false
+            );
+            items = [];
+            ["chat-010", "chat-020", "chat-030"].forEach((conversationId) => {
+              for (let minute = 0; minute < 40; minute++) {
+                for (
+                  let duplicate = 0;
+                  duplicate < (unique ? 1 : 2);
+                  duplicate++
+                ) {
+                  items.push({
+                    conversationId,
+                    replyChainId: `reply-${String(minute).padStart(
+                      2,
+                      "0"
+                    )}-${duplicate}`,
+                    latestDeliveryTime: deliveryTime(minute),
+                    messageSearchKeys: [`synthetic-${minute}-${duplicate}`],
+                  });
+                }
+              }
+            });
+            const transaction = await provider.openTransaction(
+              [storeName],
+              true
+            );
+            await transaction.getStore(storeName).put(items);
+            await transaction.getCompletionPromise();
+          });
+
+          afterEach(() => provider.close());
+
+          async function checkRange(
+            low: number,
+            high: number,
+            reverse: boolean,
+            maxEntries: number,
+            limit?: number,
+            offset = 0,
+            lowExclusive = false,
+            highExclusive = false
+          ) {
+            const method = reverse ? "entriesReversed" : "entries";
+            const original = BTreeOrderedMap.prototype[method];
+            let visited = 0;
+            BTreeOrderedMap.prototype[method] = function* (bound) {
+              for (const entry of original.call(this, bound)) {
+                visited++;
+                yield entry;
+              }
+            };
+            try {
+              const actual = await provider.getRange(
+                storeName,
+                indexName,
+                ["chat-020", deliveryTime(low)],
+                ["chat-020", deliveryTime(high)],
+                lowExclusive,
+                highExclusive,
+                reverse ? QuerySortOrder.Reverse : QuerySortOrder.Forward,
+                limit,
+                offset
+              );
+              let expected = items.filter(
+                (item) =>
+                  item.conversationId === "chat-020" &&
+                  (item.latestDeliveryTime > deliveryTime(low) ||
+                    (item.latestDeliveryTime === deliveryTime(low) &&
+                      !lowExclusive)) &&
+                  (item.latestDeliveryTime < deliveryTime(high) ||
+                    (item.latestDeliveryTime === deliveryTime(high) &&
+                      !highExclusive))
+              );
+              if (reverse) {
+                expected.reverse();
+              }
+              expected = expected.slice(offset);
+              if (limit) {
+                expected = expected.slice(0, limit);
+              }
+              assert.deepEqual(actual, expected);
+              assert.isAtMost(visited, maxEntries, "yielded index entries");
+            } finally {
+              BTreeOrderedMap.prototype[method] = original;
+            }
+          }
+
+          [false, true].forEach((reverse) => {
+            it(`seeks and stops at bounds (reverse=${reverse})`, async () => {
+              await checkRange(10, 12, reverse, 4);
+              await checkRange(10, 12, reverse, 4, 0);
+              await checkRange(10, 12, reverse, 4, undefined, 0, true, true);
+              await checkRange(10, 12, reverse, 4, undefined, 0, true, false);
+              await checkRange(10, 12, reverse, 4, undefined, 0, false, true);
+              await checkRange(10.5, 12.5, reverse, 3);
+              await checkRange(20, 20, reverse, 1, undefined, 0, true, true);
+              await checkRange(20, 10, reverse, 1);
+              await checkRange(50, 60, reverse, 1, 5);
+              await checkRange(38, 45, reverse, 3, 10);
+            });
+
+            it(`stops immediately at the limit (reverse=${reverse})`, async () => {
+              await checkRange(10, 12, reverse, 1, 1);
+              await checkRange(10, 12, reverse, unique ? 3 : 2, 3);
+              await checkRange(10, 12, reverse, 3, unique ? 3 : 6);
+              await checkRange(10, 12, reverse, unique ? 2 : 1, 1, 1);
+              await checkRange(10, 12, reverse, 4, 2, 20);
+            });
+          });
+
+          it("seeks to an older page within a single chat", async () => {
+            const write = await provider.openTransaction([storeName], true);
+            await write
+              .getStore(storeName)
+              .remove(
+                items.map((item) => [item.conversationId, item.replyChainId])
+              );
+            items = items.filter(
+              (item) =>
+                item.conversationId === "chat-020" &&
+                item.replyChainId.endsWith("-0") &&
+                [0, 5, 10, 15, 20, 25].some(
+                  (minute) => item.latestDeliveryTime === deliveryTime(minute)
+                )
+            );
+            await write.getStore(storeName).put(items);
+            await write.getCompletionPromise();
+            await checkRange(0, 15, true, 3, 2, 0, false, true);
+          });
+
+          it("preserves ranges after updates and removal", async () => {
+            const changed = {
+              ...items.find(
+                (item) =>
+                  item.conversationId === "chat-020" &&
+                  item.replyChainId === "reply-10-0"
+              )!,
+              latestDeliveryTime: deliveryTime(15.5),
+            };
+            const write = await provider.openTransaction([storeName], true);
+            await write.getStore(storeName).put(changed);
+            items = items.map((item) =>
+              item.conversationId === changed.conversationId &&
+              item.replyChainId === changed.replyChainId
+                ? changed
+                : item
+            );
+            await write.getStore(storeName).remove(["chat-020", "reply-11-0"]);
+            await write.getCompletionPromise();
+            items = items.filter(
+              (item) =>
+                item.conversationId !== "chat-020" ||
+                item.replyChainId !== "reply-11-0"
+            );
+            await checkRange(10, 12, false, 4);
+            await checkRange(10, 12, true, 4);
+          });
+
+          it("handles empty indexes without yielding entries", async () => {
+            const transaction = await provider.openTransaction(
+              [storeName],
+              true
+            );
+            await transaction
+              .getStore(storeName)
+              .remove(
+                items.map((item) => [item.conversationId, item.replyChainId])
+              );
+            await transaction.getCompletionPromise();
+            items = [];
+            await checkRange(10, 12, false, 0);
+            await checkRange(10, 12, true, 0, 0);
+          });
+        });
+      });
     });
   });
 
